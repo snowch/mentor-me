@@ -312,4 +312,15 @@ class StorageService {
     final List<dynamic> jsonList = json.decode(jsonString);
     return jsonList.cast<Map<String, dynamic>>();
   }
+
+  // Save/Load Local AI Timeout (auto-unload setting)
+  Future<void> saveLocalAITimeout(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('local_ai_timeout_minutes', minutes);
+  }
+
+  Future<int?> getLocalAITimeout() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('local_ai_timeout_minutes');
+  }
 }

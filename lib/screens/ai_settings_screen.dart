@@ -51,6 +51,9 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   bool? _testSuccess;
   int? _testLatencyMs;
 
+  // Auto-unload timeout for local AI (in minutes)
+  int _autoUnloadTimeout = 5; // Default 5 minutes
+
   // Timer for polling download progress when screen is recreated during active download
   Timer? _progressTimer;
 
@@ -104,6 +107,13 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     // Check if model is downloaded (if Local provider is selected)
     if (_selectedProvider == AIProvider.local) {
       await _checkModelDownloaded();
+
+      // Load auto-unload timeout
+      final localAIService = LocalAIService();
+      final timeout = await _storage.getLocalAITimeout();
+      if (timeout != null) {
+        _autoUnloadTimeout = timeout;
+      }
     }
 
     setState(() => _isLoading = false);
@@ -120,6 +130,12 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     _aiService.setModel(_selectedModel);
     _aiService.setProvider(_selectedProvider);
     _aiService.setApiKey(_claudeApiKey);
+  }
+
+  Future<void> _saveAutoUnloadTimeout(int minutes) async {
+    final localAIService = LocalAIService();
+    await localAIService.setAutoUnloadTimeout(minutes);
+    await _debug.info('AISettings', 'Auto-unload timeout set to $minutes minutes');
   }
 
   Future<void> _checkModelDownloaded() async {
@@ -882,6 +898,89 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
               ),
             ),
           ),
+
+          // Auto-unload Timeout Section - Only shown for Local provider
+          if (_selectedProvider == AIProvider.local) ...[
+            AppSpacing.gapLg,
+
+            Card(
+              child: Padding(
+                padding: AppSpacing.screenPadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.battery_saver, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Battery Optimization',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                    AppSpacing.gapSm,
+                    Text(
+                      'The local AI model uses ~600MB of memory. To save battery and memory, the model can automatically unload after a period of inactivity.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    AppSpacing.gapMd,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Auto-unload timeout:',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        DropdownButton<int>(
+                          value: _autoUnloadTimeout,
+                          items: const [
+                            DropdownMenuItem(value: 0, child: Text('Disabled')),
+                            DropdownMenuItem(value: 1, child: Text('1 minute')),
+                            DropdownMenuItem(value: 3, child: Text('3 minutes')),
+                            DropdownMenuItem(value: 5, child: Text('5 minutes')),
+                            DropdownMenuItem(value: 10, child: Text('10 minutes')),
+                            DropdownMenuItem(value: 15, child: Text('15 minutes')),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _autoUnloadTimeout = value;
+                              });
+                              _saveAutoUnloadTimeout(value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    AppSpacing.gapSm,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'The model will reload automatically when needed (takes 2-5 seconds). You can see the loading status in the header bar.',
+                              style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
 
           AppSpacing.gapLg,
 

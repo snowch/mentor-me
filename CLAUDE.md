@@ -296,12 +296,37 @@ final response = await AIService.instance.generateCoachingResponse(
 - Uses MethodChannel to native Android/iOS code
 - Singleton pattern for single model instance
 - Validates model files before inference
+- **Auto-unload** after inactivity to save battery and memory
+- State tracking (idle, loading, ready, inferring) for UI indicators
+
+**Battery Optimization:**
+The model uses ~600MB of memory when loaded. To prevent battery drain and memory pressure:
+- **Auto-unload timer**: Model automatically unloads after configurable inactivity period (default: 5 minutes)
+- **Transparent reload**: Model reloads automatically on next use (takes 2-5 seconds)
+- **Configurable timeout**: Users can set timeout in AI Settings (0=disabled, 1-15 minutes)
+- **GPU backend**: Uses GPU for inference, which is efficient but should not stay active indefinitely
+
+**State Management:**
+```dart
+enum LocalAIState {
+  idle,      // Model not loaded
+  loading,   // Model is being loaded
+  ready,     // Model loaded and ready
+  inferring, // Currently running inference
+}
+
+// Listen to state changes
+localAI.addStateListener((state) {
+  // Update UI based on state
+});
+```
 
 **Model Setup:**
 1. User provides HuggingFace token (model is gated)
 2. `ModelDownloadService` downloads `.task` file
 3. Model stored in app's cache directory
 4. Loaded into memory on first use
+5. **Auto-unloads** after inactivity timeout
 
 **Usage:**
 ```dart
@@ -309,7 +334,14 @@ final response = await LocalAIService.instance.generateResponse(
   prompt: userMessage,
   maxTokens: 256,
 );
+
+// Configure auto-unload timeout
+await localAI.setAutoUnloadTimeout(5); // 5 minutes
 ```
+
+**UI Indicators:**
+- `LocalAIStateProvider`: Provider for state tracking
+- `LocalAIIndicator`: Header widget showing loading/inferring status
 
 #### StorageService (`lib/services/storage_service.dart`)
 **Purpose:** Centralized data persistence layer

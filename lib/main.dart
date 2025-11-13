@@ -12,10 +12,12 @@ import 'providers/habit_provider.dart';
 import 'providers/pulse_provider.dart';
 import 'providers/pulse_type_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/local_ai_state_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/notification_service.dart';
 import 'services/ai_service.dart';
+import 'services/local_ai_service.dart';
 import 'services/debug_service.dart';
 import 'services/storage_service.dart';
 import 'services/feature_discovery_service.dart';
@@ -52,6 +54,15 @@ void main() async {
     } catch (e) {
       debugPrint('Warning: AI service initialization failed: $e');
       // Continue app launch even if AI service fails
+    }
+
+    // Initialize Local AI service to load timeout settings
+    try {
+      final localAIService = LocalAIService();
+      await localAIService.initialize();
+    } catch (e) {
+      debugPrint('Warning: Local AI service initialization failed: $e');
+      // Continue app launch even if Local AI service fails
     }
 
     // Initialize feature discovery service
@@ -133,6 +144,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PulseProvider()),
         ChangeNotifierProvider(create: (_) => PulseTypeProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => LocalAIStateProvider()),
       ],
       child: MaterialApp(
         title: 'MentorMe',
