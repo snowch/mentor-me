@@ -74,13 +74,13 @@ jobs:
         continue-on-error: true  # Don't fail build if no tests exist
 
       - name: Build debug APK
-        run: flutter build apk --debug --target-platform android-arm,android-arm64
-        # Note: Targeting only ARM architectures (x86 is deprecated in Flutter 3.27+)
+        run: flutter build apk --debug --split-per-abi
+        # Note: Split by ABI creates separate installable APKs for each architecture
 
       - name: Build release APK
-        run: flutter build apk --release --target-platform android-arm,android-arm64
-        # Note: This will use debug signing if key.properties doesn't exist
-        # For production releases, configure GitHub Secrets for signing
+        run: flutter build apk --release --split-per-abi --shrink
+        # Note: Split by ABI creates separate installable APKs for each architecture
+        # This matches the release build logic for proper installation
 
       - name: Upload debug APK artifacts
         uses: actions/upload-artifact@v4
