@@ -35,6 +35,7 @@ class LocalAIService {
   // Auto-unload configuration
   Timer? _inactivityTimer;
   DateTime? _lastActivity;
+  DateTime? _lastUnloadTime;
   int _timeoutMinutes = 5; // Default 5 minutes
 
   // State change callbacks
@@ -184,6 +185,17 @@ class LocalAIService {
         'modelPath': modelPath,
       });
 
+      // CRITICAL: If model was recently unloaded, wait for GPU cleanup to complete
+      // This prevents stale GPU state causing gibberish output on reload
+      if (_lastUnloadTime != null) {
+        final timeSinceUnload = DateTime.now().difference(_lastUnloadTime!);
+        if (timeSinceUnload.inMilliseconds < 1000) {
+          final waitTime = 1000 - timeSinceUnload.inMilliseconds;
+          await _debug.info('LocalAIService', 'Waiting ${waitTime}ms for GPU cleanup to complete');
+          await Future.delayed(Duration(milliseconds: waitTime));
+        }
+      }
+
       // Call native method to load model
       final success = await platform.invokeMethod<bool>('loadModel', {
         'modelPath': modelPath,
@@ -281,8 +293,9 @@ class LocalAIService {
       _cancelInactivityTimer();
       await platform.invokeMethod('unloadModel');
       _isModelLoaded = false;
+      _lastUnloadTime = DateTime.now();
       _notifyStateChange(LocalAIState.idle);
-      await _debug.info('LocalAIService', 'Model unloaded');
+      await _debug.info('LocalAIService', 'Model unloaded at ${_lastUnloadTime?.toIso8601String()}');
     } on PlatformException catch (e, stackTrace) {
       await _debug.error(
         'LocalAIService',

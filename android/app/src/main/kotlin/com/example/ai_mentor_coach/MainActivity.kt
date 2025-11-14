@@ -434,12 +434,18 @@ class MainActivity : FlutterActivity() {
         synchronized(modelLock) {
             try {
                 engine?.close()
+                engine = null
             } catch (e: Exception) {
                 Log.w(TAG, "Error closing engine: ${e.message}")
             }
-            engine = null
         }
-        Log.d(TAG, "LiteRT model unloaded")
+
+        // Force garbage collection to ensure GPU resources are released
+        // This is critical for proper cleanup before reload
+        System.gc()
+        System.runFinalization()
+
+        Log.d(TAG, "LiteRT model unloaded and GPU resources released")
     }
 
     override fun onDestroy() {
