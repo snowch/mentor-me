@@ -11,6 +11,7 @@ import '../constants/app_strings.dart';
 import '../services/notification_service.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
+import '../widgets/local_ai_indicator.dart';
 import 'goals_screen.dart';
 import 'journal_screen.dart';
 import 'habits_screen.dart';
@@ -391,6 +392,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
         actions: [
+          const LocalAIIndicator(),
           if (showAIWarning)
             Tooltip(
               message: AppStrings.aiNotConfigured,
