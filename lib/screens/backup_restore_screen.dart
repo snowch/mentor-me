@@ -27,6 +27,32 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final _backupService = BackupService();
   bool _isExporting = false;
   bool _isImporting = false;
+  Map<String, dynamic>? _currentDataCounts;
+  Map<String, dynamic>? _lastExportStats;
+  Map<String, dynamic>? _lastImportStats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentDataCounts();
+  }
+
+  Future<void> _loadCurrentDataCounts() async {
+    if (!mounted) return;
+
+    final counts = {
+      'totalGoals': context.read<GoalProvider>().goals.length,
+      'totalJournalEntries': context.read<JournalProvider>().entries.length,
+      'totalHabits': context.read<HabitProvider>().habits.length,
+      'totalPulseEntries': context.read<PulseProvider>().entries.length,
+      'totalPulseTypes': context.read<PulseTypeProvider>().types.length,
+      'totalConversations': context.read<ChatProvider>().conversations.length,
+    };
+
+    setState(() {
+      _currentDataCounts = counts;
+    });
+  }
 
   Future<void> _exportBackup() async {
     setState(() => _isExporting = true);
@@ -37,6 +63,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (!mounted) return;
 
       if (result.success) {
+        // Save statistics for display
+        setState(() {
+          _lastExportStats = result.statistics;
+        });
+
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -79,6 +110,12 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                       ),
                     ),
                   ),
+                  if (result.statistics != null) ...[
+                    AppSpacing.gapMd,
+                    const Divider(),
+                    AppSpacing.gapMd,
+                    _buildStatisticsSummary(result.statistics!),
+                  ],
                 ],
               ),
               actions: [
@@ -118,6 +155,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         // Reload all providers with imported data
         await _reloadAllProviders();
 
+        // Reload current data counts to show updated values
+        await _loadCurrentDataCounts();
+
+        // Save statistics for display
+        setState(() {
+          _lastImportStats = result.statistics;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),
@@ -125,19 +170,70 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           ),
         );
 
-        // Show success dialog
+        // Show success dialog with detailed results
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                SizedBox(width: 12),
-                Text(AppStrings.importSuccessful),
+                Icon(
+                  result.hasPartialFailure ? Icons.warning : Icons.check_circle,
+                  color: result.hasPartialFailure ? Colors.orange : Colors.green,
+                ),
+                AppSpacing.gapHorizontalMd,
+                Expanded(
+                  child: Text(
+                    result.hasPartialFailure
+                        ? 'Partial Restore'
+                        : AppStrings.importSuccessful,
+                  ),
+                ),
               ],
             ),
-            content: const Text(
-              AppStrings.dataRestoredFromBackup,
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(result.message),
+                  if (result.hasPartialFailure) ...[
+                    AppSpacing.gapMd,
+                    Container(
+                      padding: AppSpacing.paddingMd,
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber, color: Colors.orange.shade700, size: 20),
+                          AppSpacing.gapHorizontalSm,
+                          Expanded(
+                            child: Text(
+                              'Some data types failed to import. Check details below.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.orange.shade900,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (result.detailedResults != null) ...[
+                    AppSpacing.gapMd,
+                    const Divider(),
+                    AppSpacing.gapMd,
+                    _buildDetailedImportResults(result.detailedResults!),
+                  ] else if (result.statistics != null) ...[
+                    AppSpacing.gapMd,
+                    const Divider(),
+                    AppSpacing.gapMd,
+                    _buildStatisticsSummary(result.statistics!),
+                  ],
+                ],
+              ),
             ),
             actions: [
               FilledButton(
@@ -178,6 +274,181 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         context.read<ChatProvider>().reload(),
       ]);
     }
+  }
+
+  Widget _buildDetailedImportResults(List detailedResults) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Import Results:',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        AppSpacing.gapSm,
+        ...detailedResults.map((result) {
+          final success = result.success as bool;
+          final dataType = result.dataType as String;
+          final count = result.count as int;
+          final errorMessage = result.errorMessage as String?;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      success ? Icons.check_circle : Icons.error,
+                      color: success ? Colors.green : Colors.red,
+                      size: 20,
+                    ),
+                    AppSpacing.gapHorizontalSm,
+                    Expanded(
+                      child: Text(
+                        dataType,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: success ? null : Colors.red.shade700,
+                            ),
+                      ),
+                    ),
+                    if (success) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          count.toString(),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        'Failed',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (!success && errorMessage != null) ...[
+                  AppSpacing.gapXs,
+                  Padding(
+                    padding: const EdgeInsets.only(left: 28),
+                    child: Text(
+                      errorMessage,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.red.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildStatisticsSummary(Map<String, dynamic> stats) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Backup Contents:',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        AppSpacing.gapSm,
+        _buildStatRow('Goals', stats['totalGoals'] ?? 0),
+        _buildStatRow('Journal Entries', stats['totalJournalEntries'] ?? 0),
+        _buildStatRow('Habits', stats['totalHabits'] ?? 0),
+        _buildStatRow('Pulse Entries', stats['totalPulseEntries'] ?? 0),
+        _buildStatRow('Pulse Types', stats['totalPulseTypes'] ?? 0),
+        _buildStatRow('Conversations', stats['totalConversations'] ?? 0),
+      ],
+    );
+  }
+
+  Widget _buildStatRow(String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              count.toString(),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentDataCard() {
+    if (_currentDataCounts == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: AppSpacing.paddingLg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.storage,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                AppSpacing.gapHorizontalSm,
+                Text(
+                  'Current Data',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            AppSpacing.gapMd,
+            _buildStatisticsSummary(_currentDataCounts!),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -223,6 +494,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               ),
             ),
           ),
+
+          AppSpacing.gapXl,
+
+          // Current data counts
+          _buildCurrentDataCard(),
 
           AppSpacing.gapXl,
 
