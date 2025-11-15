@@ -12,6 +12,7 @@ import '../models/journal_entry.dart';
 import '../models/checkin.dart';
 import '../models/habit.dart';
 import '../models/pulse_entry.dart';
+import '../models/pulse_type.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -30,11 +31,14 @@ class BackupService {
     final checkin = await _storage.loadCheckin();
     final habits = await _storage.loadHabits();
     final pulseEntries = await _storage.loadPulseEntries();
+    final pulseTypes = await _storage.loadPulseTypes();
+    final conversations = await _storage.getConversations();
     final settings = await _storage.loadSettings();
 
-    // Remove sensitive data (API key) from export
+    // Remove sensitive data (API key, HF token) from export
     final exportSettings = Map<String, dynamic>.from(settings);
     exportSettings.remove('claudeApiKey');
+    exportSettings.remove('hfToken');
 
     // Create backup data structure
     final backupData = {
@@ -51,6 +55,8 @@ class BackupService {
         'checkin': checkin?.toJson(),
         'habits': habits.map((h) => h.toJson()).toList(),
         'pulseEntries': pulseEntries.map((m) => m.toJson()).toList(),
+        'pulseTypes': pulseTypes.map((t) => t.toJson()).toList(),
+        'conversations': conversations ?? [],
         'settings': exportSettings,
       },
       'statistics': {
@@ -58,6 +64,8 @@ class BackupService {
         'totalJournalEntries': journalEntries.length,
         'totalHabits': habits.length,
         'totalPulseEntries': pulseEntries.length,
+        'totalPulseTypes': pulseTypes.length,
+        'totalConversations': conversations?.length ?? 0,
       },
     };
 
@@ -66,11 +74,16 @@ class BackupService {
   }
 
   /// Export backup for mobile (uses file picker to let user choose location)
-  Future<String?> _exportBackupMobile() async {
+  /// Returns tuple of (filePath, statistics)
+  Future<(String?, Map<String, dynamic>?)> _exportBackupMobile() async {
     try {
       debugPrint('📦 Starting mobile backup export...');
       final jsonString = await _createBackupJson();
       debugPrint('✓ Backup JSON created (${jsonString.length} bytes)');
+
+      // Extract statistics from backup data
+      final backupData = json.decode(jsonString) as Map<String, dynamic>;
+      final statistics = backupData['statistics'] as Map<String, dynamic>?;
 
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
       final filename = 'habits_backup_$timestamp.json';
@@ -95,11 +108,11 @@ class BackupService {
       if (outputPath == null) {
         // User cancelled
         debugPrint('⚠️ Backup export cancelled by user');
-        return null;
+        return (null, null);
       }
 
       debugPrint('✓ Backup saved successfully: $outputPath (${bytes.length} bytes)');
-      return outputPath;
+      return (outputPath, statistics);
     } catch (e, stackTrace) {
       await _debug.error(
         'BackupService',
@@ -108,14 +121,20 @@ class BackupService {
       );
       debugPrint('❌ Error creating backup: $e');
       debugPrint('Stack trace: $stackTrace');
-      return null;
+      return (null, null);
     }
   }
 
   /// Export backup for web (triggers download)
-  Future<bool> _exportBackupWeb() async {
+  /// Returns tuple of (success, statistics)
+  Future<(bool, Map<String, dynamic>?)> _exportBackupWeb() async {
     try {
       final jsonString = await _createBackupJson();
+
+      // Extract statistics from backup data
+      final backupData = json.decode(jsonString) as Map<String, dynamic>;
+      final statistics = backupData['statistics'] as Map<String, dynamic>?;
+
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
       final filename = 'habits_backup_$timestamp.json';
 
@@ -123,7 +142,7 @@ class BackupService {
       web_download.downloadFile(jsonString, filename);
 
       debugPrint('✓ Backup downloaded: $filename');
-      return true;
+      return (true, statistics);
     } catch (e, stackTrace) {
       await _debug.error(
         'BackupService',
@@ -131,26 +150,27 @@ class BackupService {
         stackTrace: stackTrace.toString(),
       );
       debugPrint('Error creating backup: $e');
-      return false;
+      return (false, null);
     }
   }
 
   /// Export the backup file (platform-aware)
-  /// Returns BackupResult with success status and optional file path
+  /// Returns BackupResult with success status, optional file path, and statistics
   Future<BackupResult> exportBackup() async {
     try {
       await _debug.info('BackupService', 'Starting data export', metadata: {'platform': kIsWeb ? 'web' : 'mobile'});
 
       if (kIsWeb) {
         // Web: Download directly
-        final success = await _exportBackupWeb();
+        final (success, statistics) = await _exportBackupWeb();
         return BackupResult(
           success: success,
           message: success ? 'Backup downloaded successfully' : 'Backup download failed',
+          statistics: statistics,
         );
       } else {
         // Mobile: Let user choose save location
-        final savedPath = await _exportBackupMobile();
+        final (savedPath, statistics) = await _exportBackupMobile();
         if (savedPath == null) {
           return BackupResult(
             success: false,
@@ -167,6 +187,7 @@ class BackupService {
           metadata: {
             'file_size_kb': fileSize ~/ 1024,
             'saved_path': savedPath,
+            ...?statistics,
           },
         );
 
@@ -174,6 +195,7 @@ class BackupService {
           success: true,
           message: 'Backup saved successfully',
           filePath: savedPath,
+          statistics: statistics,
         );
       }
     } catch (e) {
@@ -232,28 +254,53 @@ class BackupService {
 
       final data = backupData['data'] as Map<String, dynamic>;
 
-      // Import data (overwrite existing)
-      await _importData(data);
+      // Import data with detailed tracking (resilient - continues on errors)
+      final detailedResults = await _importData(data);
+
+      // Determine overall success
+      final failures = detailedResults.where((r) => !r.success).toList();
+      final successes = detailedResults.where((r) => r.success).toList();
+      final hasFailures = failures.isNotEmpty;
+      final hasSuccesses = successes.isNotEmpty;
 
       final stats = backupData['statistics'] as Map<String, dynamic>?;
+
+      // Build result message
+      String message;
+      bool overallSuccess;
+
+      if (!hasSuccesses) {
+        // Everything failed
+        message = 'Restore failed completely. No data could be imported.';
+        overallSuccess = false;
+      } else if (hasFailures) {
+        // Partial success
+        message = 'Restore partially successful. ${successes.length} of ${detailedResults.length} data types imported.';
+        overallSuccess = true; // Still success if we got some data
+      } else {
+        // Complete success
+        message = 'Backup restored successfully!';
+        overallSuccess = true;
+      }
+
       await _debug.info(
         'BackupService',
-        'Import successful',
+        'Import completed',
         metadata: {
           'version': backupData['version'],
           'exported_at': backupData['exportedAt'],
-          'goals': stats?['totalGoals'],
-          'journal_entries': stats?['totalJournalEntries'],
-          'habits': stats?['totalHabits'],
-          'blockers': stats?['totalBlockers'],
-          'pulse_entries': stats?['totalPulseEntries'],
+          'successes': successes.length,
+          'failures': failures.length,
+          'total_types': detailedResults.length,
         },
       );
 
       return ImportResult(
-        success: true,
-        message: 'Backup restored successfully!',
+        success: overallSuccess,
+        message: message,
         statistics: stats,
+        detailedResults: detailedResults,
+        hasPartialFailure: hasFailures && hasSuccesses,
       );
     } catch (e, stackTrace) {
       await _debug.error(
@@ -269,59 +316,316 @@ class BackupService {
     }
   }
 
-  Future<void> _importData(Map<String, dynamic> data) async {
+  Future<List<ImportItemResult>> _importData(Map<String, dynamic> data) async {
+    final results = <ImportItemResult>[];
+
     // Import goals
-    if (data.containsKey('goals')) {
-      final goalsJson = data['goals'] as List;
-      final goals = goalsJson.map((json) => Goal.fromJson(json)).toList();
-      await _storage.saveGoals(goals);
+    try {
+      if (data.containsKey('goals')) {
+        final goalsJson = data['goals'] as List;
+        final goals = goalsJson.map((json) => Goal.fromJson(json)).toList();
+        await _storage.saveGoals(goals);
+        await _debug.info('BackupService', 'Imported ${goals.length} goals');
+        results.add(ImportItemResult(
+          dataType: 'Goals',
+          success: true,
+          count: goals.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Goals',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import goals: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Goals',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
     }
 
     // Import journal entries
-    if (data.containsKey('journalEntries')) {
-      final entriesJson = data['journalEntries'] as List;
-      final entries = entriesJson.map((json) => JournalEntry.fromJson(json)).toList();
-      await _storage.saveJournalEntries(entries);
+    try {
+      if (data.containsKey('journalEntries')) {
+        final entriesJson = data['journalEntries'] as List;
+        final entries = entriesJson.map((json) => JournalEntry.fromJson(json)).toList();
+        await _storage.saveJournalEntries(entries);
+        await _debug.info('BackupService', 'Imported ${entries.length} journal entries');
+        results.add(ImportItemResult(
+          dataType: 'Journal Entries',
+          success: true,
+          count: entries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Journal Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import journal entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Journal Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
     }
 
     // Import check-in
-    if (data.containsKey('checkin') && data['checkin'] != null) {
-      final checkin = Checkin.fromJson(data['checkin']);
-      await _storage.saveCheckin(checkin);
+    try {
+      if (data.containsKey('checkin') && data['checkin'] != null) {
+        final checkin = Checkin.fromJson(data['checkin']);
+        await _storage.saveCheckin(checkin);
+        await _debug.info('BackupService', 'Imported check-in');
+        results.add(ImportItemResult(
+          dataType: 'Check-in',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Check-in',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import check-in: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Check-in',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
     }
 
     // Import habits
-    if (data.containsKey('habits')) {
-      final habitsJson = data['habits'] as List;
-      final habits = habitsJson.map((json) => Habit.fromJson(json)).toList();
-      await _storage.saveHabits(habits);
+    try {
+      if (data.containsKey('habits')) {
+        final habitsJson = data['habits'] as List;
+        final habits = habitsJson.map((json) => Habit.fromJson(json)).toList();
+        await _storage.saveHabits(habits);
+        await _debug.info('BackupService', 'Imported ${habits.length} habits');
+        results.add(ImportItemResult(
+          dataType: 'Habits',
+          success: true,
+          count: habits.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Habits',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import habits: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Habits',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
     }
 
     // Import pulse entries (support both new and old key names)
-    if (data.containsKey('pulseEntries')) {
-      final pulseEntriesJson = data['pulseEntries'] as List;
-      final pulseEntries = pulseEntriesJson.map((json) => PulseEntry.fromJson(json)).toList();
-      await _storage.savePulseEntries(pulseEntries);
-    } else if (data.containsKey('moodEntries')) {
-      // Backward compatibility: support old exports
-      final pulseEntriesJson = data['moodEntries'] as List;
-      final pulseEntries = pulseEntriesJson.map((json) => PulseEntry.fromJson(json)).toList();
-      await _storage.savePulseEntries(pulseEntries);
+    try {
+      if (data.containsKey('pulseEntries')) {
+        final pulseEntriesJson = data['pulseEntries'] as List;
+        final pulseEntries = pulseEntriesJson.map((json) => PulseEntry.fromJson(json)).toList();
+        await _storage.savePulseEntries(pulseEntries);
+        await _debug.info('BackupService', 'Imported ${pulseEntries.length} pulse entries');
+        results.add(ImportItemResult(
+          dataType: 'Pulse Entries',
+          success: true,
+          count: pulseEntries.length,
+        ));
+      } else if (data.containsKey('moodEntries')) {
+        // Backward compatibility: support old exports
+        final pulseEntriesJson = data['moodEntries'] as List;
+        final pulseEntries = pulseEntriesJson.map((json) => PulseEntry.fromJson(json)).toList();
+        await _storage.savePulseEntries(pulseEntries);
+        await _debug.info('BackupService', 'Imported ${pulseEntries.length} pulse entries (legacy format)');
+        results.add(ImportItemResult(
+          dataType: 'Pulse Entries',
+          success: true,
+          count: pulseEntries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Pulse Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import pulse entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Pulse Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import pulse types
+    try {
+      if (data.containsKey('pulseTypes')) {
+        final pulseTypesJson = data['pulseTypes'] as List;
+        final pulseTypes = pulseTypesJson.map((json) => PulseType.fromJson(json)).toList();
+        await _storage.savePulseTypes(pulseTypes);
+        await _debug.info('BackupService', 'Imported ${pulseTypes.length} pulse types');
+        results.add(ImportItemResult(
+          dataType: 'Pulse Types',
+          success: true,
+          count: pulseTypes.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Pulse Types',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import pulse types: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Pulse Types',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import conversations
+    try {
+      if (data.containsKey('conversations')) {
+        final conversationsJson = data['conversations'] as List;
+        final conversations = conversationsJson.cast<Map<String, dynamic>>();
+        await _storage.saveConversations(conversations);
+        await _debug.info('BackupService', 'Imported ${conversations.length} conversations');
+        results.add(ImportItemResult(
+          dataType: 'Conversations',
+          success: true,
+          count: conversations.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Conversations',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import conversations: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Conversations',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
     }
 
     // Import settings (excluding API key which should not be in export)
-    if (data.containsKey('settings')) {
-      final exportedSettings = data['settings'] as Map<String, dynamic>;
-      final currentSettings = await _storage.loadSettings();
+    try {
+      if (data.containsKey('settings')) {
+        final exportedSettings = data['settings'] as Map<String, dynamic>;
+        final currentSettings = await _storage.loadSettings();
 
-      // Merge: keep current API key, import other settings
-      final mergedSettings = {
-        ...exportedSettings,
-        'claudeApiKey': currentSettings['claudeApiKey'], // Keep current API key
-      };
+        // Merge: keep current API key and HF token, import other settings
+        final mergedSettings = {
+          ...exportedSettings,
+          'claudeApiKey': currentSettings['claudeApiKey'], // Keep current API key
+          'hfToken': currentSettings['hfToken'], // Keep current HuggingFace token
+        };
 
-      await _storage.saveSettings(mergedSettings);
+        await _storage.saveSettings(mergedSettings);
+        await _debug.info('BackupService', 'Imported settings (preserved API key and HF token)');
+        results.add(ImportItemResult(
+          dataType: 'Settings',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Settings',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import settings: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Settings',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
     }
+
+    return results;
+  }
+}
+
+/// Result for importing a single data type
+class ImportItemResult {
+  final String dataType;
+  final bool success;
+  final int count;
+  final String? errorMessage;
+
+  ImportItemResult({
+    required this.dataType,
+    required this.success,
+    required this.count,
+    this.errorMessage,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dataType': dataType,
+      'success': success,
+      'count': count,
+      'errorMessage': errorMessage,
+    };
   }
 }
 
@@ -329,11 +633,15 @@ class ImportResult {
   final bool success;
   final String message;
   final Map<String, dynamic>? statistics;
+  final List<ImportItemResult>? detailedResults;
+  final bool hasPartialFailure;
 
   ImportResult({
     required this.success,
     required this.message,
     this.statistics,
+    this.detailedResults,
+    this.hasPartialFailure = false,
   });
 }
 
@@ -341,10 +649,12 @@ class BackupResult {
   final bool success;
   final String message;
   final String? filePath;
+  final Map<String, dynamic>? statistics;
 
   BackupResult({
     required this.success,
     required this.message,
     this.filePath,
+    this.statistics,
   });
 }
