@@ -1176,6 +1176,10 @@ When modifying data models, follow these steps IN ORDER:
    - Update `fromJson()` method
    - Update `copyWith()` method if applicable
    - Add linking comment referencing JSON schema (see below)
+   - **Verify BackupService coverage** (`lib/services/backup_service.dart`):
+     - If adding a **NEW model type** → Add export in `_createBackupJson()` (~line 45) and import in `_importData()` (~line 436)
+     - If modifying **EXISTING model** → Verify `toJson()`/`fromJson()` changes are sufficient (automatic in most cases)
+     - Check both web and mobile export paths handle the model correctly
 
 2. **Update JSON Schema** (`lib/schemas/`)
    - Increment schema version (e.g., v2 → v3)
@@ -1202,6 +1206,26 @@ When modifying data models, follow these steps IN ORDER:
    - Run schema validation test: `flutter test test/schema_validation_test.dart`
    - Update test expectations if schema changed
    - Test migration with sample data
+   - **Test backup/restore cycle** (CRITICAL - catches serialization issues):
+     ```bash
+     # 1. Run app and create test data with new/modified fields
+     flutter run -d chrome  # or -d android
+
+     # 2. In app: Create sample data using the modified model
+     #    - Add entries with all new fields populated
+     #    - Include edge cases (nulls, empty arrays, etc.)
+
+     # 3. Export backup via Settings → Backup & Restore
+
+     # 4. Clear all data (or use fresh install)
+
+     # 5. Import the backup file
+
+     # 6. Verify all fields restored correctly:
+     #    - Check new fields have correct values
+     #    - Verify no data loss or corruption
+     #    - Test both web and mobile if model used on both platforms
+     ```
 
 7. **Update Documentation**
    - Update `lib/schemas/README.md` with new version info
@@ -1363,12 +1387,18 @@ flutter run -d android
 - Change field types without creating a migration
 - Increment version without documenting in changelog
 - Skip migration for "small" changes
+- Add new model types without updating BackupService export/import
+- Skip testing backup/restore cycle after schema changes
+- Assume `toJson()`/`fromJson()` changes automatically work in BackupService
 
 ✅ **DO:**
 - Follow the checklist for every schema change
 - Test migrations with real user data
 - Document all changes in schema changelog
 - Run validation test before committing
+- Verify BackupService handles new/modified models correctly
+- Test the complete backup → restore → verify cycle
+- Check both web and mobile export/import paths
 
 **Schema Files Reference:**
 
