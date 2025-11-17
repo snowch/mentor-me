@@ -1022,105 +1022,202 @@ class _JournalScreenState extends State<JournalScreen> {
 
     final contentController = TextEditingController(text: entry.content ?? '');
     final formKey = GlobalKey<FormState>();
+    DateTime selectedDateTime = entry.createdAt;
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: 500,
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Fixed header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.edit,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 32,
-                      ),
-                      AppSpacing.gapHorizontalMd,
-                      Expanded(
-                        child: Text(
-                          AppStrings.editEntry,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-
-                // Scrollable content
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: AppSpacing.paddingXl,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Dialog(
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: 500,
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Fixed header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    child: Row(
                       children: [
-                        TextFormField(
-                          controller: contentController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.content,
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 12,
-                          autofocus: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return AppStrings.pleaseWriteSomething;
-                            }
-                            return null;
-                          },
+                        Icon(
+                          Icons.edit,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 32,
                         ),
-                        AppSpacing.gapXl,
-
-                        FilledButton.icon(
-                          onPressed: () async {
-                            if (formKey.currentState!.validate()) {
-                              final updatedEntry = JournalEntry(
-                                id: entry.id,
-                                createdAt: entry.createdAt,
-                                type: JournalEntryType.quickNote,
-                                content: contentController.text,
-                                goalIds: entry.goalIds,
-                                aiInsights: entry.aiInsights,
-                              );
-
-                              await context.read<JournalProvider>().updateEntry(updatedEntry);
-
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text(AppStrings.entryUpdated)),
-                                );
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.save),
-                          label: const Text(AppStrings.saveChanges),
+                        AppSpacing.gapHorizontalMd,
+                        Expanded(
+                          child: Text(
+                            AppStrings.editEntry,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
+                  const Divider(height: 1),
+
+                  // Scrollable content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: AppSpacing.paddingXl,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextFormField(
+                            controller: contentController,
+                            decoration: const InputDecoration(
+                              labelText: AppStrings.content,
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 12,
+                            autofocus: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return AppStrings.pleaseWriteSomething;
+                              }
+                              return null;
+                            },
+                          ),
+                          AppSpacing.gapXl,
+
+                          // Date/Time selector
+                          Card(
+                            child: InkWell(
+                              onTap: () async {
+                                final DateTime? pickedDate = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDateTime,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                                );
+
+                                if (pickedDate != null && context.mounted) {
+                                  final TimeOfDay? pickedTime = await showTimePicker(
+                                    context: context,
+                                    initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+                                  );
+
+                                  if (pickedTime != null) {
+                                    setState(() {
+                                      selectedDateTime = DateTime(
+                                        pickedDate.year,
+                                        pickedDate.month,
+                                        pickedDate.day,
+                                        pickedTime.hour,
+                                        pickedTime.minute,
+                                      );
+                                    });
+                                  }
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Entry Date & Time',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  color: Colors.grey,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _formatDateTime(selectedDateTime),
+                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.edit,
+                                      color: Theme.of(context).colorScheme.primary,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          AppSpacing.gapXl,
+
+                          FilledButton.icon(
+                            onPressed: () async {
+                              if (formKey.currentState!.validate()) {
+                                final updatedEntry = JournalEntry(
+                                  id: entry.id,
+                                  createdAt: selectedDateTime,
+                                  type: JournalEntryType.quickNote,
+                                  content: contentController.text,
+                                  goalIds: entry.goalIds,
+                                  aiInsights: entry.aiInsights,
+                                );
+
+                                await context.read<JournalProvider>().updateEntry(updatedEntry);
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text(AppStrings.entryUpdated)),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.save),
+                            label: const Text(AppStrings.saveChanges),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final entryDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = today.difference(entryDate).inDays;
+
+    String dateStr;
+    if (difference == 0) {
+      dateStr = 'Today';
+    } else if (difference == 1) {
+      dateStr = 'Yesterday';
+    } else if (difference == -1) {
+      dateStr = 'Tomorrow';
+    } else {
+      dateStr = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$dateStr at $hour:$minute';
   }
 
   void _showDeleteConfirmation(BuildContext context, JournalEntry entry) {

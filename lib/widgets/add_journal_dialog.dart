@@ -21,11 +21,62 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
   final _formKey = GlobalKey<FormState>();
   final _contentController = TextEditingController();
   final List<String> _selectedGoalIds = [];
+  DateTime _selectedDateTime = DateTime.now();
 
   @override
   void dispose() {
     _contentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDateTime() async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDateTime,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (pickedDate != null && mounted) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
+      );
+
+      if (pickedTime != null && mounted) {
+        setState(() {
+          _selectedDateTime = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final entryDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    final difference = today.difference(entryDate).inDays;
+
+    String dateStr;
+    if (difference == 0) {
+      dateStr = 'Today';
+    } else if (difference == 1) {
+      dateStr = 'Yesterday';
+    } else if (difference == -1) {
+      dateStr = 'Tomorrow';
+    } else {
+      dateStr = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    }
+
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$dateStr at $hour:$minute';
   }
 
   @override
@@ -107,6 +158,52 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
                         },
                       ),
 
+                      // Date/Time selector
+                      const SizedBox(height: 24),
+                      Card(
+                        child: InkWell(
+                          onTap: _selectDateTime,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Entry Date & Time',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _formatDateTime(_selectedDateTime),
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.edit,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
                       // Related goals (optional)
                       if (goals.isNotEmpty) ...[
                         const SizedBox(height: 24),
@@ -163,6 +260,7 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
         type: JournalEntryType.quickNote,
         content: _contentController.text,
         goalIds: _selectedGoalIds,
+        createdAt: _selectedDateTime,
       );
 
       await context.read<JournalProvider>().addEntry(entry);
