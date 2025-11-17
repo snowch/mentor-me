@@ -59,7 +59,7 @@ class BackupService {
     // Remove sensitive data (API key, HF token) from export
     final exportSettings = Map<String, dynamic>.from(settings);
     exportSettings.remove('claudeApiKey');
-    exportSettings.remove('hfToken');
+    exportSettings.remove('huggingfaceToken'); // Fixed: was 'hfToken', actual key is 'huggingfaceToken'
 
     // Create backup data structure (matches migration format)
     // Using string values (JSON-encoded) for data fields to match storage format
@@ -678,7 +678,7 @@ class BackupService {
         final mergedSettings = {
           ...exportedSettings,
           'claudeApiKey': currentSettings['claudeApiKey'], // Keep current API key
-          'hfToken': currentSettings['hfToken'], // Keep current HuggingFace token
+          'huggingfaceToken': currentSettings['huggingfaceToken'], // Keep current HuggingFace token (fixed key name)
         };
 
         await _storage.saveSettings(mergedSettings);
