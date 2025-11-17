@@ -726,7 +726,6 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
 
   Widget _buildTemplateSelection() {
     final aiService = AIService();
-    final hasAI = aiService.isAvailable(); // Check currently selected provider
     final currentProvider = aiService.getProvider();
     final storage = StorageService();
 
@@ -740,7 +739,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
           );
         }
 
-        // Load enabled templates and filter
+        // Load enabled templates and check AI availability asynchronously
         return FutureBuilder<List<String>>(
           future: storage.getEnabledTemplates(),
           builder: (context, snapshot) {
@@ -753,34 +752,44 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
                 .where((t) => enabledIds.contains(t.id))
                 .toList();
 
-            return Column(
-              children: [
-                // AI availability warning
-                if (!hasAI)
-                  Container(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.warning_amber_rounded,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        AppSpacing.gapHorizontalSm,
-                        Expanded(
-                          child: Text(
-                            currentProvider == AIProvider.cloud
-                                ? 'AI is not available. Please set up your Claude API key in Settings to use 1-to-1 Mentor Sessions.'
-                                : 'Local AI model not downloaded. Please download the model in Settings to use 1-to-1 Mentor Sessions.',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.onErrorContainer,
-                              fontSize: 13,
+            // Check AI availability asynchronously (checks actual file existence for local AI)
+            return FutureBuilder<bool>(
+              future: aiService.isAvailableAsync(),
+              builder: (context, aiSnapshot) {
+                if (!aiSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final hasAI = aiSnapshot.data!;
+
+                return Column(
+                  children: [
+                    // AI availability warning
+                    if (!hasAI)
+                      Container(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Theme.of(context).colorScheme.error,
                             ),
-                          ),
+                            AppSpacing.gapHorizontalSm,
+                            Expanded(
+                              child: Text(
+                                currentProvider == AIProvider.cloud
+                                    ? 'AI is not available. Please set up your Claude API key in Settings to use 1-to-1 Mentor Sessions.'
+                                    : 'Local AI model not downloaded. Please download the model in Settings to use 1-to-1 Mentor Sessions.',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onErrorContainer,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
 
                 // Info banner about enabled templates
                 Container(
@@ -917,6 +926,8 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
                         ),
                 ),
               ],
+            );
+              },
             );
           },
         );
