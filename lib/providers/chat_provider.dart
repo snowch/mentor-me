@@ -6,36 +6,36 @@ import '../models/chat_message.dart';
 import '../models/goal.dart';
 import '../models/habit.dart';
 import '../models/journal_entry.dart';
+import '../models/pulse_entry.dart';
+import '../models/ai_provider.dart';
+import '../models/mentor_message.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
+import '../services/local_ai_service.dart';
+import '../services/context_management_service.dart';
+import '../services/debug_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   final AIService _ai = AIService();
+  final ContextManagementService _contextService = ContextManagementService();
+  final DebugService _debug = DebugService();
 
   List<Conversation> _conversations = [];
   Conversation? _currentConversation;
   bool _isTyping = false;
+  bool _isLoadingModel = false;
+  String? _loadingMessage;
 
   List<Conversation> get conversations => _conversations;
   Conversation? get currentConversation => _currentConversation;
   bool get isTyping => _isTyping;
+  bool get isLoadingModel => _isLoadingModel;
+  String? get loadingMessage => _loadingMessage;
   List<ChatMessage> get messages => _currentConversation?.messages ?? [];
 
   ChatProvider() {
     _loadConversations();
-  }
-
-  /// Extract text content from a journal entry regardless of type
-  String _extractEntryText(JournalEntry entry) {
-    if (entry.type == JournalEntryType.quickNote) {
-      return entry.content ?? '';
-    } else if (entry.type == JournalEntryType.guidedJournal && entry.qaPairs != null) {
-      return entry.qaPairs!
-          .map((pair) => '${pair.question}\n${pair.answer}')
-          .join('\n\n');
-    }
-    return '';
   }
 
   /// Load conversations from storage
@@ -127,20 +127,122 @@ class ChatProvider extends ChangeNotifier {
   }
 
   /// Add a message from the mentor
-  Future<void> addMentorMessage(String content, {Map<String, dynamic>? metadata}) async {
+  Future<void> addMentorMessage(
+    String content, {
+    Map<String, dynamic>? metadata,
+    List<MentorAction>? suggestedActions,
+  }) async {
+    // Auto-detect actions if not provided
+    final actions = suggestedActions ?? _detectSuggestedActions(content);
+
     final mentorMessage = ChatMessage(
       sender: MessageSender.mentor,
       content: content,
       metadata: metadata,
+      suggestedActions: actions,
     );
 
     _addMessageToCurrentConversation(mentorMessage);
     notifyListeners();
   }
 
+  /// Detect suggested actions from AI response text
+  List<MentorAction> _detectSuggestedActions(String response) {
+    final actions = <MentorAction>[];
+    final lowerResponse = response.toLowerCase();
+
+    // Detect goal-related actions
+    if (lowerResponse.contains('create a goal') ||
+        lowerResponse.contains('new goal') ||
+        lowerResponse.contains('set a goal')) {
+      actions.add(MentorAction.navigate(
+        label: 'Create New Goal',
+        destination: '/goals',
+        context: {'action': 'create'},
+      ));
+    }
+
+    // Detect journal-related actions
+    if (lowerResponse.contains('journal') &&
+        (lowerResponse.contains('write') ||
+         lowerResponse.contains('reflect') ||
+         lowerResponse.contains('note'))) {
+      actions.add(MentorAction.navigate(
+        label: 'Open Journal',
+        destination: '/journal',
+      ));
+    }
+
+    // Detect habit-related actions
+    if (lowerResponse.contains('track') && lowerResponse.contains('habit')) {
+      actions.add(MentorAction.navigate(
+        label: 'View Habits',
+        destination: '/habits',
+      ));
+    }
+
+    // Detect wellness/pulse actions
+    if (lowerResponse.contains('check in') ||
+        lowerResponse.contains('how are you feeling') ||
+        lowerResponse.contains('wellness')) {
+      actions.add(MentorAction.navigate(
+        label: 'Wellness Check-in',
+        destination: '/pulse',
+      ));
+    }
+
+    // Detect view progress/goals
+    if (lowerResponse.contains('view your goals') ||
+        lowerResponse.contains('review your goals')) {
+      actions.add(MentorAction.navigate(
+        label: 'View Goals',
+        destination: '/goals',
+      ));
+    }
+
+    // Limit to 2 actions to avoid clutter
+    return actions.take(2).toList();
+  }
+
   /// Generate AI response based on user message and context
   Future<void> _generateMentorResponse(String userMessage) async {
+    // Get current AI provider
+    final aiProvider = _ai.getProvider();
+
+    // Check if using local AI and model needs loading
+    if (aiProvider == AIProvider.local) {
+      final localAI = LocalAIService();
+
+      // If model is not loaded yet, show loading indicator and load it
+      if (!localAI.isModelLoaded) {
+        _isLoadingModel = true;
+        _loadingMessage = 'Preparing local AI model...';
+        notifyListeners();
+
+        await _debug.info('ChatProvider', 'Loading local AI model');
+
+        try {
+          await localAI.loadModel();
+          await _debug.info('ChatProvider', 'Local AI model loaded successfully');
+        } catch (e) {
+          await _debug.error('ChatProvider', 'Failed to load local AI model',
+            metadata: {'error': e.toString()}
+          );
+          _isLoadingModel = false;
+          _loadingMessage = null;
+          _isTyping = false;
+          notifyListeners();
+          await addMentorMessage(
+            "I'm having trouble loading the local AI model. Please try again or check your settings.",
+          );
+          return;
+        }
+      }
+    }
+
     _isTyping = true;
+    _isLoadingModel = false;
+    _loadingMessage = null;
     notifyListeners();
 
     try {
@@ -165,108 +267,103 @@ class ChatProvider extends ChangeNotifier {
     required List<Goal> goals,
     required List<Habit> habits,
     required List<JournalEntry> journalEntries,
+    List<PulseEntry>? pulseEntries,
   }) async {
-    // Build comprehensive context
-    final context = _buildContext(
-      goals: goals,
-      habits: habits,
-      journalEntries: journalEntries,
-    );
+    // Get current AI provider
+    final aiProvider = _ai.getProvider();
 
-    // Build conversation history
-    final conversationHistory = _buildConversationHistory();
+    // Check if using local AI and model needs loading
+    if (aiProvider == AIProvider.local) {
+      final localAI = LocalAIService();
 
-    // Create system prompt
-    final systemPrompt = '''
-You are a supportive, encouraging personal mentor helping the user achieve their goals and become their best self.
+      // If model is not loaded yet, show loading indicator and load it
+      if (!localAI.isModelLoaded) {
+        _isLoadingModel = true;
+        _loadingMessage = 'Preparing local AI model...';
+        notifyListeners();
 
-Your tone is: warm, supportive, direct but not harsh, encouraging but not saccharine.
+        await _debug.info('ChatProvider', 'Loading local AI model');
 
-Context about the user:
-$context
+        try {
+          await localAI.loadModel();
+          await _debug.info('ChatProvider', 'Local AI model loaded successfully');
+        } catch (e) {
+          await _debug.error('ChatProvider', 'Failed to load local AI model',
+            metadata: {'error': e.toString()}
+          );
+          _isLoadingModel = false;
+          _loadingMessage = null;
+          notifyListeners();
+          throw Exception('Failed to load local AI model: $e');
+        }
+      }
+    }
 
-Recent conversation:
-$conversationHistory
-
-User's message: $userMessage
-
-Respond as their mentor. Be specific and reference their actual data (goals, habits, progress) when relevant. Keep responses concise (2-3 sentences max unless explaining something complex).
-''';
+    // Set typing indicator
+    _isTyping = true;
+    _isLoadingModel = false;
+    _loadingMessage = null;
+    notifyListeners();
 
     try {
-      final response = await _ai.getCoachingResponse(prompt: systemPrompt);
+      // For local AI, pass raw user message and let AIService handle context building
+      // This avoids duplicate prompting and context building
+      // For cloud AI, we could build context here, but for consistency let AIService handle it
+      final response = await _ai.getCoachingResponse(
+        prompt: userMessage,
+        goals: goals,
+        habits: habits,
+        recentEntries: journalEntries,
+        pulseEntries: pulseEntries,
+        conversationHistory: _currentConversation?.messages,
+      );
+
+      await _debug.info('ChatProvider', 'AI response generated', metadata: {
+        'responseLength': response.length,
+        'estimatedResponseTokens': _contextService.estimateTokens(response),
+      });
+
+      _isTyping = false;
+      notifyListeners();
+
       return response;
     } catch (e) {
+      await _debug.error('ChatProvider', 'Error generating AI response',
+        metadata: {'error': e.toString()}
+      );
       debugPrint('Error in contextual response: $e');
+
+      _isTyping = false;
+      _isLoadingModel = false;
+      _loadingMessage = null;
+      notifyListeners();
+
       return "I'm having trouble processing that right now. Could you try again?";
     }
   }
 
-  /// Build context string from user data
-  String _buildContext({
-    required List<Goal> goals,
-    required List<Habit> habits,
-    required List<JournalEntry> journalEntries,
-  }) {
-    final buffer = StringBuffer();
-
-    // Goals context
-    final activeGoals = goals.where((g) => g.isActive).toList();
-    if (activeGoals.isNotEmpty) {
-      buffer.writeln('\nActive Goals:');
-      for (final goal in activeGoals) {
-        buffer.writeln(
-            '- ${goal.title} (${goal.currentProgress}% complete, ${goal.category})');
-      }
-    }
-
-    // Habits context
-    if (habits.isNotEmpty) {
-      buffer.writeln('\nHabits:');
-      for (final habit in habits.take(5)) {
-        buffer.writeln(
-            '- ${habit.title} (${habit.currentStreak} day streak, ${habit.isActive ? "active" : "inactive"})');
-      }
-    }
-
-    // Recent journal entries (emotional context)
-    final recentJournals = journalEntries.take(3).toList();
-    if (recentJournals.isNotEmpty) {
-      buffer.writeln('\nRecent Journal Entries:');
-      for (final entry in recentJournals) {
-        final entryText = _extractEntryText(entry);
-        final preview = entryText.length > 100
-            ? '${entryText.substring(0, 100)}...'
-            : entryText;
-        buffer.writeln('- ${_formatDate(entry.createdAt)}: $preview');
-      }
-    }
-
-    return buffer.toString();
-  }
-
-  /// Build conversation history string
-  String _buildConversationHistory() {
-    if (_currentConversation == null || _currentConversation!.messages.isEmpty) {
-      return '(This is the start of the conversation)';
-    }
-
-    final buffer = StringBuffer();
-    final recentMessages = _currentConversation!.messages.reversed.take(6).toList().reversed;
-
-    for (final msg in recentMessages) {
-      final sender = msg.isFromUser ? 'User' : 'Mentor';
-      buffer.writeln('$sender: ${msg.content}');
-    }
-
-    return buffer.toString();
-  }
 
   /// Helper to add message to current conversation
   void _addMessageToCurrentConversation(ChatMessage message) {
     if (_currentConversation == null) return;
 
-    final updatedMessages = [..._currentConversation!.messages, message];
+    var updatedMessages = [..._currentConversation!.messages, message];
+
+    // Auto-trim conversation history for local AI to prevent context overflow
+    // Local AI has tiny 2048 token context window, so keep only recent messages
+    final aiProvider = _ai.getProvider();
+    if (aiProvider == AIProvider.local) {
+      const maxMessages = 20; // Keep last 20 messages (10 turns) for local AI
+      if (updatedMessages.length > maxMessages) {
+        // Keep the most recent messages only
+        updatedMessages = updatedMessages.sublist(updatedMessages.length - maxMessages);
+        _debug.info('ChatProvider', 'Auto-trimmed conversation history for local AI', metadata: {
+          'messagesKept': maxMessages,
+          'messagesTrimmed': updatedMessages.length - maxMessages,
+        });
+      }
+    }
+
     _currentConversation = _currentConversation!.copyWith(
       messages: updatedMessages,
       lastMessageAt: DateTime.now(),
@@ -306,16 +403,5 @@ Respond as their mentor. Be specific and reference their actual data (goals, hab
       await _saveConversations();
       notifyListeners();
     }
-  }
-
-  /// Format date helper
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date).inDays;
-
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    if (diff < 7) return '$diff days ago';
-    return '${date.month}/${date.day}';
   }
 }

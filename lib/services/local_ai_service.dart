@@ -1,6 +1,7 @@
 // lib/services/local_ai_service.dart
 // Service for on-device AI inference using MediaPipe LLM Inference API
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'debug_service.dart';
 import 'model_download_service.dart';
@@ -106,9 +107,13 @@ class LocalAIService {
       _isModelLoaded = success ?? false;
 
       if (_isModelLoaded) {
-        await _debug.info('LocalAIService', 'Model loaded successfully');
+        await _debug.info('LocalAIService', 'Local AI model loaded successfully', metadata: {
+          'modelPath': modelPath,
+        });
+        debugPrint('✅ Local AI model loaded and ready');
       } else {
         await _debug.error('LocalAIService', 'Failed to load model');
+        debugPrint('❌ Local AI model failed to load');
       }
 
       return _isModelLoaded;

@@ -4,11 +4,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/chat_provider.dart';
 import '../providers/goal_provider.dart';
 import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart';
+import '../providers/pulse_provider.dart';
 import '../models/chat_message.dart';
+import '../models/mentor_message.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 import '../services/feature_discovery_service.dart';
@@ -67,6 +70,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final goalProvider = context.read<GoalProvider>();
     final habitProvider = context.read<HabitProvider>();
     final journalProvider = context.read<JournalProvider>();
+    final pulseProvider = context.read<PulseProvider>();
 
     // Send user message (adds to conversation, sets typing state)
     await chatProvider.sendUserMessage(text, skipAutoResponse: true);
@@ -79,6 +83,7 @@ class _ChatScreenState extends State<ChatScreen> {
         goals: goalProvider.goals,
         habits: habitProvider.habits,
         journalEntries: journalProvider.entries,
+        pulseEntries: pulseProvider.entries,
       );
 
       await chatProvider.addMentorMessage(response);
@@ -128,6 +133,51 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          // Loading model indicator
+          Consumer<ChatProvider>(
+            builder: (context, chatProvider, child) {
+              if (!chatProvider.isLoadingModel) return const SizedBox.shrink();
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.sm,
+                  horizontal: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    AppSpacing.gapHorizontalSm,
+                    Text(
+                      chatProvider.loadingMessage ?? 'Loading...',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
           // Messages list
           Expanded(
             child: Consumer<ChatProvider>(
@@ -255,48 +305,65 @@ class _ChatScreenState extends State<ChatScreen> {
             AppSpacing.gapHorizontalSm,
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: isUser
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(AppRadius.lg),
-                  topRight: const Radius.circular(AppRadius.lg),
-                  bottomLeft: Radius.circular(isUser ? AppRadius.lg : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : AppRadius.lg),
-                ),
-              ),
-              child: isUser
-                  ? Text(
-                      message.content,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    )
-                  : MarkdownBody(
-                      data: message.content,
-                      styleSheet: MarkdownStyleSheet(
-                        p: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        strong: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        em: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        listBullet: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+            child: Column(
+              crossAxisAlignment:
+                  isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isUser
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(AppRadius.lg),
+                      topRight: const Radius.circular(AppRadius.lg),
+                      bottomLeft: Radius.circular(isUser ? AppRadius.lg : 4),
+                      bottomRight: Radius.circular(isUser ? 4 : AppRadius.lg),
                     ),
+                  ),
+                  child: isUser
+                      ? Text(
+                          message.content,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        )
+                      : MarkdownBody(
+                          data: message.content.replaceAll('\\n', '\n'), // Convert literal \n to actual newlines
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                            strong: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            em: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            listBullet: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                ),
+                // Action buttons (only for mentor messages)
+                if (message.hasSuggestedActions) ...[
+                  AppSpacing.gapSm,
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: message.suggestedActions!.map((action) {
+                      return _buildActionButton(context, action);
+                    }).toList(),
+                  ),
+                ],
+              ],
             ),
           ),
           if (isUser) ...[
@@ -343,9 +410,9 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 _buildTypingDot(0),
                 AppSpacing.gapHorizontalXs,
-                _buildTypingDot(150),
+                _buildTypingDot(200),
                 AppSpacing.gapHorizontalXs,
-                _buildTypingDot(300),
+                _buildTypingDot(400),
               ],
             ),
           ),
@@ -354,79 +421,184 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildTypingDot(int delay) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 600),
-      builder: (context, value, child) {
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withOpacity(0.3 + (value * 0.7)),
-            shape: BoxShape.circle,
+  Widget _buildTypingDot(int delayMs) {
+    return _AnimatedDot(delay: Duration(milliseconds: delayMs));
+  }
+
+  Widget _buildMessageInput(BuildContext context) {
+    return Consumer<ChatProvider>(
+      builder: (context, chatProvider, child) {
+        final isProcessing = chatProvider.isTyping || chatProvider.isLoadingModel;
+
+        return SafeArea(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    enabled: !isProcessing,
+                    decoration: InputDecoration(
+                      hintText: isProcessing
+                          ? 'AI is thinking...'
+                          : 'Message your mentor...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                    ),
+                    maxLines: null,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: isProcessing ? null : (_) => _sendMessage(),
+                  ),
+                ),
+                AppSpacing.gapHorizontalMd,
+                IconButton.filled(
+                  onPressed: isProcessing ? null : _sendMessage,
+                  icon: isProcessing
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          ),
+                        )
+                      : const Icon(Icons.send),
+                ),
+              ],
+            ),
           ),
         );
-      },
-      onEnd: () {
-        if (mounted) {
-          setState(() {});
-        }
       },
     );
   }
 
-  Widget _buildMessageInput(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.md,
-          AppSpacing.lg,
-          AppSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: InputDecoration(
-                hintText: 'Message your mentor...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
-              ),
-              maxLines: null,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
-            ),
-          ),
-          AppSpacing.gapHorizontalMd,
-          IconButton.filled(
-            onPressed: _sendMessage,
-            icon: const Icon(Icons.send),
-          ),
-        ],
+  Widget _buildActionButton(BuildContext context, MentorAction action) {
+    return FilledButton.tonal(
+      onPressed: () => _handleAction(context, action),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
         ),
       ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_getActionIcon(action.type), size: 18),
+          AppSpacing.gapHorizontalXs,
+          Text(action.label),
+        ],
+      ),
     );
+  }
+
+  IconData _getActionIcon(MentorActionType type) {
+    switch (type) {
+      case MentorActionType.navigate:
+        return Icons.arrow_forward;
+      case MentorActionType.chat:
+        return Icons.chat;
+      case MentorActionType.quickAction:
+        return Icons.check_circle_outline;
+    }
+  }
+
+  void _handleAction(BuildContext context, MentorAction action) {
+    switch (action.type) {
+      case MentorActionType.navigate:
+        if (action.destination != null) {
+          Navigator.pushNamed(
+            context,
+            action.destination!,
+            arguments: action.context,
+          );
+        }
+        break;
+      case MentorActionType.chat:
+        if (action.chatPreFill != null) {
+          _messageController.text = action.chatPreFill!;
+        }
+        break;
+      case MentorActionType.quickAction:
+        // Handle quick actions based on context
+        // This can be extended as needed
+        break;
+    }
+  }
+
+  Future<void> _exportChat() async {
+    final chatProvider = context.read<ChatProvider>();
+    final conversation = chatProvider.currentConversation;
+
+    if (conversation == null || conversation.messages.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No messages to export')),
+        );
+      }
+      return;
+    }
+
+    try {
+      // Format conversation as text
+      final buffer = StringBuffer();
+      buffer.writeln('Chat Export');
+      buffer.writeln('Title: ${conversation.title}');
+      buffer.writeln('Created: ${conversation.createdAt.toString().substring(0, 19)}');
+      buffer.writeln('Messages: ${conversation.messages.length}');
+      buffer.writeln();
+      buffer.writeln('=' * 50);
+      buffer.writeln();
+
+      for (final message in conversation.messages) {
+        final sender = message.isFromUser ? 'You' : 'Mentor';
+        final timestamp = message.timestamp.toString().substring(11, 16);
+        buffer.writeln('[$timestamp] $sender:');
+        buffer.writeln(message.content);
+        buffer.writeln();
+      }
+
+      // Use share_plus to share the text
+      await Share.share(
+        buffer.toString(),
+        subject: 'Chat: ${conversation.title}',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chat exported successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export: $e')),
+        );
+      }
+    }
   }
 
   void _showMenu(BuildContext context) {
@@ -453,6 +625,14 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('Export Chat'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportChat();
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.history),
               title: const Text('View Conversation History'),
               onTap: () {
@@ -466,6 +646,77 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Animated dot widget for typing indicator
+class _AnimatedDot extends StatefulWidget {
+  final Duration delay;
+
+  const _AnimatedDot({required this.delay});
+
+  @override
+  State<_AnimatedDot> createState() => _AnimatedDotState();
+}
+
+class _AnimatedDotState extends State<_AnimatedDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _animation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.3, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.3)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 50,
+      ),
+    ]).animate(_controller);
+
+    // Start animation after delay
+    Future.delayed(widget.delay, () {
+      if (mounted) {
+        _controller.repeat();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                .withOpacity(_animation.value),
+            shape: BoxShape.circle,
+          ),
+        );
+      },
     );
   }
 }

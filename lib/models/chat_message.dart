@@ -2,6 +2,7 @@
 // Phase 3: Conversational Interface - Chat message model
 
 import 'package:uuid/uuid.dart';
+import 'mentor_message.dart'; // For MentorAction
 
 /// Represents who sent the message
 enum MessageSender {
@@ -17,6 +18,7 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isTyping; // For showing typing indicator
   final Map<String, dynamic>? metadata; // Optional metadata (e.g., related goal ID)
+  final List<MentorAction>? suggestedActions; // Actions the user can take
 
   ChatMessage({
     String? id,
@@ -25,6 +27,7 @@ class ChatMessage {
     DateTime? timestamp,
     this.isTyping = false,
     this.metadata,
+    this.suggestedActions,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -36,10 +39,36 @@ class ChatMessage {
       'timestamp': timestamp.toIso8601String(),
       'isTyping': isTyping,
       'metadata': metadata,
+      'suggestedActions': suggestedActions?.map((a) => {
+        'label': a.label,
+        'type': a.type.toString(),
+        'destination': a.destination,
+        'context': a.context,
+        'chatPreFill': a.chatPreFill,
+      }).toList(),
     };
   }
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    List<MentorAction>? actions;
+    if (json['suggestedActions'] != null) {
+      actions = (json['suggestedActions'] as List).map((a) {
+        final typeStr = a['type'] as String;
+        final type = MentorActionType.values.firstWhere(
+          (e) => e.toString() == typeStr,
+          orElse: () => MentorActionType.navigate,
+        );
+
+        return MentorAction(
+          label: a['label'],
+          type: type,
+          destination: a['destination'],
+          context: a['context'] != null ? Map<String, dynamic>.from(a['context']) : null,
+          chatPreFill: a['chatPreFill'],
+        );
+      }).toList();
+    }
+
     return ChatMessage(
       id: json['id'],
       sender: MessageSender.values.firstWhere(
@@ -51,6 +80,7 @@ class ChatMessage {
       metadata: json['metadata'] != null
           ? Map<String, dynamic>.from(json['metadata'])
           : null,
+      suggestedActions: actions,
     );
   }
 
@@ -58,6 +88,7 @@ class ChatMessage {
     String? content,
     bool? isTyping,
     Map<String, dynamic>? metadata,
+    List<MentorAction>? suggestedActions,
   }) {
     return ChatMessage(
       id: id,
@@ -66,11 +97,13 @@ class ChatMessage {
       timestamp: timestamp,
       isTyping: isTyping ?? this.isTyping,
       metadata: metadata ?? this.metadata,
+      suggestedActions: suggestedActions ?? this.suggestedActions,
     );
   }
 
   bool get isFromUser => sender == MessageSender.user;
   bool get isFromMentor => sender == MessageSender.mentor;
+  bool get hasSuggestedActions => suggestedActions != null && suggestedActions!.isNotEmpty;
 }
 
 /// Represents a conversation session

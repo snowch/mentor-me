@@ -25,10 +25,14 @@ import 'package:flutter/foundation.dart';
 import '../models/goal.dart';
 import '../models/journal_entry.dart';
 import '../models/ai_provider.dart';
+import '../models/pulse_entry.dart';
+import '../models/habit.dart';
+import '../models/chat_message.dart';
 import 'storage_service.dart';
 import 'debug_service.dart';
 import 'local_ai_service.dart';
 import 'model_download_service.dart';
+import 'context_management_service.dart';
 
 /// Singleton service for AI-powered coaching and analysis.
 ///
@@ -53,6 +57,7 @@ class AIService {
   AIProvider _selectedProvider = AIProvider.cloud; // Default to cloud
   final StorageService _storage = StorageService();
   final DebugService _debug = DebugService();
+  final ContextManagementService _contextService = ContextManagementService();
 
   /// Initializes the AI service.
   ///
@@ -79,12 +84,22 @@ class AIService {
       _selectedProvider = AIProviderExtension.fromJson(providerString);
     }
 
+    // Check which AI providers are actually configured and available
+    final cloudAvailable = hasApiKey();
+    final localAvailable = await _isLocalAIAvailable();
+
+    // Note: We don't auto-switch providers anymore. The user's choice is respected,
+    // and the UI will show appropriate error messages if the selected provider isn't ready.
+
     await _debug.info('AIService', 'AI Service initialized', metadata: {
       'platform': kIsWeb ? 'web' : 'mobile',
       'endpoint': kIsWeb ? _proxyUrl : _apiUrl,
       'model': _selectedModel,
       'provider': _selectedProvider.name,
       'hasApiKey': hasApiKey(),
+      'cloudConfigured': cloudAvailable,
+      'localConfigured': localAvailable,
+      'localModelPath': localAvailable ? await ModelDownloadService().getModelPath() : 'not downloaded',
     });
 
     if (kIsWeb) {
@@ -94,6 +109,8 @@ class AIService {
     }
     debugPrint('🤖 Using model: $_selectedModel');
     debugPrint('📍 AI Provider: ${_selectedProvider.displayName}');
+    debugPrint('✅ Cloud AI configured: $cloudAvailable');
+    debugPrint('✅ Local AI configured: $localAvailable');
   }
 
   /// Sets the AI model to use for requests.
@@ -119,9 +136,16 @@ class AIService {
   /// [provider] determines whether to use Claude API (cloud) or local AI.
   ///
   /// Cloud provider uses Anthropic's API, local provider uses locally-run models.
-  void setProvider(AIProvider provider) {
+  /// The setting is persisted to storage.
+  Future<void> setProvider(AIProvider provider) async {
     _selectedProvider = provider;
-    _debug.info('AIService', 'AI Provider changed', metadata: {
+
+    // Load current settings and update only the provider
+    final currentSettings = await _storage.loadSettings();
+    currentSettings['aiProvider'] = provider.toJson();
+    await _storage.saveSettings(currentSettings);
+
+    await _debug.info('AIService', 'AI Provider changed and saved', metadata: {
       'provider': provider.name,
     });
     debugPrint('📍 AI Provider changed to: ${provider.displayName}');
@@ -150,6 +174,16 @@ class AIService {
   /// Returns `true` if a non-empty API key is set, `false` otherwise.
   bool hasApiKey() {
     return _apiKey != null && _apiKey!.isNotEmpty;
+  }
+
+  /// Checks if local AI is available (model downloaded).
+  Future<bool> _isLocalAIAvailable() async {
+    try {
+      final downloadService = ModelDownloadService();
+      return await downloadService.isModelDownloaded();
+    } catch (e) {
+      return false;
+    }
   }
 
   /// Returns the currently selected AI model ID.
@@ -189,6 +223,37 @@ class AIService {
     return hasApiKey();
   }
 
+  /// Tests the current AI configuration with a simple request.
+  ///
+  /// Returns a success message if the test passes, or throws an exception with details.
+  /// Useful for validating that the selected AI provider is properly configured.
+  Future<String> testConfiguration() async {
+    await _debug.info('AIService', 'Testing AI configuration', metadata: {
+      'provider': _selectedProvider.name,
+    });
+
+    try {
+      final testPrompt = 'Say "AI is working" if you can read this.';
+      final response = await getCoachingResponse(prompt: testPrompt);
+
+      await _debug.info('AIService', 'AI configuration test successful', metadata: {
+        'provider': _selectedProvider.name,
+        'responseLength': response.length,
+      });
+
+      return 'AI configuration test successful! Response: ${response.substring(0, response.length > 100 ? 100 : response.length)}...';
+    } catch (e, stackTrace) {
+      await _debug.error('AIService', 'AI configuration test failed',
+        metadata: {
+          'provider': _selectedProvider.name,
+          'error': e.toString(),
+        },
+        stackTrace: stackTrace.toString(),
+      );
+      rethrow;
+    }
+  }
+
   /// Extract text content from a journal entry regardless of type
   String _extractEntryText(JournalEntry entry) {
     if (entry.type == JournalEntryType.quickNote) {
@@ -204,49 +269,67 @@ class AIService {
   Future<String> getCoachingResponse({
     required String prompt,
     List<Goal>? goals,
+    List<Habit>? habits,
     List<JournalEntry>? recentEntries,
+    List<PulseEntry>? pulseEntries,
+    List<ChatMessage>? conversationHistory,
   }) async {
     // Route to local or cloud based on provider selection
     if (_selectedProvider == AIProvider.local) {
-      return _getLocalResponse(prompt, goals, recentEntries);
+      // Check if local AI is actually available
+      final localAvailable = await _isLocalAIAvailable();
+      if (!localAvailable) {
+        await _debug.error('AIService', 'Local AI selected but model not downloaded');
+        throw Exception(
+          "Local AI is not available. Please download the model in Settings → AI Settings, "
+          "or switch to Cloud AI if you have an API key."
+        );
+      }
+      return _getLocalResponse(prompt, goals, habits, recentEntries, pulseEntries, conversationHistory);
     }
 
     // Cloud provider requires API key
     if (_apiKey == null || _apiKey!.isEmpty) {
-      throw Exception("AI features are currently unavailable. Please set your Claude API key in Settings.");
+      await _debug.error('AIService', 'Cloud AI selected but no API key configured');
+      throw Exception(
+        "Cloud AI is not configured. Please set your Claude API key in Settings → AI Settings, "
+        "or switch to Local AI and download the model."
+      );
     }
 
-    return _getCloudResponse(prompt, goals, recentEntries);
+    return _getCloudResponse(prompt, goals, habits, recentEntries, pulseEntries);
   }
 
   /// Get response from local on-device AI (Gemma 3-1B)
   Future<String> _getLocalResponse(
     String prompt,
     List<Goal>? goals,
+    List<Habit>? habits,
     List<JournalEntry>? recentEntries,
+    List<PulseEntry>? pulseEntries,
+    List<ChatMessage>? conversationHistory,
   ) async {
     final localAI = LocalAIService();
 
-    final context = _buildContext(goals, recentEntries);
-    final fullPrompt = '''You are an empathetic AI mentor and coach helping someone achieve their goals and build better habits.
+    // Build optimized context for local AI (very small context window)
+    final contextResult = _contextService.buildLocalContext(
+      goals: goals ?? [],
+      habits: habits ?? [],
+      journalEntries: recentEntries ?? [],
+      pulseEntries: pulseEntries ?? [],
+      conversationHistory: conversationHistory,
+    );
 
-Context:
-$context
+    final fullPrompt = '''You are a supportive AI mentor helping with goals and habits.
+${contextResult.context}
+User: $prompt
 
-User message: $prompt
-
-Provide supportive, actionable guidance. Be warm but concise. Focus on specific next steps.
-
-IMPORTANT: Format your response using markdown:
-- Use **bold** for emphasis
-- Use *italic* for gentle emphasis
-- Use bullet points with - or * for lists
-- Use numbered lists with 1., 2., 3. for steps
-- Keep paragraphs short and readable''';
+CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for simple questions, 4-5 for complex ones. Use markdown: **bold**, *italic*, bullets. Get to the point fast.''';
 
     await _debug.info('AIService', 'Local AI inference requested', metadata: {
       'promptLength': prompt.length,
-      'contextLength': context.length,
+      'contextTokens': contextResult.estimatedTokens,
+      'itemCounts': contextResult.itemCounts,
     });
 
     try {
@@ -255,6 +338,7 @@ IMPORTANT: Format your response using markdown:
 
       await _debug.info('AIService', 'Local AI response received', metadata: {
         'responseLength': response.length,
+        'estimatedResponseTokens': _contextService.estimateTokens(response),
       });
 
       return response;
@@ -274,14 +358,23 @@ IMPORTANT: Format your response using markdown:
   Future<String> _getCloudResponse(
     String prompt,
     List<Goal>? goals,
+    List<Habit>? habits,
     List<JournalEntry>? recentEntries,
+    List<PulseEntry>? pulseEntries,
   ) async {
     try {
-      final context = _buildContext(goals, recentEntries);
+      // Build comprehensive context for cloud AI (large context window)
+      final contextResult = _contextService.buildCloudContext(
+        goals: goals ?? [],
+        habits: habits ?? [],
+        journalEntries: recentEntries ?? [],
+        pulseEntries: pulseEntries ?? [],
+      );
+
       final fullPrompt = '''You are an empathetic AI mentor and coach helping someone achieve their goals and build better habits.
 
 Context:
-$context
+${contextResult.context}
 
 User message: $prompt
 
@@ -294,26 +387,12 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
       debugPrint('Using model: $_selectedModel');
 
       // Log the API request
-      final requestBody = {
+      await _debug.info('AIService', 'Cloud AI request', metadata: {
         'model': _selectedModel,
-        'max_tokens': 1024,
-        'messages': [
-          {
-            'role': 'user',
-            'content': fullPrompt.substring(0, fullPrompt.length > 200 ? 200 : fullPrompt.length) + '...',
-          }
-        ],
-      };
-
-      await _debug.logApiRequest(
-        endpoint: url,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'anthropic-version': '2023-06-01',
-        },
-        body: requestBody,
-      );
+        'promptLength': prompt.length,
+        'contextTokens': contextResult.estimatedTokens,
+        'itemCounts': contextResult.itemCounts,
+      });
 
       final startTime = DateTime.now();
 
@@ -348,16 +427,12 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
         final responseText = data['content'][0]['text'] as String;
 
         // Log successful response
-        await _debug.logApiResponse(
-          endpoint: url,
-          statusCode: response.statusCode,
-          body: {
-            'response_length': responseText.length,
-            'response_preview': responseText.substring(0, responseText.length > 100 ? 100 : responseText.length) + '...',
-            'model': _selectedModel,
-          },
-          duration: duration,
-        );
+        await _debug.info('AIService', 'Cloud AI response received', metadata: {
+          'responseLength': responseText.length,
+          'estimatedResponseTokens': _contextService.estimateTokens(responseText),
+          'model': _selectedModel,
+          'duration': '${duration.inMilliseconds}ms',
+        });
 
         debugPrint('✓ AI response received');
         return responseText;
@@ -365,14 +440,11 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
         debugPrint('API Error: ${response.statusCode} - ${response.body}');
 
         // Log error response
-        await _debug.logApiResponse(
-          endpoint: url,
-          statusCode: response.statusCode,
-          body: {
-            'error': response.body.substring(0, response.body.length > 500 ? 500 : response.body.length),
-          },
-          duration: duration,
-        );
+        await _debug.error('AIService', 'Cloud AI error response', metadata: {
+          'statusCode': response.statusCode,
+          'error': response.body.substring(0, response.body.length > 500 ? 500 : response.body.length),
+          'duration': '${duration.inMilliseconds}ms',
+        });
 
         // Check for specific model errors
         if (response.statusCode == 404) {
@@ -432,26 +504,6 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
     }
   }
 
-  String _buildContext(List<Goal>? goals, List<JournalEntry>? recentEntries) {
-    final buffer = StringBuffer();
-    
-    if (goals != null && goals.isNotEmpty) {
-      buffer.writeln('Active Goals:');
-      for (final goal in goals.where((g) => g.isActive).take(5)) {
-        buffer.writeln('- ${goal.title} (${goal.category.displayName}) - ${goal.currentProgress}% complete');
-      }
-      buffer.writeln();
-    }
-    
-    if (recentEntries != null && recentEntries.isNotEmpty) {
-      buffer.writeln('Recent Journal Entries:');
-      for (final entry in recentEntries.take(3)) {
-        buffer.writeln('${entry.createdAt.toString().substring(0, 10)}');
-      }
-    }
-    
-    return buffer.toString();
-  }
 
   Future<Map<String, String>> analyzeJournalEntry(
     JournalEntry entry,

@@ -274,9 +274,11 @@ class MainActivity : FlutterActivity() {
             val engineConfig = EngineConfig(
                 modelPath = modelPath,
                 backend = Backend.GPU,  // Use GPU backend with OpenCL for better performance
-                maxNumTokens = 768      // Maximum tokens for detailed coaching responses (~500-600 words)
+                maxNumTokens = 1024     // Maximum tokens for responses (~700-800 words)
                                         // Context window is 2048 tokens (determined by ekv2048 model variant)
-                                        // Leaves ~1200-1500 tokens for input context (prompts, goals, journal entries)
+                                        // Leaves ~1024 tokens for input context (prompts, minimal user data)
+                                        // NOTE: Guided journaling prompts can be 500-800 tokens, so this
+                                        // allocation prioritizes complete responses over extensive context
             )
 
             Log.d(TAG, "Step 6: Configuration built successfully")
@@ -366,8 +368,10 @@ class MainActivity : FlutterActivity() {
                 ConversationConfig(
                     samplerConfig = SamplerConfig(
                         topK = 40,
-                        topP = 0.95,
-                        temperature = 0.8
+                        topP = 0.90,        // Slightly more focused (was 0.95)
+                        temperature = 0.6   // Lower temperature = more concise, focused responses
+                                           // 0.6 balances warmth/personality with brevity
+                                           // (was 0.8 - too creative/verbose)
                     )
                 )
             )

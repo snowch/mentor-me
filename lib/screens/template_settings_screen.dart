@@ -129,7 +129,12 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
         title: const Text('1-to-1 Template Settings'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg + 80, // Extra bottom padding to clear nav bar
+        ),
         children: [
           // Info card
           Card(

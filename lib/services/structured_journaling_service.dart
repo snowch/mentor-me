@@ -25,12 +25,42 @@ class StructuredJournalingService {
   }
 
   /// Generate a dynamic system prompt from a template
+  ///
+  /// [useCompactMode] - If true, only shows current step (for local AI with limited context)
   String generateSystemPrompt(
     JournalTemplate template,
-    int currentStep,
-  ) {
+    int currentStep, {
+    bool useCompactMode = false,
+  }) {
     final buffer = StringBuffer();
 
+    // For compact mode (local AI), use ultra-simplified prompt
+    if (useCompactMode) {
+      buffer.writeln('You are a warm journaling guide for ${template.name}.');
+      buffer.writeln();
+
+      // Only show the CURRENT field
+      if (currentStep < template.fields.length) {
+        final field = template.fields[currentStep];
+        buffer.writeln('Next question:');
+        buffer.writeln('"${field.prompt}"');
+
+        if (field.aiCoaching != null) {
+          buffer.writeln();
+          buffer.writeln('Tip: ${field.aiCoaching}');
+        }
+      }
+
+      buffer.writeln();
+      buffer.writeln('IMPORTANT:');
+      buffer.writeln('1. Acknowledge the user\'s answer (don\'t repeat the question they just answered)');
+      buffer.writeln('2. Ask the NEXT question');
+      buffer.writeln('Keep it brief - 2-3 sentences total.');
+
+      return buffer.toString();
+    }
+
+    // Full mode (cloud AI) - show all structure
     // Start with custom AI guidance or default
     if (template.aiGuidance != null && template.aiGuidance!.isNotEmpty) {
       buffer.writeln(template.aiGuidance);
@@ -211,16 +241,25 @@ class StructuredJournalingService {
       category: TemplateCategory.therapy,
       fields: [
         TemplateField(
+          id: 'automatic_thought',
+          label: 'Automatic Thought',
+          prompt: 'What thought has been bothering you or going through your mind?',
+          type: FieldType.longText,
+          helpText: 'The immediate, often negative thought that popped up',
+          aiCoaching:
+              'Help the user identify the exact thought, not just the feeling',
+        ),
+        TemplateField(
           id: 'situation',
           label: 'Situation',
-          prompt: 'Describe the situation that triggered this thought. What happened?',
+          prompt: 'What situation triggered this thought? What happened?',
           type: FieldType.text,
           helpText: 'Just the facts - who, what, when, where',
         ),
         TemplateField(
           id: 'emotion',
           label: 'Emotion',
-          prompt: 'What emotion did you feel?',
+          prompt: 'What emotion did this thought cause you to feel?',
           type: FieldType.text,
           helpText: 'Examples: anxious, sad, angry, frustrated',
         ),
@@ -230,15 +269,6 @@ class StructuredJournalingService {
           prompt: 'How intense was this emotion on a scale of 0-10?',
           type: FieldType.scale,
           validation: {'min': 0, 'max': 10},
-        ),
-        TemplateField(
-          id: 'automatic_thought',
-          label: 'Automatic Thought',
-          prompt: 'What automatic thought went through your mind?',
-          type: FieldType.longText,
-          helpText: 'The immediate, often negative thought that popped up',
-          aiCoaching:
-              'Help the user identify the exact thought, not just the feeling',
         ),
         TemplateField(
           id: 'evidence_for',
@@ -399,7 +429,9 @@ class StructuredJournalingService {
       aiGuidance:
           'You are a supportive meditation teacher. '
           'Help the user reflect on their practice without judgment. '
-          'Remind them that a "wandering mind" is normal and not a failure.',
+          'Start by asking about their session in a neutral, open way. '
+          'IF they mention challenges with focus or a wandering mind, THEN gently normalize it as a natural part of practice. '
+          'Don\'t assume they struggled - they may have had a great session!',
       completionMessage: 'Thank you for taking time to reflect on your practice!',
       createdAt: DateTime.now(),
       showProgressIndicator: true,

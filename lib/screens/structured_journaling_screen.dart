@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:mentor_me/models/journal_template.dart';
 import 'package:mentor_me/models/structured_journaling_session.dart';
 import 'package:mentor_me/models/chat_message.dart';
@@ -8,6 +9,8 @@ import 'package:mentor_me/models/journal_entry.dart';
 import 'package:mentor_me/models/ai_provider.dart';
 import 'package:mentor_me/providers/journal_template_provider.dart';
 import 'package:mentor_me/providers/journal_provider.dart';
+import 'package:mentor_me/providers/goal_provider.dart';
+import 'package:mentor_me/providers/habit_provider.dart';
 import 'package:mentor_me/services/structured_journaling_service.dart';
 import 'package:mentor_me/services/ai_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
@@ -85,16 +88,27 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
     });
 
     try {
+      // Use compact mode for local AI to avoid context overflow
+      final aiService = AIService();
+      final isLocalAI = aiService.getProvider() == AIProvider.local;
+
       final systemPrompt = _service.generateSystemPrompt(
         _selectedTemplate!,
         _currentSession!.currentStep ?? 0,
+        useCompactMode: isLocalAI,
       );
 
       // Combine system prompt with user prompt
       final fullPrompt = '$systemPrompt\n\nStart the journaling session. Greet the user warmly and ask the first question.';
 
+      // Get user's goals and habits for context
+      final goals = context.read<GoalProvider>().goals;
+      final habits = context.read<HabitProvider>().habits;
+
       final response = await AIService().getCoachingResponse(
         prompt: fullPrompt,
+        goals: goals,
+        habits: habits,
       );
 
       final aiMessage = ChatMessage(
@@ -181,9 +195,14 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
       final currentStep = _currentSession!.currentStep ?? 0;
       final nextStep = currentStep + 1;
 
+      // Use compact mode for local AI to avoid context overflow
+      final aiService = AIService();
+      final isLocalAI = aiService.getProvider() == AIProvider.local;
+
       final systemPrompt = _service.generateSystemPrompt(
         _selectedTemplate!,
         nextStep,
+        useCompactMode: isLocalAI,
       );
 
       // Build conversation context
@@ -200,8 +219,14 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
       // Combine system prompt with conversation context
       final fullPrompt = '$systemPrompt\n\n$prompt\n\nConversation so far:\n$conversationContext';
 
+      // Get user's goals and habits for context
+      final goals = context.read<GoalProvider>().goals;
+      final habits = context.read<HabitProvider>().habits;
+
       final response = await AIService().getCoachingResponse(
         prompt: fullPrompt,
+        goals: goals,
+        habits: habits,
       );
 
       final aiMessage = ChatMessage(
@@ -413,7 +438,9 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
       // Try to match with template fields to add context
       if (i < _selectedTemplate!.fields.length) {
         final field = _selectedTemplate!.fields[i];
-        buffer.writeln('${field.label}: ${message.content}');
+        // Use the prompt (actual question) instead of label for better readability
+        buffer.writeln('${field.prompt}');
+        buffer.writeln(message.content);
       } else {
         // Fallback if we have more messages than fields
         buffer.writeln(message.content);
@@ -484,6 +511,82 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
     );
   }
 
+  void _showMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('Export Session'),
+              onTap: () {
+                Navigator.pop(context);
+                _exportSession();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportSession() async {
+    if (_currentSession == null || _selectedTemplate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No session to export')),
+      );
+      return;
+    }
+
+    if (_currentSession!.conversation.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No messages to export')),
+      );
+      return;
+    }
+
+    try {
+      // Format session as text
+      final buffer = StringBuffer();
+      buffer.writeln('1-to-1 Mentor Session Export');
+      buffer.writeln('Session: ${_selectedTemplate!.emoji ?? ''} ${_selectedTemplate!.name}'.trim());
+      buffer.writeln('Created: ${_currentSession!.createdAt.toString().substring(0, 19)}');
+      buffer.writeln('Status: ${_currentSession!.isComplete ? 'Complete' : 'In Progress'}');
+      buffer.writeln('Messages: ${_currentSession!.conversation.length}');
+      buffer.writeln();
+      buffer.writeln('=' * 50);
+      buffer.writeln();
+
+      for (final message in _currentSession!.conversation) {
+        final sender = message.sender == MessageSender.user ? 'You' : 'Mentor';
+        final timestamp = message.timestamp.toString().substring(11, 16);
+        buffer.writeln('[$timestamp] $sender:');
+        buffer.writeln(message.content);
+        buffer.writeln();
+      }
+
+      // Share using share_plus
+      await Share.share(
+        buffer.toString(),
+        subject: '1-to-1 Session: ${_selectedTemplate!.name}',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session exported successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_selectedTemplate == null) {
@@ -527,11 +630,14 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
           if (_currentSession != null && !_currentSession!.isComplete) ...[
             // Show manual complete button when user has answered enough fields
             if (_canManuallyComplete())
-              IconButton(
-                icon: const Icon(Icons.check_circle_outline),
+              FilledButton.icon(
+                icon: const Icon(Icons.check_circle, size: 18),
+                label: const Text('Complete'),
                 onPressed: _manuallyCompleteSession,
-                tooltip: 'Complete Session',
-                color: Theme.of(context).colorScheme.primary,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                ),
               ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -540,10 +646,26 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
             ),
           ],
           if (_currentSession != null && _currentSession!.isComplete)
-            IconButton(
-              icon: const Icon(Icons.save),
+            FilledButton.icon(
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.save, size: 18),
+              label: const Text('Save'),
               onPressed: _isSaving ? null : _saveSession,
-              tooltip: 'Save',
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.tertiary,
+                foregroundColor: Theme.of(context).colorScheme.onTertiary,
+              ),
+            ),
+          if (_currentSession != null && _currentSession!.conversation.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.more_vert),
+              onPressed: _showMenu,
+              tooltip: 'More options',
             ),
         ],
       ),
@@ -684,13 +806,15 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
                         ),
                       ),
                       TextButton.icon(
-                        onPressed: () {
-                          Navigator.push(
+                        onPressed: () async {
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => const TemplateSettingsScreen(),
                             ),
                           );
+                          // Rebuild to refresh template list after returning from settings
+                          if (mounted) setState(() {});
                         },
                         icon: const Icon(Icons.settings, size: 16),
                         label: const Text('Manage'),
@@ -738,13 +862,15 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
                                 ),
                                 AppSpacing.gapLg,
                                 FilledButton.icon(
-                                  onPressed: () {
-                                    Navigator.push(
+                                  onPressed: () async {
+                                    await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => const TemplateSettingsScreen(),
                                       ),
                                     );
+                                    // Rebuild to refresh template list after returning from settings
+                                    if (mounted) setState(() {});
                                   },
                                   icon: const Icon(Icons.settings),
                                   label: const Text('Manage Templates'),
@@ -754,7 +880,12 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                            AppSpacing.lg + 80, // Extra bottom padding to clear nav bar
+                          ),
                           itemCount: templates.length,
                           itemBuilder: (context, index) {
                             final template = templates[index];
@@ -840,7 +971,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
                       ),
                     )
                   : MarkdownBody(
-                      data: message.content,
+                      data: message.content.replaceAll('\\n', '\n'), // Convert literal \n to actual newlines
                       styleSheet: MarkdownStyleSheet(
                         p: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -903,9 +1034,9 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
               children: [
                 _buildTypingDot(0),
                 AppSpacing.gapHorizontalXs,
-                _buildTypingDot(150),
+                _buildTypingDot(200),
                 AppSpacing.gapHorizontalXs,
-                _buildTypingDot(300),
+                _buildTypingDot(400),
               ],
             ),
           ),
@@ -914,29 +1045,8 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
     );
   }
 
-  Widget _buildTypingDot(int delay) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 600),
-      builder: (context, value, child) {
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withOpacity(0.3 + (value * 0.7)),
-            shape: BoxShape.circle,
-          ),
-        );
-      },
-      onEnd: () {
-        if (mounted) {
-          setState(() {});
-        }
-      },
-    );
+  Widget _buildTypingDot(int delayMs) {
+    return _AnimatedDot(delay: Duration(milliseconds: delayMs));
   }
 
   Widget _buildMessageInput(BuildContext context) {
@@ -990,6 +1100,77 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Animated dot widget for typing indicator
+class _AnimatedDot extends StatefulWidget {
+  final Duration delay;
+
+  const _AnimatedDot({required this.delay});
+
+  @override
+  State<_AnimatedDot> createState() => _AnimatedDotState();
+}
+
+class _AnimatedDotState extends State<_AnimatedDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _animation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.3, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.3)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 50,
+      ),
+    ]).animate(_controller);
+
+    // Start animation after delay
+    Future.delayed(widget.delay, () {
+      if (mounted) {
+        _controller.repeat();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                .withOpacity(_animation.value),
+            shape: BoxShape.circle,
+          ),
+        );
+      },
     );
   }
 }

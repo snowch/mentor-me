@@ -117,7 +117,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     });
 
     _aiService.setModel(_selectedModel);
-    _aiService.setProvider(_selectedProvider);
+    await _aiService.setProvider(_selectedProvider);
     _aiService.setApiKey(_claudeApiKey);
   }
 

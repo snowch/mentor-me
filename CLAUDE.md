@@ -368,6 +368,46 @@ await _debug.error(
 );
 ```
 
+#### ContextManagementService (`lib/services/context_management_service.dart`)
+**Purpose:** Intelligent context building for LLM conversations
+
+**Key Features:**
+- Token estimation (~1 token ≈ 4 characters)
+- Provider-aware context strategies (cloud vs. local)
+- Automatic data prioritization and truncation
+- Returns context + metadata (token estimates, item counts)
+
+**Context Strategies:**
+- **Cloud AI**: Comprehensive context (max ~150k tokens)
+  - Up to 10 goals, 10 habits, 5 journal entries, 7 pulse entries, 10 messages
+- **Local AI**: Minimal context (max ~1000 tokens)
+  - Top 2 goals, top 2 habits, 1 journal entry, 1 pulse entry, 4 messages
+
+**Usage:**
+```dart
+final contextService = ContextManagementService();
+
+// Automatically selects strategy based on AI provider
+final result = contextService.buildContext(
+  provider: AIProvider.cloud,  // or AIProvider.local
+  goals: goals,
+  habits: habits,
+  journalEntries: journals,
+  pulseEntries: pulseData,
+  conversationHistory: messages,
+);
+
+print('Context: ${result.context}');
+print('Estimated tokens: ${result.estimatedTokens}');
+print('Items included: ${result.itemCounts}');
+```
+
+**Why This Matters:**
+- Local AI (Gemma 3-1B) has only 1280-4096 tokens total capacity
+- After prompt (~200 tokens) and response buffer (~256 tokens), only ~600-3000 tokens available for context
+- Service prevents context overflow errors by staying within limits
+- Cloud AI benefits from comprehensive context for better personalization
+
 ### Advanced Services
 
 #### MentorIntelligenceService (`lib/services/mentor_intelligence_service.dart`)
@@ -709,30 +749,163 @@ User Input → LocalAIService → Check Model Availability
 - If no API key: Prompt to add key or switch to Local AI
 - If Local AI not downloaded: Show download prompt
 
-### Context-Aware Prompts
+### Context Management for LLM Conversations
 
-All AI requests include relevant context:
+**ContextManagementService** (`lib/services/context_management_service.dart`) intelligently builds context for AI conversations while respecting different AI providers' context window limits.
+
+**Key Challenge:**
+- Cloud AI (Claude): 200k token context window → Can include comprehensive user data
+- Local AI (Gemma 3-1B): **2048 token total context window** → Extremely constrained
+
+**Token Budget (Local AI - Critical Constraints):**
+- **Total window**: 2048 tokens
+- **Response allocation**: 1024 tokens (set in `MainActivity.kt`)
+- **Available for input**: ~1024 tokens
+- **After system prompt (~40 tokens)**: ~984 tokens for user data + message
+- **Result**: Must be VERY aggressive with context compression
+
+**Token Estimation:**
+- ~1 token ≈ 4 characters (rough approximation)
+- `estimateTokens(text)` method provides estimates for monitoring
+
+**Cloud AI Context Strategy (max ~150k tokens):**
+```dart
+// Comprehensive context for large context windows
+final contextResult = contextService.buildCloudContext(
+  goals: goals,              // Up to 10 active goals
+  habits: habits,            // Up to 10 habits (by streak)
+  journalEntries: journals,  // Last 5 entries (truncated to 300 chars)
+  pulseEntries: pulseData,   // Last 7 wellness check-ins
+  conversationHistory: msgs, // Last 10 messages (unlimited total)
+);
+// Returns: context string + estimated tokens + item counts
+```
+
+**Local AI Context Strategy (max ~300 tokens for context):**
+```dart
+// HEAVILY compressed context for tiny context window
+final contextResult = contextService.buildLocalContext(
+  goals: goals,              // Top 2 active goals only (title + progress only)
+  habits: habits,            // Top 2 habits by streak (title + streak only)
+  journalEntries: journals,  // Most recent entry (truncated to 100 chars)
+  pulseEntries: pulseData,   // Most recent wellness entry (top 3 metrics only)
+  conversationHistory: msgs, // Last 2 messages ONLY (truncated to 60 chars each)
+);
+// Automatically prioritizes most recent/relevant data
+// Aggressively truncates to fit within ~300 token budget
+```
+
+**System Prompt Compression (Local AI):**
+
+To maximize available context, local AI uses an ultra-compressed system prompt:
 
 ```dart
-// Example: Coaching response with context
-final context = {
-  'goals': goals.map((g) => g.toJson()).toList(),
-  'habits': habits.map((h) => h.toJson()).toList(),
-  'recent_journal_entries': entries.take(5).map((e) => e.toJson()).toList(),
-  'recent_pulse_entries': pulseEntries.take(7).map((p) => p.toJson()).toList(),
-};
+// BEFORE (Cloud AI - ~200 tokens):
+'''You are a supportive, encouraging personal mentor...
+Your tone is: warm, supportive, direct but not harsh...
+IMPORTANT: Format your response using markdown:
+- Use **bold** for emphasis
+...'''
 
-final response = await AIService.instance.generateCoachingResponse(
-  prompt: userMessage,
-  context: context,
-);
+// AFTER (Local AI - ~50 tokens):
+'''You are a supportive AI mentor helping with goals and habits.
+[context]
+User: [message]
+
+CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for simple questions, 4-5 for complex ones. Get to the point fast.'''
 ```
+
+**Response Length Control (Local AI):**
+
+Beyond prompt instructions, native sampling parameters enforce brevity:
+
+```kotlin
+// MainActivity.kt - Local AI sampling configuration
+SamplerConfig(
+    topK = 40,
+    topP = 0.90,        // Slightly more focused (reduced from 0.95)
+    temperature = 0.6   // Lower temperature = more concise, focused responses
+                       // 0.6 balances warmth/personality with brevity
+                       // (was 0.8 - too creative/verbose for small context window)
+)
+```
+
+**Why This Matters:**
+- **Temperature 0.6** (vs 0.8): Reduces rambling, encourages focused responses
+- **TopP 0.90** (vs 0.95): Slightly narrower token sampling = less wandering
+- **150-word limit** in prompt: Clear target for model to aim for
+- **"CRITICAL"** keyword: Emphasizes importance of brevity
+- **maxNumTokens = 1024**: Hard cap prevents runaway generation
+
+Result: Responses average 80-120 words (vs 200-400+ with higher temperature)
+```
+
+**Automatic Conversation Trimming:**
+
+To prevent unbounded context growth in long conversations:
+
+```dart
+// ChatProvider automatically trims conversation history for local AI
+if (aiProvider == AIProvider.local) {
+  const maxMessages = 20; // Keep last 20 messages (10 turns) only
+  if (messages.length > maxMessages) {
+    // Auto-trim to most recent messages
+    messages = messages.sublist(messages.length - maxMessages);
+  }
+}
+// Cloud AI keeps unlimited history
+```
+
+**Prompt Architecture (Avoiding Duplicate Context):**
+
+Previously, context was built twice (once in ChatProvider, once in AIService), wasting ~200 tokens. Now:
+
+```dart
+// ChatProvider: Pass raw user message + data to AIService
+final response = await _ai.getCoachingResponse(
+  prompt: userMessage,  // Raw message, NOT wrapped in system prompt
+  goals: goals,
+  habits: habits,
+  journalEntries: journalEntries,
+  pulseEntries: pulseEntries,
+  conversationHistory: _currentConversation?.messages,
+);
+
+// AIService: Build context ONCE and create final prompt
+final contextResult = _contextService.buildContext(
+  provider: aiProvider,  // Automatically selects cloud/local strategy
+  goals: goals,
+  habits: habits,
+  journalEntries: journalEntries,
+  pulseEntries: pulseEntries,
+  conversationHistory: conversationHistory,
+);
+
+final fullPrompt = '''[system prompt]
+${contextResult.context}
+User: $prompt
+
+[response instructions]''';
+```
+
+**Token Budget Breakdown Example (Local AI):**
+
+| Component | Tokens | Notes |
+|-----------|--------|-------|
+| System prompt | ~40 | Ultra-compressed |
+| User data context | ~150 | 2 goals, 2 habits, 1 journal, 1 pulse |
+| Conversation history | ~60 | Last 2 messages (60 chars each) |
+| User's message | ~50 | "How am I doing with my fitness goals?" |
+| **Total Input** | **~300** | Well under 1024 token limit |
+| **Response space** | **1024** | Full allocation for AI response |
 
 This enables the AI to:
 - Reference specific goals and progress
 - Identify patterns in habits and journal entries
 - Provide personalized, actionable advice
 - Detect challenges and blockers
+- **Never exceed context window limits** (critical for local AI)
+- **Generate complete responses** without truncation
 
 ---
 
@@ -913,6 +1086,170 @@ import 'web_download_helper.dart'
 | **Notifications** | ❌ Not supported | ✅ AndroidAlarmManager |
 | **File Downloads** | Browser download | path_provider |
 | **File Picker** | Browser picker | Native picker |
+
+---
+
+## Actionable AI Responses (Chat & Mentor Cards)
+
+Both the **Chat interface** and **Mentor coaching cards** (home screen) use a shared action system to suggest next steps to users. When adding new app functionality, both systems should be updated to maintain awareness.
+
+### Shared Action Model
+
+Both systems use `MentorAction` (`lib/models/mentor_message.dart`):
+
+```dart
+enum MentorActionType {
+  navigate,     // Navigate to another screen
+  chat,        // Expand chat with context
+  quickAction, // Perform immediate action
+}
+
+class MentorAction {
+  final String label;
+  final MentorActionType type;
+  final String? destination;  // Screen name for navigation
+  final Map<String, dynamic>? context;  // Data to pass
+  final String? chatPreFill;  // Pre-filled message
+}
+```
+
+### Chat Action Detection
+
+**File:** `lib/providers/chat_provider.dart`
+
+The `_detectSuggestedActions()` method automatically detects action keywords in AI responses:
+
+```dart
+// Example: AI says "You should create a goal for daily exercise"
+// → Detects "create a goal" → Adds "Create New Goal" button
+
+List<MentorAction> _detectSuggestedActions(String response) {
+  final actions = <MentorAction>[];
+  final lowerResponse = response.toLowerCase();
+
+  // Detect goal-related actions
+  if (lowerResponse.contains('create a goal')) {
+    actions.add(MentorAction.navigate(
+      label: 'Create New Goal',
+      destination: '/goals',
+      context: {'action': 'create'},
+    ));
+  }
+
+  // ... more detections
+}
+```
+
+**Current Detections:**
+- **Goals:** "create a goal", "new goal", "set a goal" → Navigate to goals screen
+- **Journal:** "journal" + "write"/"reflect"/"note" → Navigate to journal
+- **Habits:** "track" + "habit" → Navigate to habits
+- **Wellness:** "check in", "how are you feeling", "wellness" → Navigate to pulse
+- **View Goals:** "view your goals", "review your goals" → Navigate to goals
+
+### Mentor Intelligence Actions
+
+**File:** `lib/services/mentor_intelligence_service.dart`
+
+Generates proactive coaching cards with actions based on user state analysis.
+
+### UI Rendering
+
+**Chat Screen** (`lib/screens/chat_screen.dart`):
+- Action buttons render below mentor messages
+- Up to 2 actions shown per message (to avoid clutter)
+- Uses `FilledButton.tonal` with icons
+
+**Mentor Cards** (`lib/widgets/mentor_coaching_card_widget.dart`):
+- Primary and secondary action buttons
+- Displays on home screen
+
+### When to Update This System
+
+**You MUST update action detection when:**
+
+1. **Adding a new screen/feature** that users might need to navigate to
+2. **Adding new user actions** (mark habit complete, create goal, etc.)
+3. **Changing screen routes** or navigation structure
+4. **Adding new data types** that AI should reference
+
+### Update Checklist
+
+When adding new app functionality (e.g., a "Food Log" feature):
+
+**1. Add Action Detection in ChatProvider** (`lib/providers/chat_provider.dart`):
+```dart
+// In _detectSuggestedActions()
+if (lowerResponse.contains('food') || lowerResponse.contains('meal')) {
+  actions.add(MentorAction.navigate(
+    label: 'Open Food Log',
+    destination: '/food-log',
+  ));
+}
+```
+
+**2. Update Mentor Intelligence** (`lib/services/mentor_intelligence_service.dart`):
+```dart
+// Add food log analysis in analyzeUserState()
+// Generate mentor cards suggesting food logging when appropriate
+```
+
+**3. Update AI System Prompts** (if needed):
+- `ChatProvider.generateContextualResponse()` - Add food log to context
+- `AIService._buildContext()` - Include food log data in context
+
+**4. Test Integration:**
+```bash
+# Test chat detection
+User: "I should track what I eat"
+AI: "That's a great idea! Logging your meals can..."
+Expected: "Open Food Log" button appears
+
+# Test mentor cards
+Create food log entries → Check home screen for relevant mentor card
+```
+
+### Example: Adding "Mood Tracker" Feature
+
+**Step 1:** Add to ChatProvider action detection:
+```dart
+if (lowerResponse.contains('mood') || lowerResponse.contains('feeling')) {
+  actions.add(MentorAction.navigate(
+    label: 'Track Mood',
+    destination: '/mood-tracker',
+  ));
+}
+```
+
+**Step 2:** Update MentorIntelligenceService:
+```dart
+// Analyze mood patterns and suggest tracking when user seems stressed
+if (_detectLowMoodPattern(journalEntries)) {
+  cards.add(MentorCoachingCard(
+    message: "I notice you've been feeling down lately...",
+    primaryAction: MentorAction.navigate(
+      label: "Track Your Mood",
+      destination: '/mood-tracker',
+    ),
+    // ...
+  ));
+}
+```
+
+**Step 3:** Add to context management (if applicable):
+```dart
+// In ContextManagementService
+if (moodEntries != null && moodEntries.isNotEmpty) {
+  buffer.writeln('Recent mood: ...');
+}
+```
+
+### Benefits
+
+✅ **Consistent UX** - Chat and mentor cards work the same way
+✅ **Actionable AI** - Users can immediately act on suggestions
+✅ **Discoverable** - Users learn about features naturally
+✅ **Maintainable** - Centralized action model makes updates easy
 
 ---
 
@@ -1181,6 +1518,10 @@ When modifying data models, follow these steps IN ORDER:
    - Update `fromJson()` method
    - Update `copyWith()` method if applicable
    - Add linking comment referencing JSON schema (see below)
+   - **Verify BackupService coverage** (`lib/services/backup_service.dart`):
+     - If adding a **NEW model type** → Add export in `_createBackupJson()` (~line 45) and import in `_importData()` (~line 436)
+     - If modifying **EXISTING model** → Verify `toJson()`/`fromJson()` changes are sufficient (automatic in most cases)
+     - Check both web and mobile export paths handle the model correctly
 
 2. **Update JSON Schema** (`lib/schemas/`)
    - Increment schema version (e.g., v2 → v3)
@@ -1207,11 +1548,50 @@ When modifying data models, follow these steps IN ORDER:
    - Run schema validation test: `flutter test test/schema_validation_test.dart`
    - Update test expectations if schema changed
    - Test migration with sample data
+   - **Test backup/restore cycle** (CRITICAL - catches serialization issues):
+     ```bash
+     # 1. Run app and create test data with new/modified fields
+     flutter run -d chrome  # or -d android
+
+     # 2. In app: Create sample data using the modified model
+     #    - Add entries with all new fields populated
+     #    - Include edge cases (nulls, empty arrays, etc.)
+
+     # 3. Export backup via Settings → Backup & Restore
+
+     # 4. Clear all data (or use fresh install)
+
+     # 5. Import the backup file
+
+     # 6. Verify all fields restored correctly:
+     #    - Check new fields have correct values
+     #    - Verify no data loss or corruption
+     #    - Test both web and mobile if model used on both platforms
+     ```
 
 7. **Update Documentation**
    - Update `lib/schemas/README.md` with new version info
    - Update CLAUDE.md if significant architectural changes
    - Add examples in schema's `examples` section
+
+8. **Consider LLM Context Integration** (`lib/services/context_management_service.dart`)
+   - **When adding NEW domain models** (e.g., a new tracking feature), evaluate if they should be included in LLM chat context
+   - Ask: "Would this data help the AI mentor provide better, more personalized guidance?"
+   - **If YES**, update `ContextManagementService`:
+     - Add the new data type to `buildCloudContext()` (comprehensive inclusion)
+     - Add the new data type to `buildLocalContext()` (minimal/selective inclusion)
+     - Consider token budget: Local AI has very limited context (~1000 tokens max)
+     - Update method signatures in `ChatProvider.generateContextualResponse()` and `AIService.getCoachingResponse()`
+   - **If NO**, document why it's not relevant (e.g., technical metadata, UI state)
+   - **Examples of data that SHOULD be in context:**
+     - User tracking data: goals, habits, journal, pulse/wellness, check-ins
+     - User progress: milestones, streaks, completion rates
+     - User reflections: journal entries, mood/energy patterns
+   - **Examples of data that should NOT be in context:**
+     - Feature discovery flags (technical metadata)
+     - UI preferences (theme, notification settings)
+     - Debug logs
+     - API keys or credentials
 
 **Linking Comments:**
 
@@ -1368,12 +1748,18 @@ flutter run -d android
 - Change field types without creating a migration
 - Increment version without documenting in changelog
 - Skip migration for "small" changes
+- Add new model types without updating BackupService export/import
+- Skip testing backup/restore cycle after schema changes
+- Assume `toJson()`/`fromJson()` changes automatically work in BackupService
 
 ✅ **DO:**
 - Follow the checklist for every schema change
 - Test migrations with real user data
 - Document all changes in schema changelog
 - Run validation test before committing
+- Verify BackupService handles new/modified models correctly
+- Test the complete backup → restore → verify cycle
+- Check both web and mobile export/import paths
 
 **Schema Files Reference:**
 
@@ -1585,6 +1971,13 @@ Migration happens automatically in `PulseEntry.fromJson()`:
 - **AI Settings:** AISettingsScreen is 1,155 lines - complex state management
 - **Mentor Intelligence:** Analyzing large datasets (1000+ entries) may be slow - consider caching insights
 - **Model Download:** 554 MB download requires stable internet - uses wakelock to prevent interruption
+- **Local AI Context Management:** CRITICAL for avoiding truncated/repetitive responses
+  - Total context window: 2048 tokens (shared between input and output)
+  - System prompt compressed to ~40 tokens (vs ~200 for cloud)
+  - Conversation history limited to last 2 messages (60 chars each)
+  - Auto-trimming keeps max 20 messages total to prevent unbounded growth
+  - Avoid duplicate context building between ChatProvider and AIService
+  - See "Context Management for LLM Conversations" section for full strategy
 
 ### Known Limitations
 
