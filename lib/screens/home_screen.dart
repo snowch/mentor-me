@@ -11,6 +11,7 @@ import '../constants/app_strings.dart';
 import '../services/notification_service.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
+import '../models/ai_provider.dart';
 import 'goals_screen.dart';
 import 'journal_screen.dart';
 import 'habits_screen.dart';
@@ -33,11 +34,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _notificationsEnabled = true;
   bool _exactAlarmsEnabled = true;
   bool _aiConfigured = true;
+  AIProvider _currentProvider = AIProvider.cloud; // Default to cloud
+  bool _currentProviderConfigured = false; // Whether selected provider is ready
+  String? _cloudErrorMessage; // Last Cloud AI error
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadAIProvider();
     _checkNotificationStatus();
     _checkAIStatus();
     _checkAndShowWelcomeDialog();
@@ -56,8 +61,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // When app resumes from background, recheck notification permissions and AI config
     // This handles the case where user enabled permissions/configured AI in Settings and returned
     if (state == AppLifecycleState.resumed) {
+      _loadAIProvider();
       _checkNotificationStatus();
       _checkAIStatus();
+    }
+  }
+
+  Future<void> _loadAIProvider() async {
+    final settings = await _storage.loadSettings();
+    final providerString = settings['aiProvider'] as String?;
+
+    if (providerString != null) {
+      final provider = AIProviderExtension.fromJson(providerString);
+      final isConfigured = await _aiService.isProviderAvailable(provider);
+
+      // Check for Cloud AI errors
+      final cloudError = provider == AIProvider.cloud ? _aiService.getCloudError() : null;
+
+      if (mounted) {
+        setState(() {
+          _currentProvider = provider;
+          _currentProviderConfigured = isConfigured;
+          _cloudErrorMessage = cloudError;
+        });
+      }
     }
   }
 
@@ -81,6 +108,45 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _aiConfigured = isConfigured;
       });
     }
+  }
+
+  Future<void> _toggleAIProvider() async {
+    final newProvider = _currentProvider == AIProvider.cloud
+        ? AIProvider.local
+        : AIProvider.cloud;
+
+    // Check if the new provider is configured
+    final isConfigured = await _aiService.isProviderAvailable(newProvider);
+
+    setState(() {
+      _currentProvider = newProvider;
+      _currentProviderConfigured = isConfigured;
+    });
+
+    await _aiService.setProvider(newProvider);
+
+    if (!mounted) return;
+
+    // Show confirmation with provider info
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              newProvider == AIProvider.cloud ? Icons.cloud : Icons.phone_android,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Switched to ${newProvider.displayName}'),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+      ),
+    );
   }
 
   Future<void> _checkAndShowWelcomeDialog() async {
@@ -391,6 +457,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
         actions: [
+          // AI Provider Toggle
+          Tooltip(
+            message: 'AI Provider: ${_currentProvider.displayName}'
+                '${_cloudErrorMessage != null ? "\n⚠️ $_cloudErrorMessage" : ""}'
+                '${_currentProviderConfigured ? "" : " (Not configured)"}'
+                '\nTap to switch',
+            child: IconButton(
+              icon: Icon(
+                // Show error icon if there's a cloud error
+                _cloudErrorMessage != null && _currentProvider == AIProvider.cloud
+                    ? Icons.error
+                    : (_currentProviderConfigured
+                        ? (_currentProvider == AIProvider.cloud
+                            ? Icons.cloud
+                            : Icons.phone_android)
+                        : (_currentProvider == AIProvider.cloud
+                            ? Icons.cloud_off
+                            : Icons.phonelink_off)),
+                color: _cloudErrorMessage != null && _currentProvider == AIProvider.cloud
+                    ? Colors.red
+                    : (_currentProviderConfigured
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.orange),
+              ),
+              onPressed: _toggleAIProvider,
+            ),
+          ),
           if (showAIWarning)
             Tooltip(
               message: AppStrings.aiNotConfigured,

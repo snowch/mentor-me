@@ -308,13 +308,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text(AppStrings.backupAndRestore),
               subtitle: const Text(AppStrings.exportAndImportData),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const BackupRestoreScreen(),
                   ),
                 );
+                // Reload settings when returning from backup screen (in case data was imported)
+                _loadSettings();
               },
             ),
           ),

@@ -4,10 +4,12 @@ import '../models/milestone.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/feature_discovery_service.dart';
+import '../services/auto_backup_service.dart';
 
 class GoalProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   final NotificationService _notifications = NotificationService();
+  final AutoBackupService _autoBackup = AutoBackupService();
   List<Goal> _goals = [];
   bool _isLoading = false;
 
@@ -48,6 +50,9 @@ class GoalProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+
+    // Schedule auto-backup after data change
+    await _autoBackup.scheduleAutoBackup();
   }
 
   Future<void> updateGoal(Goal updatedGoal) async {
@@ -73,6 +78,9 @@ class GoalProvider extends ChangeNotifier {
       }
 
       notifyListeners();
+
+      // Schedule auto-backup after data change
+      await _autoBackup.scheduleAutoBackup();
     }
   }
 
@@ -84,6 +92,9 @@ class GoalProvider extends ChangeNotifier {
     await _notifications.cancelDeadlineReminders(goalId);
 
     notifyListeners();
+
+    // Schedule auto-backup after data change
+    await _autoBackup.scheduleAutoBackup();
   }
 
   Future<void> updateGoalProgress(String goalId, int progress) async {
@@ -153,6 +164,21 @@ class GoalProvider extends ChangeNotifier {
     final updatedMilestones = goal.milestonesDetailed
         .where((m) => m.id != milestoneId)
         .toList();
+    final updatedGoal = goal.copyWith(milestonesDetailed: updatedMilestones);
+    await updateGoal(updatedGoal);
+  }
+
+  Future<void> updateMilestone(String goalId, Milestone updatedMilestone) async {
+    final goal = getGoalById(goalId);
+    if (goal == null) {
+      throw Exception('Goal not found: $goalId');
+    }
+    final updatedMilestones = goal.milestonesDetailed.map((m) {
+      if (m.id == updatedMilestone.id) {
+        return updatedMilestone;
+      }
+      return m;
+    }).toList();
     final updatedGoal = goal.copyWith(milestonesDetailed: updatedMilestones);
     await updateGoal(updatedGoal);
   }

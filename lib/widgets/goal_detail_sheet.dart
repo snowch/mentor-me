@@ -7,6 +7,7 @@ import '../providers/goal_provider.dart';
 import '../services/goal_decomposition_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/add_milestone_dialog.dart';
+import '../widgets/edit_milestone_dialog.dart';
 import '../widgets/edit_goal_dialog.dart';
 import 'package:mentor_me/constants/app_strings.dart';
 
@@ -24,12 +25,19 @@ class _GoalDetailSheetState extends State<GoalDetailSheet> {
   final _decompositionService = GoalDecompositionService();
   bool _isLoadingSuggestions = false;
   bool _hasApiKey = false;
+  final _guidanceController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _currentProgress = widget.goal.currentProgress;
     _checkApiKey();
+  }
+
+  @override
+  void dispose() {
+    _guidanceController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkApiKey() async {
@@ -231,9 +239,29 @@ class _GoalDetailSheetState extends State<GoalDetailSheet> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // AI Suggestion Button
                         if (_hasApiKey) ...[
+                          // AI Guidance Input
+                          TextField(
+                            controller: _guidanceController,
+                            decoration: InputDecoration(
+                              hintText: 'e.g., "create a milestone for each chapter" (optional)',
+                              labelText: 'Guide the AI',
+                              helperText: 'Tell AI how to structure your milestones',
+                              helperMaxLines: 2,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              prefixIcon: Icon(
+                                Icons.lightbulb_outline,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            maxLines: 2,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                          const SizedBox(height: 12),
                           FilledButton.icon(
                             onPressed: _isLoadingSuggestions ? null : _generateMilestoneSuggestions,
                             icon: _isLoadingSuggestions
@@ -280,94 +308,166 @@ class _GoalDetailSheetState extends State<GoalDetailSheet> {
                   final milestone = entry.value;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
-                    child: CheckboxListTile(
-                      value: milestone.isCompleted,
-                      onChanged: (value) async {
-                        if (value == true) {
-                          await context.read<GoalProvider>().completeMilestone(
-                                goal.id,
-                                milestone.id,
-                              );
-                          
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('🎉 ${milestone.title} ${AppStrings.milestoneCompleted}'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      title: Text(
-                        milestone.title,
-                        style: TextStyle(
-                          decoration: milestone.isCompleted 
-                              ? TextDecoration.lineThrough 
-                              : null,
-                          color: milestone.isCompleted 
-                              ? Colors.grey 
-                              : null,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (milestone.description.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            MarkdownBody(
-                              data: milestone.description,
-                              styleSheet: MarkdownStyleSheet(
-                                p: TextStyle(
-                                  color: milestone.isCompleted
-                                      ? Colors.grey
-                                      : null,
-                                ),
-                                strong: TextStyle(
-                                  color: milestone.isCompleted
-                                      ? Colors.grey
-                                      : null,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                em: TextStyle(
-                                  color: milestone.isCompleted
-                                      ? Colors.grey
-                                      : null,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                listBullet: TextStyle(
-                                  color: milestone.isCompleted
-                                      ? Colors.grey
-                                      : null,
-                                ),
-                              ),
+                    child: Column(
+                      children: [
+                        CheckboxListTile(
+                          value: milestone.isCompleted,
+                          onChanged: (value) async {
+                            if (value == true) {
+                              await context.read<GoalProvider>().completeMilestone(
+                                    goal.id,
+                                    milestone.id,
+                                  );
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('🎉 ${milestone.title} ${AppStrings.milestoneCompleted}'),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          title: Text(
+                            milestone.title,
+                            style: TextStyle(
+                              decoration: milestone.isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: milestone.isCompleted
+                                  ? Colors.grey
+                                  : null,
                             ),
-                          ],
-                          if (milestone.targetDate != null) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.calendar_today,
-                                  size: 14,
-                                  color: milestone.isCompleted 
-                                      ? Colors.grey 
-                                      : Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _formatMilestoneDate(milestone.targetDate!),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: milestone.isCompleted 
-                                        ? Colors.grey 
-                                        : null,
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (milestone.description.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                MarkdownBody(
+                                  data: milestone.description,
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: TextStyle(
+                                      color: milestone.isCompleted
+                                          ? Colors.grey
+                                          : null,
+                                    ),
+                                    strong: TextStyle(
+                                      color: milestone.isCompleted
+                                          ? Colors.grey
+                                          : null,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    em: TextStyle(
+                                      color: milestone.isCompleted
+                                          ? Colors.grey
+                                          : null,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                    listBullet: TextStyle(
+                                      color: milestone.isCompleted
+                                          ? Colors.grey
+                                          : null,
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        ],
-                      ),
+                              if (milestone.targetDate != null) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      size: 14,
+                                      color: milestone.isCompleted
+                                          ? Colors.grey
+                                          : Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _formatMilestoneDate(milestone.targetDate!),
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: milestone.isCompleted
+                                            ? Colors.grey
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        // Action buttons for edit and delete
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => EditMilestoneDialog(
+                                      goalId: goal.id,
+                                      milestone: milestone,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('Edit'),
+                              ),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Delete Milestone'),
+                                      content: Text('Are you sure you want to delete "${milestone.title}"?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: const Text(AppStrings.cancel),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(context, true),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Theme.of(context).colorScheme.error,
+                                          ),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true && mounted) {
+                                    await context.read<GoalProvider>().deleteMilestone(
+                                          goal.id,
+                                          milestone.id,
+                                        );
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Milestone "${milestone.title}" deleted'),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.delete, size: 16),
+                                label: const Text('Delete'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }),
@@ -455,9 +555,15 @@ class _GoalDetailSheetState extends State<GoalDetailSheet> {
     try {
       final goal = context.read<GoalProvider>().getGoalById(widget.goal.id);
       if (goal == null) return;
-      
-      final suggestions = await _decompositionService.suggestMilestones(goal);
-      
+
+      // Get user guidance from the text field
+      final userGuidance = _guidanceController.text.trim();
+
+      final suggestions = await _decompositionService.suggestMilestones(
+        goal,
+        userGuidance: userGuidance.isNotEmpty ? userGuidance : null,
+      );
+
       setState(() {
         _isLoadingSuggestions = false;
       });

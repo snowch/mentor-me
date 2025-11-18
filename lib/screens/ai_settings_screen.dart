@@ -46,10 +46,17 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   bool _claudeApiKeyObscured = true;
 
   // Test connection state
-  bool _isTesting = false;
-  String? _testResult;
-  bool? _testSuccess;
-  int? _testLatencyMs;
+  // Cloud AI test state
+  bool _isTestingCloud = false;
+  String? _testResultCloud;
+  bool? _testSuccessCloud;
+  int? _testLatencyMsCloud;
+
+  // Local AI test state
+  bool _isTestingLocal = false;
+  String? _testResultLocal;
+  bool? _testSuccessLocal;
+  int? _testLatencyMsLocal;
 
   // Timer for polling download progress when screen is recreated during active download
   Timer? _progressTimer;
@@ -292,78 +299,109 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     }
   }
 
-  Future<void> _testAIConnection() async {
+  Future<void> _testCloudAI() async {
     setState(() {
-      _isTesting = true;
-      _testResult = null;
-      _testSuccess = null;
-      _testLatencyMs = null;
+      _isTestingCloud = true;
+      _testResultCloud = null;
+      _testSuccessCloud = null;
+      _testLatencyMsCloud = null;
     });
 
     try {
       final startTime = DateTime.now();
 
-      // For Local AI, test actual inference (not just file validation)
-      if (_selectedProvider == AIProvider.local) {
-        // Check if download is currently in progress
-        if (_isDownloading) {
-          setState(() {
-            _testSuccess = false;
-            _testResult = 'Download in progress. Please wait for the download to complete before testing.';
-          });
-          return;
-        }
+      // Test Cloud AI with actual inference
+      final response = await _aiService.getCoachingResponse(
+        prompt: "Reply with just the word 'OK' if you can read this message.",
+      );
 
-        // Check if model is fully downloaded
-        final isDownloaded = await _modelDownloadService.isModelDownloaded();
-        if (!isDownloaded) {
-          setState(() {
-            _testSuccess = false;
-            _testResult = 'Model not downloaded. Please download the model first before testing.';
-          });
-          return;
-        }
+      final endTime = DateTime.now();
+      final latency = endTime.difference(startTime).inMilliseconds;
 
-        // Run actual inference test with simple prompt
-        final localAI = LocalAIService();
-        final response = await localAI.runInference(
-          "Say 'Hello' if you can read this.",
-        );
-
-        final endTime = DateTime.now();
-        final latency = endTime.difference(startTime).inMilliseconds;
-
-        // If we got here without exception, test succeeded
-        setState(() {
-          _testSuccess = true;
-          _testResult = response.trim();
-          _testLatencyMs = latency;
-        });
-      } else {
-        // For Cloud provider, use actual inference test
-        final response = await _aiService.getCoachingResponse(
-          prompt: "Reply with just the word 'OK' if you can read this message.",
-        );
-
-        final endTime = DateTime.now();
-        final latency = endTime.difference(startTime).inMilliseconds;
-
-        // If we got here without exception, test succeeded
-        setState(() {
-          _testSuccess = true;
-          _testResult = response.trim();
-          _testLatencyMs = latency;
-        });
-      }
+      // If we got here without exception, test succeeded
+      setState(() {
+        _testSuccessCloud = true;
+        _testResultCloud = response.trim();
+        _testLatencyMsCloud = latency;
+      });
     } catch (e, stackTrace) {
       // Log error with full details for debugging
       await _debug.error(
         'AISettingsScreen',
-        'Test connection failed: ${e.toString()}',
+        'Cloud AI test failed: ${e.toString()}',
         stackTrace: stackTrace.toString(),
         metadata: {
-          'provider': _selectedProvider.toString(),
           'model': _selectedModel,
+          'errorType': e.runtimeType.toString(),
+        },
+      );
+
+      // Any exception means test failed - show error to user
+      setState(() {
+        _testSuccessCloud = false;
+        _testResultCloud = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTestingCloud = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _testLocalAI() async {
+    setState(() {
+      _isTestingLocal = true;
+      _testResultLocal = null;
+      _testSuccessLocal = null;
+      _testLatencyMsLocal = null;
+    });
+
+    try {
+      final startTime = DateTime.now();
+
+      // Check if download is currently in progress
+      if (_isDownloading) {
+        setState(() {
+          _testSuccessLocal = false;
+          _testResultLocal = 'Download in progress. Please wait for the download to complete before testing.';
+        });
+        return;
+      }
+
+      // Check if model is fully downloaded
+      final isDownloaded = await _modelDownloadService.isModelDownloaded();
+      if (!isDownloaded) {
+        setState(() {
+          _testSuccessLocal = false;
+          _testResultLocal = 'Model not downloaded. Please download the model first before testing.';
+        });
+        return;
+      }
+
+      // Run actual inference test with simple prompt
+      final localAI = LocalAIService();
+      final response = await localAI.runInference(
+        "Say 'Hello' if you can read this.",
+      );
+
+      final endTime = DateTime.now();
+      final latency = endTime.difference(startTime).inMilliseconds;
+
+      // If we got here without exception, test succeeded
+      setState(() {
+        _testSuccessLocal = true;
+        _testResultLocal = response.trim();
+        _testLatencyMsLocal = latency;
+      });
+    } catch (e, stackTrace) {
+      // Log error with full details for debugging
+      await _debug.error(
+        'AISettingsScreen',
+        'Local AI test failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+        metadata: {
           'isDownloading': _isDownloading,
           'errorType': e.runtimeType.toString(),
         },
@@ -371,13 +409,13 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
 
       // Any exception means test failed - show error to user
       setState(() {
-        _testSuccess = false;
-        _testResult = e.toString();
+        _testSuccessLocal = false;
+        _testResultLocal = e.toString();
       });
     } finally {
       if (mounted) {
         setState(() {
-          _isTesting = false;
+          _isTestingLocal = false;
         });
       }
     }
@@ -400,7 +438,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     }
   }
 
-  Widget _buildTestResultRow(String label, String value) {
+  Widget _buildTestResultRow(String label, String value, bool? testSuccess) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -410,7 +448,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             '$label:',
             style: TextStyle(
               fontWeight: FontWeight.w500,
-              color: _testSuccess == true
+              color: testSuccess == true
                   ? Colors.green.shade800
                   : Colors.red.shade800,
             ),
@@ -419,7 +457,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             value,
             style: TextStyle(
               fontFamily: 'monospace',
-              color: _testSuccess == true
+              color: testSuccess == true
                   ? Colors.green.shade900
                   : Colors.red.shade900,
             ),
@@ -445,7 +483,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       body: ListView(
         padding: EdgeInsets.all(AppSpacing.lg),
         children: [
-          // AI Provider Selection Section
+          // AI Provider Configuration Info
           Card(
             child: Padding(
               padding: AppSpacing.screenPadding,
@@ -455,58 +493,17 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                   Row(
                     children: [
                       Icon(
-                        Icons.cloud_queue,
+                        Icons.settings_suggest,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       AppSpacing.gapHorizontalMd,
                       Text(
-                        AppStrings.aiProvider,
+                        'Configure AI Providers',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ],
                   ),
-                  AppSpacing.gapLg,
-                  Text(
-                    AppStrings.chooseProvider,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                  ),
-                  AppSpacing.gapLg,
-
-                  // Provider selection
-                  DropdownButtonFormField<AIProvider>(
-                    value: _selectedProvider,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: AppStrings.provider,
-                    ),
-                    items: AIProvider.values.map((provider) {
-                      return DropdownMenuItem(
-                        value: provider,
-                        child: Text(provider.displayName),
-                      );
-                    }).toList(),
-                    onChanged: (value) async {
-                      if (value != null) {
-                        setState(() {
-                          _selectedProvider = value;
-                        });
-
-                        // Auto-save when provider changes
-                        await _saveSettings();
-
-                        // Check if model is downloaded when Local is selected
-                        if (value == AIProvider.local) {
-                          await _checkModelDownloaded();
-                        }
-                      }
-                    },
-                  ),
-
                   AppSpacing.gapMd,
-
-                  // Provider info
                   Container(
                     padding: AppSpacing.paddingMd,
                     decoration: BoxDecoration(
@@ -524,379 +521,707 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                         AppSpacing.gapHorizontalMd,
                         Expanded(
                           child: Text(
-                            _selectedProvider.description,
+                            'Configure both AI providers below. Use the toggle in the app bar to switch between them.',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
 
-                  // Claude API Key field for cloud AI
-                  if (_selectedProvider == AIProvider.cloud) ...[
-                    AppSpacing.gapMd,
+          AppSpacing.gapLg,
 
-                    TextField(
-                      controller: _claudeApiKeyController,
-                      obscureText: _claudeApiKeyObscured,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: AppStrings.claudeApiKey,
-                        hintText: 'sk-ant-api03-...',
-                        helperText: AppStrings.requiredForClaudeAi,
-                        helperMaxLines: 2,
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(_claudeApiKeyObscured ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () {
-                                setState(() {
-                                  _claudeApiKeyObscured = !_claudeApiKeyObscured;
-                                });
-                              },
-                              tooltip: _claudeApiKeyObscured ? AppStrings.showApiKey : AppStrings.hideApiKey,
+          // Cloud AI Configuration Section
+          Card(
+            child: Padding(
+              padding: AppSpacing.screenPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.cloud,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      AppSpacing.gapHorizontalMd,
+                      Text(
+                        'Cloud AI (Claude)',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  AppSpacing.gapSm,
+                  Text(
+                    'Use Claude API (more powerful, requires internet)',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                  ),
+                  AppSpacing.gapLg,
+
+                  // Claude API Key field
+                  TextField(
+                    controller: _claudeApiKeyController,
+                    obscureText: _claudeApiKeyObscured,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: AppStrings.claudeApiKey,
+                      hintText: 'sk-ant-api03-...',
+                      helperText: AppStrings.requiredForClaudeAi,
+                      helperMaxLines: 2,
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(_claudeApiKeyObscured ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () {
+                              setState(() {
+                                _claudeApiKeyObscured = !_claudeApiKeyObscured;
+                              });
+                            },
+                            tooltip: _claudeApiKeyObscured ? AppStrings.showApiKey : AppStrings.hideApiKey,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.help_outline),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text(AppStrings.claudeApiKey),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          AppStrings.toUseClaudeAi,
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        const Text('1. ${AppStrings.createAccountAnthropic}'),
+                                        const SizedBox(height: 8),
+                                        const Text('2. ${AppStrings.navigateToApiKeys}'),
+                                        const SizedBox(height: 8),
+                                        const Text('3. ${AppStrings.createNewApiKey}'),
+                                        const SizedBox(height: 8),
+                                        const Text('4. ${AppStrings.copyAndPasteHere}'),
+                                        const SizedBox(height: 12),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.shade50,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            AppStrings.apiKeyStoredSecurely,
+                                            style: TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text(AppStrings.gotIt),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            tooltip: AppStrings.howToGetApiKey,
+                          ),
+                        ],
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _claudeApiKey = value.trim();
+                      });
+                      // Auto-save API key when changed
+                      _saveSettings();
+                    },
+                  ),
+
+                  AppSpacing.gapLg,
+
+                  // Test Cloud AI Section
+                  const Divider(),
+                  AppSpacing.gapMd,
+                  Text(
+                    'Test Connection',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  AppSpacing.gapSm,
+                  Text(
+                    'Send a test message to verify your API key and model configuration.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                  ),
+                  AppSpacing.gapMd,
+
+                  // Test Button
+                  FilledButton.icon(
+                    onPressed: (_isTestingCloud || _claudeApiKey.isEmpty) ? null : _testCloudAI,
+                    icon: _isTestingCloud
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_sync),
+                    label: Text(_isTestingCloud
+                        ? AppStrings.testing
+                        : _claudeApiKey.isEmpty
+                            ? 'Enter API Key First'
+                            : 'Test Cloud AI'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+
+                  // Test Result Display
+                  if (_testResultCloud != null)
+                    Column(
+                      children: [
+                        AppSpacing.gapMd,
+                        Container(
+                          padding: AppSpacing.paddingMd,
+                          decoration: BoxDecoration(
+                            color: _testSuccessCloud == true
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
+                            borderRadius: AppRadius.radiusMd,
+                            border: Border.all(
+                              color: _testSuccessCloud == true
+                                  ? Colors.green.shade200
+                                  : Colors.red.shade200,
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.help_outline),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text(AppStrings.claudeApiKey),
-                                    content: SingleChildScrollView(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text(
-                                            AppStrings.toUseClaudeAi,
-                                            style: TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          const Text('1. ${AppStrings.createAccountAnthropic}'),
-                                          const SizedBox(height: 8),
-                                          const Text('2. ${AppStrings.navigateToApiKeys}'),
-                                          const SizedBox(height: 8),
-                                          const Text('3. ${AppStrings.createNewApiKey}'),
-                                          const SizedBox(height: 8),
-                                          const Text('4. ${AppStrings.copyAndPasteHere}'),
-                                          const SizedBox(height: 12),
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.shade50,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: const Text(
-                                              AppStrings.apiKeyStoredSecurely,
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                        ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    _testSuccessCloud == true ? Icons.check_circle : Icons.error,
+                                    color: _testSuccessCloud == true
+                                        ? Colors.green.shade700
+                                        : Colors.red.shade700,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _testSuccessCloud == true ? AppStrings.testSuccessful : AppStrings.testFailed,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _testSuccessCloud == true
+                                            ? Colors.green.shade900
+                                            : Colors.red.shade900,
                                       ),
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text(AppStrings.gotIt),
-                                      ),
-                                    ],
                                   ),
-                                );
-                              },
-                              tooltip: AppStrings.howToGetApiKey,
-                            ),
-                          ],
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              _buildTestResultRow(
+                                AppStrings.model,
+                                _availableModels
+                                    .firstWhere((m) => m.id == _selectedModel)
+                                    .displayName,
+                                _testSuccessCloud,
+                              ),
+                              if (_testLatencyMsCloud != null)
+                                _buildTestResultRow(
+                                  AppStrings.responseTime,
+                                  '${(_testLatencyMsCloud! / 1000).toStringAsFixed(2)}s',
+                                  _testSuccessCloud,
+                                ),
+                              const SizedBox(height: 8),
+                              Text(
+                                AppStrings.response,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _testSuccessCloud == true
+                                      ? Colors.green.shade900
+                                      : Colors.red.shade900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _testResultCloud!,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _claudeApiKey = value.trim();
-                        });
-                        // Auto-save API key when changed
-                        _saveSettings();
-                      },
+                      ],
                     ),
-                  ],
+                ],
+              ),
+            ),
+          ),
 
-                  // Model download section for local AI
-                  if (_selectedProvider == AIProvider.local) ...[
-                    AppSpacing.gapMd,
+          AppSpacing.gapLg,
 
-                    // HuggingFace token field
-                    TextField(
-                      controller: _hfTokenController,
-                      obscureText: _hfTokenObscured,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: AppStrings.huggingFaceToken,
-                        hintText: AppStrings.enterHuggingFaceToken,
-                        helperText: AppStrings.requiredForGemmaModels,
-                        helperMaxLines: 2,
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(_hfTokenObscured ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () {
-                                setState(() {
-                                  _hfTokenObscured = !_hfTokenObscured;
-                                });
-                              },
-                              tooltip: _hfTokenObscured ? AppStrings.showToken : AppStrings.hideToken,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.help_outline),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text(AppStrings.huggingFaceToken),
-                                    content: SingleChildScrollView(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text(
-                                            'To download Gemma models, you need a HuggingFace token:',
-                                            style: TextStyle(fontWeight: FontWeight.bold),
+          // Local AI Configuration Section
+          Card(
+            child: Padding(
+              padding: AppSpacing.screenPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.phone_android,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      AppSpacing.gapHorizontalMd,
+                      Text(
+                        'Local AI (On-Device)',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  AppSpacing.gapSm,
+                  Text(
+                    'Run AI on your device (private, offline, faster for simple tasks)',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                  ),
+                  AppSpacing.gapLg,
+
+                  // HuggingFace token field
+                  TextField(
+                    controller: _hfTokenController,
+                    obscureText: _hfTokenObscured,
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      labelText: AppStrings.huggingFaceToken,
+                      hintText: AppStrings.enterHuggingFaceToken,
+                      helperText: AppStrings.requiredForGemmaModels,
+                      helperMaxLines: 2,
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(_hfTokenObscured ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () {
+                              setState(() {
+                                _hfTokenObscured = !_hfTokenObscured;
+                              });
+                            },
+                            tooltip: _hfTokenObscured ? AppStrings.showToken : AppStrings.hideToken,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.help_outline),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text(AppStrings.huggingFaceToken),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'To download Gemma models, you need a HuggingFace token:',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        const Text('1. Create account at huggingface.co/join'),
+                                        const SizedBox(height: 8),
+                                        const Text('2. Accept license at:\n   huggingface.co/litert-community/Gemma3-1B-IT'),
+                                        const SizedBox(height: 8),
+                                        const Text('3. Generate token at:\n   huggingface.co/settings/tokens'),
+                                        const SizedBox(height: 8),
+                                        const Text('4. Use "Read" access (default)'),
+                                        const SizedBox(height: 12),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.shade50,
+                                            borderRadius: BorderRadius.circular(4),
                                           ),
-                                          const SizedBox(height: 12),
-                                          const Text('1. Create account at huggingface.co/join'),
-                                          const SizedBox(height: 8),
-                                          const Text('2. Accept license at:\n   huggingface.co/litert-community/Gemma3-1B-IT'),
-                                          const SizedBox(height: 8),
-                                          const Text('3. Generate token at:\n   huggingface.co/settings/tokens'),
-                                          const SizedBox(height: 8),
-                                          const Text('4. Use "Read" access (default)'),
-                                          const SizedBox(height: 12),
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.shade50,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: const Text(
-                                              AppStrings.tokenStoredSecurely,
-                                              style: TextStyle(fontSize: 12),
-                                            ),
+                                          child: const Text(
+                                            AppStrings.tokenStoredSecurely,
+                                            style: TextStyle(fontSize: 12),
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text(AppStrings.gotIt),
-                                      ),
-                                    ],
                                   ),
-                                );
-                              },
-                              tooltip: AppStrings.howToGetToken,
-                            ),
-                          ],
-                        ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text(AppStrings.gotIt),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            tooltip: AppStrings.howToGetToken,
+                          ),
+                        ],
                       ),
-                      onChanged: (value) {
-                        setState(() {
-                          _hfToken = value.trim();
-                        });
-                        // Auto-save token when changed
-                        _saveSettings();
-                      },
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        _hfToken = value.trim();
+                      });
+                      // Auto-save token when changed
+                      _saveSettings();
+                    },
+                  ),
 
-                    AppSpacing.gapMd,
+                  AppSpacing.gapMd,
 
-                    // Model status
-                    if (!_isModelDownloaded && !_isDownloading)
-                      Container(
-                        padding: AppSpacing.paddingMd,
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: AppRadius.radiusMd,
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                  // Model status
+                  if (!_isModelDownloaded && !_isDownloading)
+                    Container(
+                      padding: AppSpacing.paddingMd,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: AppRadius.radiusMd,
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.download, color: Colors.blue.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  AppStrings.modelDownloadRequired,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            AppStrings.gemmaDownloadDescription,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.download, color: Colors.blue.shade700, size: 20),
+                                Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    AppStrings.modelDownloadRequired,
+                                    AppStrings.largeDownloadWakeLock,
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: Colors.amber.shade900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: (_isDownloading || _hfToken.isEmpty) ? null : _downloadModel,
+                            icon: const Icon(Icons.download),
+                            label: Text(_hfToken.isEmpty ? AppStrings.enterTokenFirst : AppStrings.downloadModel),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Downloading progress
+                  if (_isDownloading)
+                    Container(
+                      padding: AppSpacing.paddingMd,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: AppRadius.radiusMd,
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _modelDownloadService.status == ModelDownloadStatus.verifying
+                                    ? 'Verifying file integrity...'
+                                    : AppStrings.downloadingModel,
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (_downloadProgress != null) ...[
+                            LinearProgressIndicator(value: _downloadProgress!.progress),
+                            const SizedBox(height: 8),
+                            Text(
+                              _modelDownloadService.status == ModelDownloadStatus.verifying
+                                  ? 'Computing checksum (may take a moment)...'
+                                  : '${_downloadProgress!.megabytesReceived} MB / ${_downloadProgress!.totalMegabytes} MB '
+                                    '(${(_downloadProgress!.progress * 100).toStringAsFixed(1)}%)',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ] else
+                            const LinearProgressIndicator(),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _modelDownloadService.status == ModelDownloadStatus.verifying
+                                ? null  // Disable during verification
+                                : _deleteModel,
+                            icon: const Icon(Icons.stop, size: 18),
+                            label: const Text('Stop Download'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              side: BorderSide(color: Colors.red.shade300),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Model downloaded
+                  if (_isModelDownloaded && !_isDownloading)
+                    Container(
+                      padding: AppSpacing.paddingMd,
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: AppRadius.radiusMd,
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  AppStrings.modelDownloadedReady,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    AppStrings.modelLoadsOnAppOpen,
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       color: Colors.blue.shade900,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              AppStrings.gemmaDownloadDescription,
-                              style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _deleteModel,
+                            icon: const Icon(Icons.delete_outline, size: 18),
+                            label: const Text(AppStrings.deleteModel),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              side: BorderSide(color: Colors.red.shade300),
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.amber.shade200),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Test Local AI Section
+                  AppSpacing.gapLg,
+                  const Divider(),
+                  AppSpacing.gapMd,
+                  Text(
+                    'Test Connection',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  AppSpacing.gapSm,
+                  Text(
+                    'Send a test message to verify local AI is working correctly.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                  ),
+
+                  // Note about first-time load
+                  if (_isModelDownloaded)
+                    Column(
+                      children: [
+                        AppSpacing.gapMd,
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber.shade200),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.schedule, size: 20, color: Colors.amber.shade900),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  AppStrings.firstTestMayTake,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  AppSpacing.gapMd,
+
+                  // Test Button
+                  FilledButton.icon(
+                    onPressed: (_isTestingLocal || _isDownloading || !_isModelDownloaded) ? null : _testLocalAI,
+                    icon: _isTestingLocal
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.phone_android),
+                    label: Text(_isTestingLocal
+                        ? AppStrings.testing
+                        : _isDownloading
+                            ? AppStrings.downloadInProgress
+                            : !_isModelDownloaded
+                                ? 'Download Model First'
+                                : 'Test Local AI'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                  ),
+
+                  // Test Result Display
+                  if (_testResultLocal != null)
+                    Column(
+                      children: [
+                        AppSpacing.gapMd,
+                        Container(
+                          padding: AppSpacing.paddingMd,
+                          decoration: BoxDecoration(
+                            color: _testSuccessLocal == true
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
+                            borderRadius: AppRadius.radiusMd,
+                            border: Border.all(
+                              color: _testSuccessLocal == true
+                                  ? Colors.green.shade200
+                                  : Colors.red.shade200,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                                  Icon(
+                                    _testSuccessLocal == true ? Icons.check_circle : Icons.error,
+                                    color: _testSuccessLocal == true
+                                        ? Colors.green.shade700
+                                        : Colors.red.shade700,
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      AppStrings.largeDownloadWakeLock,
+                                      _testSuccessLocal == true ? AppStrings.testSuccessful : AppStrings.testFailed,
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.amber.shade900,
+                                        fontWeight: FontWeight.bold,
+                                        color: _testSuccessLocal == true
+                                            ? Colors.green.shade900
+                                            : Colors.red.shade900,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton.icon(
-                              onPressed: (_isDownloading || _hfToken.isEmpty) ? null : _downloadModel,
-                              icon: const Icon(Icons.download),
-                              label: Text(_hfToken.isEmpty ? AppStrings.enterTokenFirst : AppStrings.downloadModel),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Downloading progress
-                    if (_isDownloading)
-                      Container(
-                        padding: AppSpacing.paddingMd,
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: AppRadius.radiusMd,
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                              const SizedBox(height: 8),
+                              if (_testLatencyMsLocal != null)
+                                _buildTestResultRow(
+                                  AppStrings.responseTime,
+                                  '${(_testLatencyMsLocal! / 1000).toStringAsFixed(2)}s',
+                                  _testSuccessLocal,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _modelDownloadService.status == ModelDownloadStatus.verifying
-                                      ? 'Verifying file integrity...'
-                                      : AppStrings.downloadingModel,
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            if (_downloadProgress != null) ...[
-                              LinearProgressIndicator(value: _downloadProgress!.progress),
                               const SizedBox(height: 8),
                               Text(
-                                _modelDownloadService.status == ModelDownloadStatus.verifying
-                                    ? 'Computing checksum (may take a moment)...'
-                                    : '${_downloadProgress!.megabytesReceived} MB / ${_downloadProgress!.totalMegabytes} MB '
-                                      '(${(_downloadProgress!.progress * 100).toStringAsFixed(1)}%)',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ] else
-                              const LinearProgressIndicator(),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: _modelDownloadService.status == ModelDownloadStatus.verifying
-                                  ? null  // Disable during verification
-                                  : _deleteModel,
-                              icon: const Icon(Icons.stop, size: 18),
-                              label: const Text('Stop Download'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red.shade700,
-                                side: BorderSide(color: Colors.red.shade300),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Model downloaded
-                    if (_isModelDownloaded && !_isDownloading)
-                      Container(
-                        padding: AppSpacing.paddingMd,
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: AppRadius.radiusMd,
-                          border: Border.all(color: Colors.green.shade200),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    AppStrings.modelDownloadedReady,
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
+                                AppStrings.response,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _testSuccessLocal == true
+                                      ? Colors.green.shade900
+                                      : Colors.red.shade900,
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Colors.blue.shade200),
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      AppStrings.modelLoadsOnAppOpen,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue.shade900,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(height: 4),
+                              Text(
+                                _testResultLocal!,
+                                style: const TextStyle(fontSize: 12),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: _deleteModel,
-                              icon: const Icon(Icons.delete_outline, size: 18),
-                              label: const Text(AppStrings.deleteModel),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.red.shade700,
-                                side: BorderSide(color: Colors.red.shade300),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -994,173 +1319,6 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
           AppSpacing.gapXl,
 
           const Divider(),
-
-          AppSpacing.gapXl,
-
-          // Test Connection Section
-          Text(
-            AppStrings.testConnection,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          AppSpacing.gapMd,
-          Text(
-            AppStrings.sendTestMessage,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                ),
-          ),
-
-          // Local AI initial load time note
-          if (_selectedProvider == AIProvider.local && _isModelDownloaded) ...[
-            AppSpacing.gapMd,
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade200),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.schedule, size: 20, color: Colors.amber.shade900),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      AppStrings.firstTestMayTake,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.amber.shade900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          AppSpacing.gapLg,
-
-          // Test Button
-          FilledButton.tonalIcon(
-            onPressed: (_isTesting || _isDownloading) ? null : _testAIConnection,
-            icon: _isTesting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(_selectedProvider == AIProvider.cloud
-                    ? Icons.cloud_sync
-                    : Icons.phone_android),
-            label: Text(_isTesting
-                ? AppStrings.testing
-                : _isDownloading
-                    ? AppStrings.downloadInProgress
-                    : _selectedProvider == AIProvider.cloud
-                        ? AppStrings.testCloudConnection
-                        : AppStrings.testLocalModel),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              minimumSize: const Size(double.infinity, 56),
-            ),
-          ),
-
-          // Test Result Display
-          if (_testResult != null) ...[
-            AppSpacing.gapLg,
-            Container(
-              padding: AppSpacing.paddingLg,
-              decoration: BoxDecoration(
-                color: _testSuccess == true
-                    ? Colors.green.shade50
-                    : Colors.red.shade50,
-                borderRadius: AppRadius.radiusMd,
-                border: Border.all(
-                  color: _testSuccess == true
-                      ? Colors.green.shade200
-                      : Colors.red.shade200,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        _testSuccess == true ? Icons.check_circle : Icons.error,
-                        color: _testSuccess == true
-                            ? Colors.green.shade700
-                            : Colors.red.shade700,
-                        size: 24,
-                      ),
-                      AppSpacing.gapHorizontalMd,
-                      Expanded(
-                        child: Text(
-                          _testSuccess == true ? AppStrings.testSuccessful : AppStrings.testFailed,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: _testSuccess == true
-                                    ? Colors.green.shade900
-                                    : Colors.red.shade900,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  AppSpacing.gapMd,
-                  _buildTestResultRow(
-                    AppStrings.provider,
-                    _selectedProvider.displayName,
-                  ),
-                  if (_selectedProvider == AIProvider.cloud)
-                    _buildTestResultRow(
-                      AppStrings.model,
-                      _availableModels
-                          .firstWhere((m) => m.id == _selectedModel)
-                          .displayName,
-                    ),
-                  if (_testLatencyMs != null)
-                    _buildTestResultRow(
-                      AppStrings.responseTime,
-                      '${(_testLatencyMs! / 1000).toStringAsFixed(2)}s',
-                    ),
-                  AppSpacing.gapMd,
-                  Text(
-                    AppStrings.response,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: _testSuccess == true
-                              ? Colors.green.shade900
-                              : Colors.red.shade900,
-                        ),
-                  ),
-                  AppSpacing.gapSm,
-                  Container(
-                    width: double.infinity,
-                    padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(
-                      color: _testSuccess == true
-                          ? Colors.green.shade100
-                          : Colors.red.shade100,
-                      borderRadius: AppRadius.radiusSm,
-                    ),
-                    child: Text(
-                      _testResult!.length > 200
-                          ? '${_testResult!.substring(0, 200)}...'
-                          : _testResult!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                            color: _testSuccess == true
-                                ? Colors.green.shade900
-                                : Colors.red.shade900,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
 
           const SizedBox(height: 32), // Extra space at bottom
         ],

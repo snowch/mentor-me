@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../services/structured_journaling_service.dart';
+import '../services/auto_backup_service.dart';
 import '../models/journal_template.dart';
 import '../theme/app_spacing.dart';
 
@@ -17,6 +18,7 @@ class TemplateSettingsScreen extends StatefulWidget {
 class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
   final _storage = StorageService();
   final _service = StructuredJournalingService();
+  final _autoBackupService = AutoBackupService();
 
   bool _isLoading = true;
   List<String> _enabledTemplates = [];
@@ -55,6 +57,9 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
     setState(() {
       _enabledTemplates = updated;
     });
+
+    // Trigger auto-backup after settings change
+    await _autoBackupService.scheduleAutoBackup();
 
     // Show feedback
     if (mounted) {

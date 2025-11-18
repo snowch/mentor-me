@@ -59,6 +59,10 @@ class AIService {
   final DebugService _debug = DebugService();
   final ContextManagementService _contextService = ContextManagementService();
 
+  // Error state tracking for Cloud AI
+  String? _lastCloudError;
+  DateTime? _lastCloudErrorTime;
+
   /// Initializes the AI service.
   ///
   /// Loads configuration from storage including:
@@ -184,6 +188,41 @@ class AIService {
     } catch (e) {
       return false;
     }
+  }
+
+  /// Checks if a specific provider is configured and ready to use.
+  ///
+  /// - Cloud provider: checks if API key is set
+  /// - Local provider: checks if model is downloaded
+  Future<bool> isProviderAvailable(AIProvider provider) async {
+    if (provider == AIProvider.local) {
+      return await _isLocalAIAvailable();
+    }
+    // Cloud provider requires API key
+    return hasApiKey();
+  }
+
+  /// Gets the last Cloud AI error message, if any.
+  ///
+  /// Returns null if no error or if error is old (>5 minutes).
+  /// This helps UI show current error status without stale errors.
+  String? getCloudError() {
+    if (_lastCloudError == null || _lastCloudErrorTime == null) {
+      return null;
+    }
+
+    // Only return errors from last 5 minutes
+    final age = DateTime.now().difference(_lastCloudErrorTime!);
+    if (age.inMinutes > 5) {
+      return null;
+    }
+
+    return _lastCloudError;
+  }
+
+  /// Checks if Cloud AI has an active error.
+  bool hasCloudError() {
+    return getCloudError() != null;
   }
 
   /// Returns the currently selected AI model ID.
@@ -426,6 +465,10 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
         final data = json.decode(response.body);
         final responseText = data['content'][0]['text'] as String;
 
+        // Clear error state on success
+        _lastCloudError = null;
+        _lastCloudErrorTime = null;
+
         // Log successful response
         await _debug.info('AIService', 'Cloud AI response received', metadata: {
           'responseLength': responseText.length,
@@ -446,24 +489,39 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
           'duration': '${duration.inMilliseconds}ms',
         });
 
-        // Check for specific model errors
-        if (response.statusCode == 404) {
+        // Track error state with categorization
+        _lastCloudErrorTime = DateTime.now();
+
+        // Categorize errors
+        if (response.statusCode == 401) {
+          _lastCloudError = 'Invalid API key';
+          return "Invalid API key. Please check your API key in Settings → AI Settings.";
+        } else if (response.statusCode == 429) {
+          _lastCloudError = 'Rate limit exceeded / No credits';
+          return "Rate limit exceeded or no credits available. Please check your Anthropic account.";
+        } else if (response.statusCode == 404) {
           final errorData = json.decode(response.body);
           if (errorData['error']?['message']?.toString().contains('model') == true) {
+            _lastCloudError = 'Model not available';
             return "The selected model ($_selectedModel) is not available. Please check Settings and select a valid model.";
           }
-        }
-
-        if (kIsWeb && response.statusCode == 0) {
+          _lastCloudError = 'API endpoint not found';
+        } else if (kIsWeb && response.statusCode == 0) {
+          _lastCloudError = 'Proxy server not running';
           return "Cannot connect to proxy server. Make sure it's running:\n"
                  "cd proxy && npm start\n\n"
                  "See documentation for setup instructions.";
+        } else {
+          _lastCloudError = 'API error ${response.statusCode}';
         }
 
         return "I'm having trouble connecting right now. Status: ${response.statusCode}";
       }
     } catch (e, stackTrace) {
       debugPrint('AI Service Error: $e');
+
+      // Track error state
+      _lastCloudErrorTime = DateTime.now();
 
       // Log the error
       await _debug.error(
@@ -482,6 +540,7 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
 
       if (errorStr.contains('Failed host lookup') ||
           errorStr.contains('Connection refused')) {
+        _lastCloudError = 'Connection failed';
         if (kIsWeb) {
           return "Cannot connect to proxy server at localhost:3000.\n\n"
                  "Please start the proxy server:\n"
@@ -491,6 +550,8 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
         }
         return "Cannot connect to Claude API. Please check your internet connection.";
       }
+
+      _lastCloudError = 'Network error';
 
       if (errorStr.contains('timeout')) {
         return "Request timed out. Please try again.";

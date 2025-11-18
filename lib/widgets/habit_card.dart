@@ -30,32 +30,35 @@ class HabitCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Checkbox
-                  Transform.scale(
-                    scale: 1.2,
-                    child: Checkbox(
-                      value: habit.isCompletedToday,
-                      shape: const CircleBorder(),
-                      onChanged: (value) {
-                        if (value == true) {
-                          context.read<HabitProvider>().completeHabit(
-                                habit.id,
-                                DateTime.now(),
-                              );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${habit.title} completed!'),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } else {
-                          context.read<HabitProvider>().uncompleteHabit(
-                                habit.id,
-                                DateTime.now(),
-                              );
-                        }
-                      },
+                  // Checkbox with long-press for custom date
+                  GestureDetector(
+                    onLongPress: () => _showDatePicker(context),
+                    child: Transform.scale(
+                      scale: 1.2,
+                      child: Checkbox(
+                        value: habit.isCompletedToday,
+                        shape: const CircleBorder(),
+                        onChanged: (value) {
+                          if (value == true) {
+                            context.read<HabitProvider>().completeHabit(
+                                  habit.id,
+                                  DateTime.now(),
+                                );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${habit.title} completed!'),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } else {
+                            context.read<HabitProvider>().uncompleteHabit(
+                                  habit.id,
+                                  DateTime.now(),
+                                );
+                          }
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -138,49 +141,54 @@ class HabitCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // Last 7 days visualization
+              // Last 7 days visualization (interactive - tap to toggle)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(7, (index) {
                   final isCompleted = last7Days[index];
                   final dayLabel = _getLast7DayLabels()[index];
                   final isToday = index == 6;
+                  final today = DateTime.now();
+                  final date = today.subtract(Duration(days: 6 - index));
 
                   return Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: isCompleted
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(6),
-                              border: isToday ? Border.all(
-                                color: Theme.of(context).colorScheme.primary,
-                                width: 2,
-                              ) : null,
+                      child: GestureDetector(
+                        onTap: () => _toggleDayCompletion(context, date),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: isCompleted
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(6),
+                                border: isToday ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 2,
+                                ) : null,
+                              ),
+                              child: isCompleted
+                                  ? Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                    )
+                                  : null,
                             ),
-                            child: isCompleted
-                                ? Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: Theme.of(context).colorScheme.onPrimary,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            dayLabel,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                              fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
+                            const SizedBox(height: 4),
+                            Text(
+                              dayLabel,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontSize: 10,
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                fontWeight: isToday ? FontWeight.w600 : FontWeight.normal,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -420,5 +428,125 @@ class HabitCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Show date picker to mark habit complete for a custom date
+  void _showDatePicker(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: habit.createdAt,
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      helpText: 'Select date to mark complete',
+    );
+
+    if (pickedDate != null && context.mounted) {
+      final habitProvider = context.read<HabitProvider>();
+
+      // Check if already completed on this date
+      final isAlreadyCompleted = habit.completionDates.any((date) =>
+          date.year == pickedDate.year &&
+          date.month == pickedDate.month &&
+          date.day == pickedDate.day);
+
+      if (isAlreadyCompleted) {
+        // Show option to uncomplete
+        final shouldUncomplete = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Already completed'),
+            content: Text(
+              '${habit.title} was already marked complete on ${_formatDate(pickedDate)}. '
+              'Would you like to unmark it?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(AppStrings.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Unmark'),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldUncomplete == true && context.mounted) {
+          await habitProvider.uncompleteHabit(habit.id, pickedDate);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${habit.title} unmarked for ${_formatDate(pickedDate)}'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } else {
+        // Mark as complete
+        await habitProvider.completeHabit(habit.id, pickedDate);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${habit.title} completed for ${_formatDate(pickedDate)}!'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // Toggle completion for a specific day in the 7-day visualization
+  void _toggleDayCompletion(BuildContext context, DateTime date) async {
+    final habitProvider = context.read<HabitProvider>();
+
+    // Check if already completed on this date
+    final isCompleted = habit.completionDates.any((d) =>
+        d.year == date.year &&
+        d.month == date.month &&
+        d.day == date.day);
+
+    if (isCompleted) {
+      await habitProvider.uncompleteHabit(habit.id, date);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${habit.title} unmarked for ${_formatDate(date)}'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      await habitProvider.completeHabit(habit.id, date);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${habit.title} completed for ${_formatDate(date)}!'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // Format date for user-friendly display
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final difference = today.difference(dateOnly).inDays;
+
+    if (difference == 0) return 'today';
+    if (difference == 1) return 'yesterday';
+    if (difference == -1) return 'tomorrow';
+
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}';
   }
 }

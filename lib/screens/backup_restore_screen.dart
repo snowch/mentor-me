@@ -2,9 +2,11 @@
 // Screen for managing data backup and restore operations
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import '../services/storage_service.dart';
 import '../services/backup_service.dart';
+import '../services/auto_backup_service.dart';
 import '../services/ai_service.dart';
 import '../providers/goal_provider.dart';
 import '../providers/journal_provider.dart';
@@ -26,8 +28,13 @@ class BackupRestoreScreen extends StatefulWidget {
 
 class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final _backupService = BackupService();
+  final _autoBackupService = AutoBackupService();
+  final _storage = StorageService();
   bool _isExporting = false;
   bool _isImporting = false;
+  bool _autoBackupEnabled = false;
+  DateTime? _lastAutoBackupTime;
+  String? _lastAutoBackupFilename;
   Map<String, dynamic>? _currentDataCounts;
   Map<String, dynamic>? _lastExportStats;
   Map<String, dynamic>? _lastImportStats;
@@ -36,6 +43,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   void initState() {
     super.initState();
     _loadCurrentDataCounts();
+    _loadAutoBackupSettings();
   }
 
   Future<void> _loadCurrentDataCounts() async {
@@ -53,6 +61,43 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     setState(() {
       _currentDataCounts = counts;
     });
+  }
+
+  Future<void> _loadAutoBackupSettings() async {
+    final settings = await _storage.loadSettings();
+    final lastBackupTime = await _autoBackupService.getLastAutoBackupTime();
+    final lastBackupFilename = await _autoBackupService.getLastAutoBackupFilename();
+
+    if (mounted) {
+      setState(() {
+        _autoBackupEnabled = settings['autoBackupEnabled'] as bool? ?? false;
+        _lastAutoBackupTime = lastBackupTime;
+        _lastAutoBackupFilename = lastBackupFilename;
+      });
+    }
+  }
+
+  Future<void> _toggleAutoBackup(bool value) async {
+    final settings = await _storage.loadSettings();
+    settings['autoBackupEnabled'] = value;
+    await _storage.saveSettings(settings);
+
+    setState(() {
+      _autoBackupEnabled = value;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? 'Auto-backup enabled - backups will be created after data changes'
+                : 'Auto-backup disabled',
+          ),
+          backgroundColor: value ? Colors.green : null,
+        ),
+      );
+    }
   }
 
   Future<void> _exportBackup() async {
@@ -420,7 +465,114 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
   }
 
-  Widget _buildCurrentDataCard() {
+  Widget _buildAutoBackupCard() {
+    return Card(
+      color: _autoBackupEnabled
+          ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+          : null,
+      child: Padding(
+        padding: AppSpacing.paddingLg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.backup,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                AppSpacing.gapHorizontalSm,
+                Text(
+                  'Automatic Backup',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                Switch(
+                  value: _autoBackupEnabled,
+                  onChanged: _toggleAutoBackup,
+                ),
+              ],
+            ),
+            AppSpacing.gapSm,
+            Text(
+              'Automatically create backups after data changes (30s delay)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+            ),
+            if (_lastAutoBackupTime != null) ...[
+              AppSpacing.gapMd,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                          size: 16,
+                        ),
+                        AppSpacing.gapHorizontalSm,
+                        Expanded(
+                          child: Text(
+                            'Last backup: ${_formatBackupTime(_lastAutoBackupTime!)}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_lastAutoBackupFilename != null) ...[
+                      AppSpacing.gapXs,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 24),
+                        child: Text(
+                          _lastAutoBackupFilename!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatBackupTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else {
+      final days = difference.inDays;
+      return '$days day${days == 1 ? '' : 's'} ago';
+    }
+  }
+
+  Widget _buildCurrentDataCounts() {
     if (_currentDataCounts == null) {
       return const SizedBox.shrink();
     }
@@ -502,8 +654,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
           AppSpacing.gapXl,
 
+          // Auto-backup section (mobile only)
+          if (!kIsWeb) ...[
+            _buildAutoBackupCard(),
+            AppSpacing.gapXl,
+          ],
+
           // Current data counts
-          _buildCurrentDataCard(),
+          _buildCurrentDataCounts(),
 
           AppSpacing.gapXl,
 

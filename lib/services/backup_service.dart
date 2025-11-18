@@ -42,7 +42,8 @@ class BackupService {
   final SchemaValidator _schemaValidator = SchemaValidator();
 
   /// Export all user data to a JSON file
-  Future<String> _createBackupJson() async {
+  /// Public method to allow AutoBackupService to create backups
+  Future<String> createBackupJson() async {
     // Load all data in raw format (strings) - same format used by migrations
     final goals = await _storage.loadGoals();
     final journalEntries = await _storage.loadJournalEntries();
@@ -110,7 +111,7 @@ class BackupService {
   Future<(String?, Map<String, dynamic>?)> _exportBackupMobile() async {
     try {
       debugPrint('📦 Starting mobile backup export...');
-      final jsonString = await _createBackupJson();
+      final jsonString = await createBackupJson();
       debugPrint('✓ Backup JSON created (${jsonString.length} bytes)');
 
       // Extract statistics from backup data
@@ -161,7 +162,7 @@ class BackupService {
   /// Returns tuple of (success, statistics)
   Future<(bool, Map<String, dynamic>?)> _exportBackupWeb() async {
     try {
-      final jsonString = await _createBackupJson();
+      final jsonString = await createBackupJson();
 
       // Extract statistics from backup data
       final backupData = json.decode(jsonString) as Map<String, dynamic>;
@@ -674,15 +675,21 @@ class BackupService {
         final exportedSettings = json.decode(data['settings'] as String) as Map<String, dynamic>;
         final currentSettings = await _storage.loadSettings();
 
-        // Merge: keep current API key and HF token, import other settings
+        // Merge: keep current API key, HF token, onboarding state, and auto-backup preference
         final mergedSettings = {
           ...exportedSettings,
           'claudeApiKey': currentSettings['claudeApiKey'], // Keep current API key
           'huggingfaceToken': currentSettings['huggingfaceToken'], // Keep current HuggingFace token (fixed key name)
+          // Preserve onboarding state - don't send users back to onboarding after import
+          if (currentSettings.containsKey('hasCompletedOnboarding'))
+            'hasCompletedOnboarding': currentSettings['hasCompletedOnboarding'],
+          // Preserve auto-backup preference - don't disable if user has it enabled
+          if (currentSettings.containsKey('autoBackupEnabled'))
+            'autoBackupEnabled': currentSettings['autoBackupEnabled'],
         };
 
         await _storage.saveSettings(mergedSettings);
-        await _debug.info('BackupService', 'Imported settings (preserved API key and HF token)');
+        await _debug.info('BackupService', 'Imported settings (preserved API key, HF token, onboarding state, and auto-backup preference)');
         results.add(ImportItemResult(
           dataType: 'Settings',
           success: true,

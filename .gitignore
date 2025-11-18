@@ -19,6 +19,10 @@ migrate_working_dir/
 *.orig
 *.rej
 *~
+*.bundle
+*.patch
+commit-patches/
+COMMIT_BACKUP_README.md
 
 # IntelliJ related
 *.iml
