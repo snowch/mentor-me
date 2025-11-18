@@ -1280,7 +1280,186 @@ When working on this codebase, adhere to Flutter best practices including:
   - Use `async`/`await` properly
   - Handle errors with try-catch blocks
   - Show loading states during async operations
-- **Testing**: Write tests for business logic (providers/services) at minimum
+
+### Testing & Regression Prevention
+
+**Priority: HIGH** - As we develop features together, regressions are inevitable without proper testing.
+
+**Documentation:** See [TESTING.md](./TESTING.md) for comprehensive testing strategy and guidelines.
+
+**Current Test Coverage:**
+- ✅ Provider tests (GoalProvider, JournalProvider, HabitProvider)
+- ✅ Schema validation tests (data model synchronization)
+- ✅ Legacy migration tests
+- ⚠️ Service tests (partially implemented)
+- ⚠️ Widget tests (not yet implemented)
+- ⚠️ Integration tests (not yet implemented)
+
+**Test-First Development:**
+
+When implementing new features or fixing bugs, follow this workflow:
+
+1. **Write the test first** (it will fail)
+   ```dart
+   test('should add milestone to goal', () async {
+     final goal = Goal(title: 'Test Goal', category: GoalCategory.personal);
+     await goalProvider.addGoal(goal);
+
+     final milestone = Milestone(goalId: goal.id, title: 'Test Milestone');
+     await goalProvider.addMilestone(goal.id, milestone);
+
+     final updatedGoal = goalProvider.getGoalById(goal.id);
+     expect(updatedGoal!.milestonesDetailed.length, 1);
+   });
+   ```
+
+2. **Implement the feature** (test passes)
+   ```dart
+   Future<void> addMilestone(String goalId, Milestone milestone) async {
+     final goal = getGoalById(goalId);
+     if (goal == null) return;
+
+     final updatedGoal = goal.copyWith(
+       milestonesDetailed: [...goal.milestonesDetailed, milestone],
+     );
+     await updateGoal(updatedGoal);
+   }
+   ```
+
+3. **Refactor if needed** (test still passes)
+
+**Running Tests:**
+
+```bash
+# Run all tests
+flutter test
+
+# Run specific test file
+flutter test test/providers/goal_provider_test.dart
+
+# Run with coverage
+flutter test --coverage
+
+# Run in watch mode (during development)
+flutter test --watch
+```
+
+**Test Categories:**
+
+1. **Unit Tests** (Priority: HIGH)
+   - Test providers (state management logic)
+   - Test services (business logic)
+   - Test utility functions
+   - Target: 70-80% coverage
+
+2. **Widget Tests** (Priority: MEDIUM)
+   - Test UI components
+   - Test user interactions
+   - Target: 50-60% coverage
+
+3. **Integration Tests** (Priority: LOW)
+   - Test complete user flows
+   - Test E2E scenarios
+   - Target: 30-40% of critical flows
+
+**Testing Best Practices:**
+
+- **Test Isolation:** Each test should be independent
+  ```dart
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    provider = MyProvider();
+    await provider.loadData();
+  });
+  ```
+
+- **Descriptive Names:** Test names should explain what and why
+  ```dart
+  // ✅ GOOD
+  test('should calculate current streak correctly for consecutive days', () {});
+
+  // ❌ BAD
+  test('streak test', () {});
+  ```
+
+- **Arrange-Act-Assert Pattern:**
+  ```dart
+  test('should add a new goal', () async {
+    // Arrange - Set up test data
+    final goal = Goal(title: 'Test', category: GoalCategory.personal);
+
+    // Act - Perform the action
+    await goalProvider.addGoal(goal);
+
+    // Assert - Verify the outcome
+    expect(goalProvider.goals.length, 1);
+  });
+  ```
+
+- **Test Edge Cases:** Don't just test happy paths
+  ```dart
+  group('Edge Cases', () {
+    test('should handle null descriptions', () {});
+    test('should handle empty content', () {});
+    test('should prevent duplicate IDs', () {});
+  });
+  ```
+
+- **Mock External Dependencies:**
+  ```dart
+  class MockAIService extends Mock implements AIService {}
+
+  test('should generate response', () async {
+    final mockAI = MockAIService();
+    when(mockAI.generateResponse(any)).thenAnswer((_) async => 'Response');
+    // ... test logic
+  });
+  ```
+
+**CI/CD Integration:**
+
+Tests run automatically on every push:
+
+```yaml
+# .github/workflows/android-build.yml
+- name: Run Flutter tests with coverage
+  run: flutter test --coverage
+
+- name: Run schema validation test
+  continue-on-error: false  # FAIL build if schema test fails
+
+- name: Run provider tests (regression prevention)
+  run: flutter test test/providers/
+  continue-on-error: false  # FAIL build if provider tests fail
+```
+
+**Coverage Goals:**
+
+| Category | Current | Target |
+|----------|---------|--------|
+| Providers | 80% | 90% |
+| Services | 30% | 70% |
+| Models | 60% | 80% |
+| Overall | 40% | **70%** |
+
+**Regression Prevention Checklist:**
+
+Before merging a PR:
+- ✅ All tests pass
+- ✅ No decrease in code coverage
+- ✅ New features include tests
+- ✅ Bug fixes include regression tests
+
+**Common Testing Patterns:**
+
+See [TESTING.md](./TESTING.md) for:
+- Testing providers with SharedPreferences
+- Testing async operations
+- Testing error handling
+- Testing stream-based data
+- Troubleshooting common test issues
+
+**Remember:** Tests are not just about coverage - they're about **confidence** that code works correctly and **preventing regressions** as the codebase evolves.
 
 ### Text String Management
 

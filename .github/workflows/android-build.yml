@@ -73,11 +73,50 @@ jobs:
         run: flutter test
         continue-on-error: true  # Don't fail build if no tests exist
 
+      - name: Run Flutter tests with coverage
+        run: flutter test --coverage
+        continue-on-error: true  # Don't fail build on test failures
+        # Generates coverage/lcov.info for coverage analysis
+
       - name: Run schema validation test
         run: flutter test test/schema_validation_test.dart
         continue-on-error: false  # FAIL build if schema validation fails
         # This test ensures Dart models and JSON schemas stay synchronized
         # See CLAUDE.md "Data Schema Management" section
+
+      - name: Run provider tests (regression prevention)
+        run: flutter test test/providers/
+        continue-on-error: false  # FAIL build if provider tests fail
+        # Provider tests are critical for preventing state management regressions
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false  # Don't fail build if upload fails
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true  # Upload is optional
+
+      - name: Generate coverage summary
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            # Calculate coverage percentage
+            COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep -oP 'lines......: \K[0-9.]+(?=%)')
+            echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+            echo "- **Coverage:** ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+            echo "- **Target:** 70%" >> $GITHUB_STEP_SUMMARY
+            if (( $(echo "$COVERAGE >= 70" | bc -l) )); then
+              echo "- **Status:** ✅ PASS (meets target)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Status:** ⚠️ BELOW TARGET (needs improvement)" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ No coverage data found" >> $GITHUB_STEP_SUMMARY
+          fi
+        continue-on-error: true  # Don't fail if coverage calculation fails
 
       - name: Build debug APK
         run: |
