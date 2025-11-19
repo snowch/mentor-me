@@ -358,6 +358,96 @@ void main() {
       expect(goalProvider.goals.length, 0,
           reason: 'Empty backup should clear existing data');
     });
+
+    test('empty local state should not overwrite imported data', () async {
+      // CRITICAL: User has 0 habits locally → imports backup with 2 habits
+      //           → empty local state must NOT overwrite imported habits
+      //
+      // Common scenario: User restores to fresh install or after clearing data
+
+      // 1. Start with EMPTY local state (fresh install simulation)
+      expect(habitProvider.habits.length, 0,
+          reason: 'Should start with no habits');
+
+      // 2. Create backup data WITH habits (from another device/backup)
+      final originalHabit1 = Habit(
+        id: 'habit-1',
+        title: 'Meditation - 30 day streak!',
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      );
+      final originalHabit2 = Habit(
+        id: 'habit-2',
+        title: 'Exercise - 15 day streak',
+        createdAt: DateTime.now().subtract(const Duration(days: 15)),
+      );
+
+      // Complete habits to build streaks
+      for (var i = 0; i < 30; i++) {
+        await habitProvider.toggleHabitCompletion(
+          originalHabit1.id,
+          DateTime.now().subtract(Duration(days: 30 - i)),
+        );
+      }
+      for (var i = 0; i < 15; i++) {
+        await habitProvider.toggleHabitCompletion(
+          originalHabit2.id,
+          DateTime.now().subtract(Duration(days: 15 - i)),
+        );
+      }
+
+      // Create habits first so we can export them
+      await habitProvider.addHabit(originalHabit1);
+      await habitProvider.addHabit(originalHabit2);
+
+      // Export backup with 2 habits
+      final backupWithHabits = await backupService.exportData();
+
+      // 3. Simulate fresh install: clear all data
+      SharedPreferences.setMockInitialValues({});
+      final freshProvider = HabitProvider();
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(freshProvider.habits.length, 0,
+          reason: 'Fresh install should have no habits');
+
+      // 4. Import backup with 2 habits
+      final result = await backupService.restoreFromBackup(backupWithHabits);
+      expect(result.success, true);
+
+      // 5. CRITICAL: Empty local state (0 habits) tries to save during restore
+      //    This simulates a background operation that still has empty state
+      await freshProvider.addHabit(Habit(
+        id: 'stale-habit',
+        title: 'Stale habit from empty state',
+        createdAt: DateTime.now(),
+      ));
+
+      // 6. Reload provider (proper restore flow)
+      await freshProvider.reload();
+
+      // 7. Verify: Should have 2 imported habits + 1 stale habit
+      //    The imported habits with their streaks should NOT be lost!
+      expect(freshProvider.habits.length, 3,
+          reason: 'Should have 2 imported + 1 stale habit');
+
+      final habitTitles = freshProvider.habits.map((h) => h.title).toList();
+      expect(habitTitles, contains('Meditation - 30 day streak!'),
+          reason: 'Imported habit 1 should be restored');
+      expect(habitTitles, contains('Exercise - 15 day streak'),
+          reason: 'Imported habit 2 should be restored');
+      expect(habitTitles, contains('Stale habit from empty state'),
+          reason: 'Stale habit added after import should be present');
+
+      // Verify streaks are preserved (critical - users care about streaks!)
+      final meditation = freshProvider.habits
+          .firstWhere((h) => h.title == 'Meditation - 30 day streak!');
+      final exercise = freshProvider.habits
+          .firstWhere((h) => h.title == 'Exercise - 15 day streak');
+
+      expect(meditation.completions.length, greaterThan(0),
+          reason: 'Meditation completions should be restored');
+      expect(exercise.completions.length, greaterThan(0),
+          reason: 'Exercise completions should be restored');
+    });
   });
 
   group('BackupService - Provider Reload Verification', () {
