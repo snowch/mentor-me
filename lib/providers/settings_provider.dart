@@ -74,9 +74,8 @@ class SettingsProvider extends ChangeNotifier {
     } catch (e, stackTrace) {
       await _debug.error(
         'SettingsProvider',
-        'Failed to load settings',
-        error: e,
-        stackTrace: stackTrace,
+        'Failed to load settings: $e',
+        stackTrace: stackTrace.toString(),
       );
     }
   }
