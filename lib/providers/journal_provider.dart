@@ -5,13 +5,11 @@ import '../models/journal_entry.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/notification_analytics_service.dart';
-import '../services/auto_backup_service.dart';
 
 class JournalProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   final NotificationService _notificationService = NotificationService();
   final NotificationAnalyticsService _analytics = NotificationAnalyticsService();
-  final AutoBackupService _autoBackup = AutoBackupService();
   List<JournalEntry> _entries = [];
   bool _isLoading = false;
   String? _lastCelebrationMessage;
@@ -53,8 +51,6 @@ class JournalProvider extends ChangeNotifier {
     await _notificationService.onJournalCreated();
     notifyListeners();
 
-    // Schedule auto-backup after data change
-    await _autoBackup.scheduleAutoBackup();
   }
 
   /// Clear the last celebration message (call after showing it)
@@ -86,8 +82,6 @@ class JournalProvider extends ChangeNotifier {
     await _notificationService.onJournalCreated();
     notifyListeners();
 
-    // Schedule auto-backup after data change
-    await _autoBackup.scheduleAutoBackup();
   }
 
   List<JournalEntry> getEntriesByGoal(String goalId) {

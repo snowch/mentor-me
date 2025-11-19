@@ -5,13 +5,11 @@ import '../services/habit_service.dart';
 import '../services/notification_service.dart';
 import '../services/notification_analytics_service.dart';
 import '../services/feature_discovery_service.dart';
-import '../services/auto_backup_service.dart';
 
 class HabitProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   final NotificationService _notifications = NotificationService();
   final NotificationAnalyticsService _analytics = NotificationAnalyticsService();
-  final AutoBackupService _autoBackup = AutoBackupService();
   List<Habit> _habits = [];
   bool _isLoading = false;
   String? _lastCelebrationMessage;
@@ -44,9 +42,6 @@ class HabitProvider extends ChangeNotifier {
     _habits.add(habit);
     await _storage.saveHabits(_habits);
     notifyListeners();
-
-    // Schedule auto-backup after data change
-    await _autoBackup.scheduleAutoBackup();
   }
 
   Future<void> updateHabit(Habit updatedHabit) async {
@@ -55,9 +50,6 @@ class HabitProvider extends ChangeNotifier {
       _habits[index] = updatedHabit;
       await _storage.saveHabits(_habits);
       notifyListeners();
-
-      // Schedule auto-backup after data change
-      await _autoBackup.scheduleAutoBackup();
     }
   }
 
@@ -69,9 +61,6 @@ class HabitProvider extends ChangeNotifier {
     await _notifications.cancelStreakProtection(habitId);
 
     notifyListeners();
-
-    // Schedule auto-backup after data change
-    await _autoBackup.scheduleAutoBackup();
   }
 
   Future<void> completeHabit(String habitId, DateTime date) async {

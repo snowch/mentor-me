@@ -4,12 +4,10 @@ import '../models/milestone.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/feature_discovery_service.dart';
-import '../services/auto_backup_service.dart';
 
 class GoalProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   final NotificationService _notifications = NotificationService();
-  final AutoBackupService _autoBackup = AutoBackupService();
   List<Goal> _goals = [];
   bool _isLoading = false;
 
@@ -50,9 +48,6 @@ class GoalProvider extends ChangeNotifier {
     }
 
     notifyListeners();
-
-    // Schedule auto-backup after data change
-    await _autoBackup.scheduleAutoBackup();
   }
 
   Future<void> updateGoal(Goal updatedGoal) async {
@@ -78,9 +73,6 @@ class GoalProvider extends ChangeNotifier {
       }
 
       notifyListeners();
-
-      // Schedule auto-backup after data change
-      await _autoBackup.scheduleAutoBackup();
     }
   }
 
@@ -92,9 +84,6 @@ class GoalProvider extends ChangeNotifier {
     await _notifications.cancelDeadlineReminders(goalId);
 
     notifyListeners();
-
-    // Schedule auto-backup after data change
-    await _autoBackup.scheduleAutoBackup();
   }
 
   Future<void> updateGoalProgress(String goalId, int progress) async {

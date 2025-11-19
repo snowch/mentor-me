@@ -20,6 +20,7 @@ import 'services/notification_service.dart';
 import 'services/ai_service.dart';
 import 'services/debug_service.dart';
 import 'services/storage_service.dart';
+import 'services/auto_backup_service.dart';
 import 'services/feature_discovery_service.dart';
 import 'services/structured_journaling_service.dart';
 import 'theme/app_theme.dart';
@@ -67,8 +68,8 @@ void main() async {
     }
 
     // Run data migrations if needed (BEFORE loading any data)
+    final storage = StorageService();
     try {
-      final storage = StorageService();
       await storage.runMigrationsIfNeeded();
     } catch (e, stackTrace) {
       debugPrint('Warning: Migration failed: $e');
@@ -76,8 +77,27 @@ void main() async {
       // Continue app launch - providers will use potentially outdated data
     }
 
+    // ============================================================================
+    // WIRE UP AUTO-BACKUP SERVICE
+    // ============================================================================
+    // Register AutoBackupService as a persistence listener on StorageService.
+    // This ensures automatic backups are triggered whenever domain data changes,
+    // without requiring manual calls in each provider.
+    //
+    // IMPORTANT: This MUST be registered BEFORE providers load data, so that
+    // any data changes during initialization are captured.
+    try {
+      final autoBackup = AutoBackupService();
+      storage.addPersistenceListener((dataType) async {
+        await autoBackup.scheduleAutoBackup();
+      });
+      await debugService.info('main', 'Auto-backup listener registered successfully');
+    } catch (e) {
+      debugPrint('Warning: Auto-backup listener registration failed: $e');
+      // Continue app launch even if auto-backup fails
+    }
+
     // Check if first launch
-    final storage = StorageService();
     final settings = await storage.loadSettings();
     final hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
 

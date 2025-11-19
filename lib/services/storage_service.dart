@@ -30,11 +30,49 @@ class StorageService {
   final _debug = DebugService();
   bool _hasMigrated = false;
 
+  // ============================================================================
+  // OBSERVER PATTERN - Persistence Listeners
+  // ============================================================================
+  // This allows auto-backup and other services to be notified when data changes
+  // without tight coupling. Any service can register a listener to be notified
+  // when domain data is persisted.
+
+  final List<Future<void> Function(String dataType)> _persistenceListeners = [];
+
+  /// Register a listener to be notified when data is persisted
+  ///
+  /// The listener receives the data type that was saved (e.g., 'goals', 'habits')
+  /// This is used by AutoBackupService to trigger backups on data changes.
+  void addPersistenceListener(Future<void> Function(String dataType) listener) {
+    _persistenceListeners.add(listener);
+  }
+
+  /// Remove a persistence listener
+  void removePersistenceListener(Future<void> Function(String dataType) listener) {
+    _persistenceListeners.remove(listener);
+  }
+
+  /// Notify all registered listeners that data was persisted
+  ///
+  /// IMPORTANT: This MUST be called at the end of every save method.
+  /// Tests will fail if any save method doesn't call this.
+  Future<void> _notifyPersistence(String dataType) async {
+    for (final listener in _persistenceListeners) {
+      try {
+        await listener(dataType);
+      } catch (e) {
+        // Don't let listener errors break the save operation
+        debugPrint('Warning: Persistence listener failed for $dataType: $e');
+      }
+    }
+  }
+
   // Save/Load Goals
   Future<void> saveGoals(List<Goal> goals) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = goals.map((goal) => goal.toJson()).toList();
     await prefs.setString(_goalsKey, json.encode(jsonList));
+    await _notifyPersistence('goals');
   }
 
   Future<List<Goal>> loadGoals() async {
@@ -57,6 +95,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = entries.map((entry) => entry.toJson()).toList();
     await prefs.setString(_journalEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('journal_entries');
   }
 
   Future<List<JournalEntry>> loadJournalEntries() async {
@@ -82,6 +121,7 @@ class StorageService {
     } else {
       await prefs.setString(_checkinKey, json.encode(checkin.toJson()));
     }
+    await _notifyPersistence('checkin');
   }
 
   Future<Checkin?> loadCheckin() async {
@@ -103,6 +143,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = habits.map((habit) => habit.toJson()).toList();
     await prefs.setString(_habitsKey, json.encode(jsonList));
+    await _notifyPersistence('habits');
   }
 
   Future<List<Habit>> loadHabits() async {
@@ -125,6 +166,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = entries.map((entry) => entry.toJson()).toList();
     await prefs.setString(_pulseEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('pulse_entries');
   }
 
   Future<List<PulseEntry>> loadPulseEntries() async {
@@ -147,6 +189,7 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = types.map((type) => type.toJson()).toList();
     await prefs.setString(_pulseTypesKey, json.encode(jsonList));
+    await _notifyPersistence('pulse_types');
   }
 
   Future<List<PulseType>> loadPulseTypes() async {
@@ -181,6 +224,8 @@ class StorageService {
       await prefs.setString('_featureDiscovery_backup',
           json.encode(settings['featureDiscovery']));
     }
+
+    await _notifyPersistence('settings');
   }
 
   Future<Map<String, dynamic>> loadSettings() async {
@@ -311,6 +356,7 @@ class StorageService {
   Future<void> saveConversations(List<Map<String, dynamic>> conversations) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_conversationsKey, json.encode(conversations));
+    await _notifyPersistence('conversations');
   }
 
   Future<List<Map<String, dynamic>>?> getConversations() async {
@@ -326,6 +372,7 @@ class StorageService {
   Future<void> saveTemplates(String data) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_templatesKey, data);
+    await _notifyPersistence('templates');
   }
 
   Future<String?> loadTemplates() async {
@@ -337,6 +384,7 @@ class StorageService {
   Future<void> saveSessions(String data) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_sessionsKey, data);
+    await _notifyPersistence('sessions');
   }
 
   Future<String?> loadSessions() async {
