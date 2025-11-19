@@ -291,11 +291,15 @@ Feature: Backup and Restore
       | Setting                  | Value           |
       | AI Provider              | Cloud           |
       | Selected Model           | Sonnet 4.5      |
-      | Morning Reminder Time    | 08:00           |
-      | Evening Reminder Time    | 20:00           |
       | Theme                    | Dark            |
+    And I have configured the following mentor reminders:
+      | Label              | Hour | Minute | Enabled |
+      | Morning Check-in   | 8    | 0      | true    |
+      | Evening Reflection | 20   | 30     | true    |
+      | Afternoon Review   | 14   | 0      | false   |
     When I export and restore the data
     Then all settings should be preserved
+    And all mentor reminders should be preserved
     But the Claude API key should not be restored
     And the HuggingFace token should not be restored
 

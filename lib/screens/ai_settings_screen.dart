@@ -3,6 +3,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/model_availability_service.dart';
@@ -10,6 +11,7 @@ import '../services/model_download_service.dart';
 import '../services/local_ai_service.dart';
 import '../services/debug_service.dart';
 import '../models/ai_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_colors.dart';
 import '../constants/app_strings.dart';
@@ -230,6 +232,9 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
           backgroundColor: Colors.green,
         ),
       );
+      // Refresh provider status so home screen updates immediately
+      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+      settingsProvider.refreshProviderStatus();
     } else if (_modelDownloadService.errorMessage != null &&
                _modelDownloadService.errorMessage!.isNotEmpty) {
       // Only show error if there's an actual error (not a user cancellation)
@@ -669,8 +674,11 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                       setState(() {
                         _claudeApiKey = value.trim();
                       });
-                      // Auto-save API key when changed
+                      // Auto-save API key when changed and notify HomeScreen
                       _saveSettings();
+                      // Update SettingsProvider to notify listeners
+                      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+                      settingsProvider.setClaudeApiKey(_claudeApiKey);
                     },
                   ),
 
@@ -908,8 +916,11 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                       setState(() {
                         _hfToken = value.trim();
                       });
-                      // Auto-save token when changed
+                      // Auto-save token when changed and notify HomeScreen
                       _saveSettings();
+                      // Update SettingsProvider to notify listeners
+                      final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+                      settingsProvider.setHuggingFaceToken(_hfToken);
                     },
                   ),
 
@@ -1304,8 +1315,11 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                             _selectedModel = value;
                           });
 
-                          // Auto-save when model changes
+                          // Auto-save when model changes and notify HomeScreen
                           await _saveSettings();
+                          // Update SettingsProvider to notify listeners
+                          final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+                          await settingsProvider.setClaudeModel(value);
                         }
                       },
                     ),

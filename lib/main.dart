@@ -13,6 +13,7 @@ import 'providers/pulse_provider.dart';
 import 'providers/pulse_type_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/journal_template_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/notification_service.dart';
@@ -159,6 +160,12 @@ class MyApp extends StatelessWidget {
           // Initialize system templates
           final service = StructuredJournalingService();
           provider.setSystemTemplates(service.getDefaultTemplates());
+          return provider;
+        }),
+        ChangeNotifierProvider(create: (_) {
+          final provider = SettingsProvider();
+          // Load settings on initialization
+          provider.loadSettings();
           return provider;
         }),
       ],

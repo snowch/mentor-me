@@ -250,19 +250,18 @@ class GivenIHaveHabitsWithCompletionHistory extends Given1<int> {
     final uuid = const Uuid();
 
     final habits = List.generate(count, (i) {
-      // Create completions for the last 7 days
-      final completions = <String, bool>{};
-      for (int day = 0; day < 7; day++) {
+      // Create completions for the last 7 days using completionDates
+      final completionDates = <DateTime>[];
+      for (int day = 0; day < 5; day++) {  // First 5 days completed
         final date = DateTime.now().subtract(Duration(days: day));
-        final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-        completions[dateStr] = day < 5; // First 5 days completed
+        completionDates.add(date);
       }
 
       return Habit(
         id: uuid.v4(),
         title: 'Habit ${i + 1}',
         description: 'Habit with completion history',
-        completions: completions,
+        completionDates: completionDates,
         currentStreak: 5,
         longestStreak: 10,
         createdAt: DateTime.now(),
@@ -277,6 +276,88 @@ class GivenIHaveHabitsWithCompletionHistory extends Given1<int> {
 
   @override
   RegExp get pattern => RegExp(r'I have {int} habits? with completion history');
+}
+
+/// Given: I have a habit "X" with: (table of attributes)
+class GivenIHaveHabitWithAttributes extends Given2WithWorld<String, Table, FlutterWorld> {
+  @override
+  Future<void> executeStep(String habitTitle, Table dataTable) async {
+    final storage = StorageService();
+    final uuid = const Uuid();
+
+    int currentStreak = 0;
+    int longestStreak = 0;
+    HabitStatus status = HabitStatus.active;
+
+    for (final row in dataTable.rows.skip(1)) {
+      final attribute = row.columns[0];
+      final value = row.columns[1];
+
+      switch (attribute) {
+        case 'currentStreak':
+          currentStreak = int.parse(value);
+          break;
+        case 'longestStreak':
+          longestStreak = int.parse(value);
+          break;
+        case 'status':
+          status = HabitStatus.values.firstWhere(
+            (e) => e.toString() == 'HabitStatus.$value',
+          );
+          break;
+      }
+    }
+
+    final habit = Habit(
+      id: uuid.v4(),
+      title: habitTitle,
+      description: 'Test habit for backup/restore',
+      completionDates: [],  // Will be populated by next step
+      currentStreak: currentStreak,
+      longestStreak: longestStreak,
+      createdAt: DateTime.now(),
+      status: status,
+    );
+
+    await storage.saveHabit(habit);
+
+    // Store for later verification
+    BackupTestContext.instance.originalHabits = [habit];
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'I have a habit {string} with:');
+}
+
+/// And: the habit has completions for the last X days
+class AndTheHabitHasCompletionsForLastDays extends And1<int> {
+  @override
+  Future<void> executeStep(int days) async {
+    final storage = StorageService();
+    final habits = await storage.loadHabits();
+
+    if (habits.isEmpty) return;
+
+    final habit = habits.first;
+    final completionDates = <DateTime>[];
+
+    for (int day = 0; day < days; day++) {
+      final date = DateTime.now().subtract(Duration(days: day));
+      completionDates.add(date);
+    }
+
+    final updatedHabit = habit.copyWith(
+      completionDates: completionDates,
+    );
+
+    await storage.saveHabit(updatedHabit);
+
+    // Update original habits for verification
+    BackupTestContext.instance.originalHabits = [updatedHabit];
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'the habit has completions for the last {int} days?');
 }
 
 /// Given: I have a backup file with invalid JSON structure
@@ -419,7 +500,8 @@ class GivenIHaveBackupFileReady extends Given1<String> {
 class GivenIHaveConfiguredSettings extends Given1WithWorld<Table, FlutterWorld> {
   @override
   Future<void> executeStep(Table dataTable) async {
-    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService();
+    final settings = await storage.loadSettings();
 
     for (final row in dataTable.rows.skip(1)) {
       final setting = row.columns[0];
@@ -429,20 +511,53 @@ class GivenIHaveConfiguredSettings extends Given1WithWorld<Table, FlutterWorld> 
       final settingKeyMap = {
         'AI Provider': 'aiProvider',
         'Selected Model': 'selectedModel',
-        'Morning Reminder Time': 'morningReminderTime',
-        'Evening Reminder Time': 'eveningReminderTime',
         'Theme': 'theme',
       };
 
       final key = settingKeyMap[setting];
       if (key != null) {
-        await prefs.setString(key, value);
+        settings[key] = value;
       }
     }
+
+    await storage.saveSettings(settings);
   }
 
   @override
   RegExp get pattern => RegExp(r'I have configured the following settings:');
+}
+
+/// Given: I have configured the following mentor reminders:
+class GivenIHaveConfiguredMentorReminders extends Given1WithWorld<Table, FlutterWorld> {
+  @override
+  Future<void> executeStep(Table dataTable) async {
+    final storage = StorageService();
+    final settings = await storage.loadSettings();
+    final uuid = const Uuid();
+
+    final reminders = <Map<String, dynamic>>[];
+
+    for (final row in dataTable.rows.skip(1)) {
+      final label = row.columns[0];
+      final hour = int.parse(row.columns[1]);
+      final minute = int.parse(row.columns[2]);
+      final enabled = row.columns[3].toLowerCase() == 'true';
+
+      reminders.add({
+        'id': uuid.v4(),
+        'hour': hour,
+        'minute': minute,
+        'label': label,
+        'isEnabled': enabled,
+      });
+    }
+
+    settings['mentorReminders'] = reminders;
+    await storage.saveSettings(settings);
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'I have configured the following mentor reminders:');
 }
 
 /// Given: I have a backup file from schema version X
@@ -899,7 +1014,7 @@ class ThenHabitCompletionHistoryShouldBePreserved extends Then1<String> {
     // Verify habits have non-empty completion history
     for (final habit in habits) {
       expect(
-        habit.completions.isNotEmpty,
+        habit.completionDates.isNotEmpty,
         isTrue,
         reason: 'Habit ${habit.title} should have completion history',
       );
@@ -908,6 +1023,74 @@ class ThenHabitCompletionHistoryShouldBePreserved extends Then1<String> {
 
   @override
   RegExp get pattern => RegExp(r'all habit completion history should be preserved');
+}
+
+/// Then: the habit "X" should have currentStreak Y
+class ThenHabitShouldHaveCurrentStreak extends Then2<String, int> {
+  @override
+  Future<void> executeStep(String habitTitle, int expectedStreak) async {
+    final storage = StorageService();
+    final habits = await storage.loadHabits();
+
+    final habit = habits.firstWhere((h) => h.title == habitTitle);
+
+    expect(
+      habit.currentStreak,
+      equals(expectedStreak),
+      reason: 'Habit "$habitTitle" should have currentStreak $expectedStreak',
+    );
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'the habit {string} should have currentStreak {int}');
+}
+
+/// Then: the habit should have longestStreak X
+class ThenHabitShouldHaveLongestStreak extends Then1<int> {
+  @override
+  Future<void> executeStep(int expectedStreak) async {
+    final storage = StorageService();
+    final habits = await storage.loadHabits();
+
+    if (habits.isEmpty) {
+      throw Exception('No habits found');
+    }
+
+    final habit = habits.first;
+
+    expect(
+      habit.longestStreak,
+      equals(expectedStreak),
+      reason: 'Habit should have longestStreak $expectedStreak',
+    );
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'the habit should have longestStreak {int}');
+}
+
+/// Then: all X completion records should be preserved
+class ThenCompletionRecordsShouldBePreserved extends Then1<int> {
+  @override
+  Future<void> executeStep(int expectedCount) async {
+    final storage = StorageService();
+    final habits = await storage.loadHabits();
+
+    if (habits.isEmpty) {
+      throw Exception('No habits found');
+    }
+
+    final habit = habits.first;
+
+    expect(
+      habit.completionDates.length,
+      equals(expectedCount),
+      reason: 'Should have $expectedCount completion records',
+    );
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'all {int} completion records? should be preserved');
 }
 
 /// Then: the backup metadata should contain:
@@ -1028,14 +1211,63 @@ class ThenJsonShouldPassSchemaValidation extends Then1<String> {
 class ThenAllSettingsShouldBePreserved extends Then1<String> {
   @override
   Future<void> executeStep(String input1) async {
-    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService();
+    final settings = await storage.loadSettings();
 
     // Verify settings exist (excluding sensitive data)
-    expect(prefs.getString('aiProvider'), isNotNull);
+    expect(settings['aiProvider'], isNotNull, reason: 'AI Provider should be preserved');
   }
 
   @override
   RegExp get pattern => RegExp(r'all settings should be preserved');
+}
+
+/// Then: all mentor reminders should be preserved
+class ThenAllMentorRemindersShouldBePreserved extends Then1<String> {
+  @override
+  Future<void> executeStep(String input1) async {
+    final storage = StorageService();
+    final settings = await storage.loadSettings();
+    final reminders = settings['mentorReminders'] as List?;
+
+    expect(reminders, isNotNull, reason: 'Mentor reminders should exist');
+    expect(reminders!.length, equals(3), reason: 'Should have 3 reminders');
+
+    // Verify reminder structure
+    for (final reminder in reminders) {
+      final reminderMap = reminder as Map<String, dynamic>;
+      expect(reminderMap['id'], isNotNull, reason: 'Reminder should have ID');
+      expect(reminderMap['hour'], isNotNull, reason: 'Reminder should have hour');
+      expect(reminderMap['minute'], isNotNull, reason: 'Reminder should have minute');
+      expect(reminderMap['label'], isNotNull, reason: 'Reminder should have label');
+      expect(reminderMap['isEnabled'], isNotNull, reason: 'Reminder should have isEnabled');
+    }
+
+    // Verify specific reminder values
+    final morningReminder = reminders.firstWhere(
+      (r) => (r as Map<String, dynamic>)['label'] == 'Morning Check-in',
+    ) as Map<String, dynamic>;
+    expect(morningReminder['hour'], equals(8));
+    expect(morningReminder['minute'], equals(0));
+    expect(morningReminder['isEnabled'], equals(true));
+
+    final eveningReminder = reminders.firstWhere(
+      (r) => (r as Map<String, dynamic>)['label'] == 'Evening Reflection',
+    ) as Map<String, dynamic>;
+    expect(eveningReminder['hour'], equals(20));
+    expect(eveningReminder['minute'], equals(30));
+    expect(eveningReminder['isEnabled'], equals(true));
+
+    final afternoonReminder = reminders.firstWhere(
+      (r) => (r as Map<String, dynamic>)['label'] == 'Afternoon Review',
+    ) as Map<String, dynamic>;
+    expect(afternoonReminder['hour'], equals(14));
+    expect(afternoonReminder['minute'], equals(0));
+    expect(afternoonReminder['isEnabled'], equals(false));
+  }
+
+  @override
+  RegExp get pattern => RegExp(r'all mentor reminders should be preserved');
 }
 
 /// Then: the Claude API key should not be restored
