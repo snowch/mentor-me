@@ -116,12 +116,17 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
-    await _storage.saveSettings({
-      'selectedModel': _selectedModel,
-      'aiProvider': _selectedProvider.toJson(),
-      'huggingfaceToken': _hfToken,
-      'claudeApiKey': _claudeApiKey,
-    });
+    // CRITICAL: Load existing settings first to preserve all other settings
+    // (especially hasCompletedOnboarding flag). DO NOT create new map.
+    final settings = await _storage.loadSettings();
+
+    // Update only AI-related settings
+    settings['selectedModel'] = _selectedModel;
+    settings['aiProvider'] = _selectedProvider.toJson();
+    settings['huggingfaceToken'] = _hfToken;
+    settings['claudeApiKey'] = _claudeApiKey;
+
+    await _storage.saveSettings(settings);
 
     _aiService.setModel(_selectedModel);
     await _aiService.setProvider(_selectedProvider);
