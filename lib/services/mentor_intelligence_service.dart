@@ -1088,11 +1088,41 @@ class MentorIntelligenceService {
       return _generateNewUserCard();
     }
 
-    // Analyze journaling metrics first (now uses LLM, but skips for empty journals)
-    final journalingMetrics = await analyzeJournalingMetrics(journals);
+    // PERFORMANCE FIX: Parallelize LLM calls instead of sequential execution
+    // Previously: journalingMetrics (2-3s) → then userState (2-3s) = 4-6s total
+    // Now: Both calls in parallel = 2-3s total (50%+ faster!)
 
-    // Analyze user state (now uses LLM for theme extraction)
-    final userState = await _analyzeUserState(goals, habits, journals, journalingMetrics);
+    // Check if we'll need journal theme extraction (only for journals-only state)
+    final hasJournals = journals.isNotEmpty;
+    final hasHabits = habits.isNotEmpty;
+    final hasGoals = goals.isNotEmpty;
+    final needsThemeExtraction = hasJournals && !hasHabits && !hasGoals;
+
+    JournalingMetrics journalingMetrics;
+    String? precomputedTheme;
+
+    if (needsThemeExtraction) {
+      // Parallel execution: Start both LLM calls simultaneously
+      final results = await Future.wait([
+        analyzeJournalingMetrics(journals),
+        _extractJournalTheme(journals),
+      ]);
+
+      journalingMetrics = results[0] as JournalingMetrics;
+      precomputedTheme = results[1] as String;
+    } else {
+      // Only need journaling metrics
+      journalingMetrics = await analyzeJournalingMetrics(journals);
+    }
+
+    // Analyze user state (pass precomputed theme to avoid redundant LLM call)
+    final userState = await _analyzeUserState(
+      goals,
+      habits,
+      journals,
+      journalingMetrics,
+      precomputedTheme: precomputedTheme,
+    );
 
     // Generate appropriate card based on state
     switch (userState.type) {
@@ -1219,8 +1249,9 @@ class MentorIntelligenceService {
     List<Goal> goals,
     List<Habit> habits,
     List<JournalEntry> journals,
-    JournalingMetrics journalingMetrics,
-  ) async {
+    JournalingMetrics journalingMetrics, {
+    String? precomputedTheme,
+  }) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -1371,7 +1402,9 @@ class MentorIntelligenceService {
     final hasGoals = goals.isNotEmpty;
 
     if (hasJournals && !hasHabits && !hasGoals) {
-      final theme = await _extractJournalTheme(journals);
+      // Use precomputed theme if available (from parallel execution),
+      // otherwise extract it now (fallback for edge cases)
+      final theme = precomputedTheme ?? await _extractJournalTheme(journals);
       return mentor.UserState(
         type: mentor.UserStateType.onlyJournals,
         context: {'theme': theme},

@@ -151,12 +151,32 @@ class _MentorScreenState extends State<MentorScreen> {
 
       // Show loading indicator while generating (first time or during refresh)
       if (_cachedCoachingCard == null) {
-        return const Card(
+        return Card(
           elevation: 2,
           child: Padding(
             padding: AppSpacing.cardPadding,
-            child: Center(
-              child: CircularProgressIndicator(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Analyzing your progress...',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Reviewing your goals, habits, and journal entries',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         );
