@@ -78,6 +78,8 @@ test/
 │   ├── goal_steps.dart      # Goal-specific steps
 │   ├── journal_steps.dart   # Journal-specific steps
 │   └── habit_steps.dart     # Habit-specific steps
+├── integration/             # Integration tests (multi-component)
+│   └── backup_restore_race_condition_test.dart  # Backup/restore safety tests
 ├── schema_validation_test.dart    # Schema synchronization tests
 └── legacy_migration_test.dart     # Data migration tests
 
@@ -553,11 +555,11 @@ Track regression metrics:
 - [ ] ChatScreen tests
 - [ ] JournalScreen tests
 
-### Phase 5: Integration Tests (PLANNED 📝)
+### Phase 5: Integration Tests (IN PROGRESS 🚧)
 - [ ] Create goal → Complete milestone flow
 - [ ] Journal entry → Link to goal flow
 - [ ] Complete habit → Build streak flow
-- [ ] Backup → Restore flow
+- [x] Backup → Restore race condition tests
 
 ### Phase 6: Test Infrastructure (PLANNED 📝)
 - [ ] Add test coverage reporting to CI/CD
@@ -632,6 +634,89 @@ test('should update stream when data changes', () async {
   await expectLater(stream, emits(containsAll([item1, item2])));
 });
 ```
+
+### Testing Backup/Restore Race Conditions
+
+**Critical:** Backup/restore operations have a race condition window where stale in-memory data could overwrite restored data.
+
+**The Problem:**
+```
+Time 0: ✅ SharedPreferences written with restored data
+Time 1: ✅ Providers start reloading...
+Time 2: ❌ [RACE WINDOW] Background operation saves stale data
+Time 3: ✅ Providers finish reloading
+```
+
+**Protection Strategy:**
+1. BackupService writes to SharedPreferences
+2. Immediately calls `reload()` on all providers
+3. Providers re-fetch from SharedPreferences
+4. UI shows success message
+
+**Test Coverage:**
+See `test/integration/backup_restore_race_condition_test.dart` for comprehensive tests:
+
+```dart
+test('restore should not be overwritten by immediate save after import', () async {
+  // 1. Create original data and export
+  final originalGoal = Goal(title: 'Original Goal', ...);
+  await goalProvider.addGoal(originalGoal);
+  final backupData = await backupService.exportData();
+
+  // 2. Modify data after backup
+  final newGoal = Goal(title: 'New Goal After Backup', ...);
+  await goalProvider.addGoal(newGoal);
+  expect(goalProvider.goals.length, 2);
+
+  // 3. Import backup (restores to SharedPreferences)
+  await backupService.restoreFromBackup(backupData);
+
+  // 4. CRITICAL: Try to save with stale provider data
+  //    (simulates background operation that hasn't reloaded)
+  final staleGoal = Goal(title: 'Stale Goal', ...);
+  await goalProvider.addGoal(staleGoal);
+
+  // 5. Reload provider (simulating proper restore flow)
+  await goalProvider.reload();
+
+  // 6. Verify: Should have original + stale (restore wins)
+  expect(goalProvider.goals.length, 2);
+  expect(goalProvider.goals.map((g) => g.title),
+    containsAll(['Original Goal', 'Stale Goal']));
+  expect(goalProvider.goals.map((g) => g.title),
+    isNot(contains('New Goal After Backup')));
+});
+```
+
+**Additional Test Scenarios:**
+- **Concurrent operations:** Multiple providers saving during restore
+- **Rapid saves:** Background timers triggering rapid saves
+- **Empty backups:** Restoring empty backup should clear data
+- **Provider reload verification:** All providers implement `reload()` method
+
+**Why These Tests Matter:**
+- Prevents data loss during restore operations
+- Catches regressions if restore flow is refactored
+- Documents expected behavior for developers
+- Provides confidence that user data is safe
+
+**Running Backup/Restore Tests:**
+```bash
+flutter test test/integration/backup_restore_race_condition_test.dart
+```
+
+**Real-World Scenarios Tested:**
+1. User imports backup but dismisses "restart app" dialog
+2. Background notification service triggers save during restore
+3. Auto-backup service runs during restore
+4. User rapidly interacts with UI during restore
+5. Multiple concurrent saves from different providers
+
+**Safety Guarantees:**
+✅ Restored data ALWAYS wins over stale in-memory data
+✅ Provider `reload()` ensures fresh data from SharedPreferences
+✅ BackupService writes atomically to SharedPreferences
+✅ No partial writes (all-or-nothing restore)
 
 ---
 
