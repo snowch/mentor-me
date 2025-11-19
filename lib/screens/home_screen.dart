@@ -329,71 +329,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _showAIWarning() async {
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.psychology_outlined, color: Colors.orange),
-            SizedBox(width: 12),
-            Text(AppStrings.aiNotConfigured),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppStrings.aiFeaturesCurrentlyUnavailable,
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            SizedBox(height: 12),
-            Text(AppStrings.youNeedToConfigure),
-            SizedBox(height: 8),
-            Text(AppStrings.cloudAiEnterApiKey),
-            Text(AppStrings.localAiDownloadModel),
-            SizedBox(height: 12),
-            Text(
-              AppStrings.tapConfigureAi,
-              style: TextStyle(fontSize: 13),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppStrings.notNow),
-          ),
-          FilledButton.icon(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-
-              // Navigate directly to AI Settings screen
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AISettingsScreen(),
-                ),
-              );
-
-              // Recheck AI status when returning
-              if (mounted) {
-                _checkAIStatus();
-              }
-            },
-            icon: const Icon(Icons.settings),
-            label: const Text(AppStrings.configureAi),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final showNotificationWarning = !_notificationsEnabled || !_exactAlarmsEnabled;
-    final showAIWarning = !_aiConfigured;
 
     return Scaffold(
       appBar: AppBar(
@@ -463,17 +402,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               );
             },
           ),
-          if (showAIWarning)
-            Tooltip(
-              message: AppStrings.aiNotConfigured,
-              child: IconButton(
-                icon: const Icon(
-                  Icons.psychology_outlined,
-                  color: Colors.orange,
-                ),
-                onPressed: _showAIWarning,
-              ),
-            ),
           if (showNotificationWarning)
             Tooltip(
               message: AppStrings.notificationsDisabled,
