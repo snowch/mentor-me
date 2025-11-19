@@ -68,9 +68,6 @@ class JournalProvider extends ChangeNotifier {
       // Notify adaptive reminder service that user journaled
       await _notificationService.onJournalCreated();
       notifyListeners();
-
-      // Schedule auto-backup after data change
-      await _autoBackup.scheduleAutoBackup();
     }
   }
 
