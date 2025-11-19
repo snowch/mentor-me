@@ -15,6 +15,7 @@ import '../providers/checkin_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../providers/pulse_type_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_colors.dart';
 import '../constants/app_strings.dart';
@@ -548,6 +549,42 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                     ],
                   ],
                 ),
+              ),
+            ],
+            // Show backup icon in header (optional)
+            if (_autoBackupEnabled && !kIsWeb) ...[
+              AppSpacing.gapMd,
+              Consumer<SettingsProvider>(
+                builder: (context, settingsProvider, child) {
+                  return Row(
+                    children: [
+                      Icon(
+                        Icons.visibility,
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                        size: 18,
+                      ),
+                      AppSpacing.gapHorizontalSm,
+                      Expanded(
+                        child: Text(
+                          'Show backup icon in header',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      Switch(
+                        value: settingsProvider.showAutoBackupIcon,
+                        onChanged: (value) async {
+                          await settingsProvider.setShowAutoBackupIcon(value);
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+              Text(
+                'Display a status icon when backup is running',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    ),
               ),
             ],
           ],

@@ -16,7 +16,7 @@ import 'storage_service.dart';
 import 'backup_service.dart';
 import 'debug_service.dart';
 
-class AutoBackupService {
+class AutoBackupService extends ChangeNotifier {
   static final AutoBackupService _instance = AutoBackupService._internal();
   factory AutoBackupService() => _instance;
   AutoBackupService._internal();
@@ -27,9 +27,14 @@ class AutoBackupService {
 
   Timer? _debounceTimer;
   bool _isBackingUp = false;
+  bool _isScheduled = false;
 
   static const _debounceDelay = Duration(seconds: 30);
   static const _maxAutoBackups = 7; // Keep last week of auto-backups
+
+  // Public getters for UI
+  bool get isBackingUp => _isBackingUp;
+  bool get isScheduled => _isScheduled;
 
   /// Schedule an automatic backup (debounced)
   /// This should be called after any significant data change
@@ -50,6 +55,9 @@ class AutoBackupService {
 
     // Cancel existing timer and start new one (debounce)
     _debounceTimer?.cancel();
+    _isScheduled = true;
+    notifyListeners();
+
     _debounceTimer = Timer(_debounceDelay, () {
       _performAutoBackup();
     });
@@ -64,7 +72,9 @@ class AutoBackupService {
       return;
     }
 
+    _isScheduled = false;
     _isBackingUp = true;
+    notifyListeners();
 
     try {
       await _debug.info('AutoBackupService', 'Starting auto-backup...');
@@ -126,6 +136,7 @@ class AutoBackupService {
       );
     } finally {
       _isBackingUp = false;
+      notifyListeners();
     }
   }
 
