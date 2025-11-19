@@ -25,6 +25,9 @@ class SettingsProvider extends ChangeNotifier {
   // Theme Settings
   bool _darkMode = false;
 
+  // Auto-Backup Settings
+  bool _showAutoBackupIcon = false; // Default: hidden (user can enable)
+
   // Getters
   AIProvider get currentProvider => _currentProvider;
   bool get currentProviderConfigured => _currentProviderConfigured;
@@ -33,6 +36,7 @@ class SettingsProvider extends ChangeNotifier {
   String get claudeApiKey => _claudeApiKey;
   String get huggingfaceToken => _huggingfaceToken;
   bool get darkMode => _darkMode;
+  bool get showAutoBackupIcon => _showAutoBackupIcon;
 
   /// Load settings from storage
   Future<void> loadSettings() async {
@@ -64,6 +68,9 @@ class SettingsProvider extends ChangeNotifier {
 
       // Load theme
       _darkMode = settings['darkMode'] as bool? ?? false;
+
+      // Load auto-backup settings
+      _showAutoBackupIcon = settings['showAutoBackupIcon'] as bool? ?? false;
 
       // Check provider configuration status
       await _updateProviderStatus();
@@ -225,6 +232,25 @@ class SettingsProvider extends ChangeNotifier {
     await _debug.info(
       'SettingsProvider',
       'Dark mode ${enabled ? "enabled" : "disabled"}',
+    );
+  }
+
+  /// Set showAutoBackupIcon and notify listeners
+  Future<void> setShowAutoBackupIcon(bool enabled) async {
+    if (_showAutoBackupIcon == enabled) return;
+
+    _showAutoBackupIcon = enabled;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['showAutoBackupIcon'] = enabled;
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Show auto-backup icon ${enabled ? "enabled" : "disabled"}',
     );
   }
 }

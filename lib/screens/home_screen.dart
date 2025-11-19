@@ -11,6 +11,7 @@ import '../constants/app_strings.dart';
 import '../services/notification_service.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
+import '../services/auto_backup_service.dart';
 import '../models/ai_provider.dart';
 import '../providers/settings_provider.dart';
 import 'goals_screen.dart';
@@ -370,6 +371,53 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
         actions: [
+          // Auto-Backup Status Icon (Optional) - Shows when backup is running
+          Consumer<SettingsProvider>(
+            builder: (context, settingsProvider, child) {
+              final showIcon = settingsProvider.showAutoBackupIcon;
+
+              if (!showIcon) return const SizedBox.shrink();
+
+              return ChangeNotifierProvider.value(
+                value: AutoBackupService(),
+                child: Consumer<AutoBackupService>(
+                  builder: (context, autoBackup, child) {
+                    if (autoBackup.isBackingUp) {
+                      return Tooltip(
+                        message: 'Auto-backup in progress...',
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (autoBackup.isScheduled) {
+                      return Tooltip(
+                        message: 'Auto-backup scheduled (30s)',
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Icon(
+                            Icons.schedule,
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                            size: 20,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              );
+            },
+          ),
           // AI Provider Toggle - Listen to SettingsProvider
           Consumer<SettingsProvider>(
             builder: (context, settingsProvider, child) {
