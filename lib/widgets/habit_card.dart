@@ -106,25 +106,12 @@ class HabitCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Last 7 Days',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      Text(
-                        'Tap to toggle',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 10,
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Last 7 Days • Tap to toggle • Long press for calendar',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -141,6 +128,7 @@ class HabitCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: GestureDetector(
                         onTap: () => _toggleDayCompletion(context, date),
+                        onLongPress: () => _showDatePicker(context),
                         child: Column(
                           children: [
                             Container(

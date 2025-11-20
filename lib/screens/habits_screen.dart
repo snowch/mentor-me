@@ -158,31 +158,9 @@ class HabitsScreen extends StatelessWidget {
                         ),
                       )
                     else ...[
-                      // Today's Habits (not completed)
-                      if (todayHabits.isNotEmpty) ...[
-                        Text(
-                          AppStrings.toCompleteToday,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...todayHabits.map((habit) => HabitCard(habit: habit)),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // Completed Today
-                      if (completedToday.isNotEmpty) ...[
-                        Text(
-                          AppStrings.completedToday,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...completedToday.map((habit) => HabitCard(habit: habit)),
-                        const SizedBox(height: 16),
-                      ],
+                      // Active habits (all shown together, no reordering on toggle)
+                      ...activeHabits.map((habit) => HabitCard(habit: habit)),
+                      const SizedBox(height: 16),
                     ],
 
                     const SizedBox(height: 24),
