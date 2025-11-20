@@ -31,33 +31,37 @@ class HabitCard extends StatelessWidget {
               Row(
                 children: [
                   // Checkbox with long-press for custom date
-                  GestureDetector(
-                    onLongPress: () => _showDatePicker(context),
-                    child: Transform.scale(
-                      scale: 1.2,
-                      child: Checkbox(
-                        value: habit.isCompletedToday,
-                        shape: const CircleBorder(),
-                        onChanged: (value) {
-                          if (value == true) {
-                            context.read<HabitProvider>().completeHabit(
-                                  habit.id,
-                                  DateTime.now(),
-                                );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${habit.title} completed!'),
-                                duration: const Duration(seconds: 2),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          } else {
-                            context.read<HabitProvider>().uncompleteHabit(
-                                  habit.id,
-                                  DateTime.now(),
-                                );
-                          }
-                        },
+                  Tooltip(
+                    message: 'Tap for today\nLong press for any date',
+                    triggerMode: TooltipTriggerMode.longPress,
+                    child: GestureDetector(
+                      onLongPress: () => _showDatePicker(context),
+                      child: Transform.scale(
+                        scale: 1.2,
+                        child: Checkbox(
+                          value: habit.isCompletedToday,
+                          shape: const CircleBorder(),
+                          onChanged: (value) {
+                            if (value == true) {
+                              context.read<HabitProvider>().completeHabit(
+                                    habit.id,
+                                    DateTime.now(),
+                                  );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${habit.title} completed!'),
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            } else {
+                              context.read<HabitProvider>().uncompleteHabit(
+                                    habit.id,
+                                    DateTime.now(),
+                                  );
+                            }
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -142,9 +146,33 @@ class HabitCard extends StatelessWidget {
               const SizedBox(height: 12),
 
               // Last 7 days visualization (interactive - tap to toggle)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(7, (index) {
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Last 7 Days',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      Text(
+                        'Tap to toggle',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 10,
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(7, (index) {
                   final isCompleted = last7Days[index];
                   final dayLabel = _getLast7DayLabels()[index];
                   final isToday = index == 6;
@@ -192,7 +220,9 @@ class HabitCard extends StatelessWidget {
                       ),
                     ),
                   );
-                }),
+                    }),
+                  ),
+                ],
               ),
             ],
           ),
@@ -336,6 +366,23 @@ class HabitCard extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _showDatePicker(context),
+                        icon: const Icon(Icons.calendar_month),
+                        label: const Text('Mark Any Date'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
                 Row(
                   children: [
                     Expanded(
