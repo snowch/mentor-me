@@ -30,43 +30,6 @@ class HabitCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  // Checkbox with long-press for custom date
-                  Tooltip(
-                    message: 'Tap for today\nLong press for any date',
-                    triggerMode: TooltipTriggerMode.longPress,
-                    child: GestureDetector(
-                      onLongPress: () => _showDatePicker(context),
-                      child: Transform.scale(
-                        scale: 1.2,
-                        child: Checkbox(
-                          value: habit.isCompletedToday,
-                          shape: const CircleBorder(),
-                          onChanged: (value) {
-                            if (value == true) {
-                              context.read<HabitProvider>().completeHabit(
-                                    habit.id,
-                                    DateTime.now(),
-                                  );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('${habit.title} completed!'),
-                                  duration: const Duration(seconds: 2),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            } else {
-                              context.read<HabitProvider>().uncompleteHabit(
-                                    habit.id,
-                                    DateTime.now(),
-                                  );
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
                   // Title and streak
                   Expanded(
                     child: Column(
@@ -76,12 +39,6 @@ class HabitCard extends StatelessWidget {
                           habit.title,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                decoration: habit.isCompletedToday
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                color: habit.isCompletedToday
-                                    ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)
-                                    : null,
                               ),
                         ),
                         if (habit.currentStreak > 0) ...[
