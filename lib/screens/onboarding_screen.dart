@@ -5,8 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/habit.dart';
 import '../providers/habit_provider.dart';
+import '../providers/goal_provider.dart';
+import '../providers/journal_provider.dart';
+import '../providers/checkin_provider.dart';
+import '../providers/pulse_provider.dart';
+import '../providers/pulse_type_provider.dart';
+import '../providers/chat_provider.dart';
 import 'home_screen.dart';
 import '../services/storage_service.dart';
+import '../services/backup_service.dart';
 import '../constants/app_strings.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -20,9 +27,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
   final StorageService _storage = StorageService();
+  final BackupService _backupService = BackupService();
   final TextEditingController _nameController = TextEditingController();
   String _userName = '';
   bool _isCreatingHabit = false;
+  bool _isRestoring = false;
 
   @override
   void dispose() {
@@ -92,6 +101,72 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
 
     _nextPage();
+  }
+
+  Future<void> _restoreFromBackup() async {
+    setState(() => _isRestoring = true);
+
+    try {
+      final result = await _backupService.importBackup();
+
+      if (!mounted) return;
+
+      if (result.success) {
+        // Mark onboarding as completed
+        final settings = await _storage.loadSettings();
+        settings['hasCompletedOnboarding'] = true;
+        await _storage.saveSettings(settings);
+
+        // Reload all providers with the restored data
+        await _reloadProviders();
+
+        if (mounted) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.message),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navigate to home screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } else {
+        setState(() => _isRestoring = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isRestoring = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error restoring backup: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _reloadProviders() async {
+    if (!mounted) return;
+
+    // Reload all providers to pick up the restored data
+    await Provider.of<GoalProvider>(context, listen: false).reload();
+    await Provider.of<HabitProvider>(context, listen: false).reload();
+    await Provider.of<JournalProvider>(context, listen: false).reload();
+    await Provider.of<CheckinProvider>(context, listen: false).reload();
+    await Provider.of<PulseProvider>(context, listen: false).reload();
+    await Provider.of<PulseTypeProvider>(context, listen: false).reload();
+    await Provider.of<ChatProvider>(context, listen: false).reload();
   }
 
   Future<void> _completeOnboarding() async {
@@ -248,13 +323,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 48),
-        FilledButton.icon(
-          onPressed: _nextPage,
-          icon: const Icon(Icons.arrow_forward),
-          label: const Text(AppStrings.getStarted),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          ),
+        _isRestoring
+            ? const CircularProgressIndicator()
+            : FilledButton.icon(
+                onPressed: _nextPage,
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text(AppStrings.getStarted),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                ),
+              ),
+        const SizedBox(height: 24),
+        // Divider with "or" text
+        Row(
+          children: [
+            Expanded(child: Divider(color: Colors.grey[400])),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'or',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+            Expanded(child: Divider(color: Colors.grey[400])),
+          ],
+        ),
+        const SizedBox(height: 24),
+        // Restore from backup option
+        TextButton.icon(
+          onPressed: _isRestoring ? null : _restoreFromBackup,
+          icon: const Icon(Icons.restore),
+          label: const Text('Restore from Backup'),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Have a backup file? Skip setup and restore your data.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
