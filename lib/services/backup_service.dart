@@ -18,6 +18,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_io/io.dart';
 import 'storage_service.dart';
 import 'debug_service.dart';
@@ -57,7 +58,14 @@ class BackupService {
     final sessions = await _storage.loadSessions();
     final enabledTemplates = await _storage.getEnabledTemplates();
 
+    // Load check-in templates and responses directly from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final checkinTemplates = prefs.getString('checkin_templates');
+    final checkinResponses = prefs.getString('checkin_responses');
+
     // Remove sensitive data (API key, HF token) from export
+    // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
+    // are intentionally INCLUDED in backups so users can restore their configuration
     final exportSettings = Map<String, dynamic>.from(settings);
     exportSettings.remove('claudeApiKey');
     exportSettings.remove('huggingfaceToken'); // Fixed: was 'hfToken', actual key is 'huggingfaceToken'
@@ -89,6 +97,8 @@ class BackupService {
       'custom_templates': customTemplates,
       'sessions': sessions,
       'enabled_templates': json.encode(enabledTemplates),
+      'checkin_templates': checkinTemplates,
+      'checkin_responses': checkinResponses,
       'settings': json.encode(exportSettings),
 
       // Statistics for UI display
@@ -678,21 +688,24 @@ class BackupService {
         final exportedSettings = json.decode(data['settings'] as String) as Map<String, dynamic>;
         final currentSettings = await _storage.loadSettings();
 
-        // Merge: keep current API key, HF token, onboarding state, and auto-backup preference
+        // Merge: keep current API key, HF token, onboarding state, and auto-backup enabled preference
+        // Note: Auto-backup LOCATION settings (autoBackupLocation, autoBackupCustomPath)
+        // are RESTORED from the backup to preserve user's backup configuration
         final mergedSettings = {
-          ...exportedSettings,
+          ...exportedSettings, // Includes autoBackupLocation and autoBackupCustomPath from backup
           'claudeApiKey': currentSettings['claudeApiKey'], // Keep current API key
           'huggingfaceToken': currentSettings['huggingfaceToken'], // Keep current HuggingFace token (fixed key name)
           // Preserve onboarding state - don't send users back to onboarding after import
           if (currentSettings.containsKey('hasCompletedOnboarding'))
             'hasCompletedOnboarding': currentSettings['hasCompletedOnboarding'],
-          // Preserve auto-backup preference - don't disable if user has it enabled
+          // Preserve auto-backup ENABLED preference - don't disable if user has it enabled
+          // (but location settings are restored from backup)
           if (currentSettings.containsKey('autoBackupEnabled'))
             'autoBackupEnabled': currentSettings['autoBackupEnabled'],
         };
 
         await _storage.saveSettings(mergedSettings);
-        await _debug.info('BackupService', 'Imported settings (preserved API key, HF token, onboarding state, and auto-backup preference)');
+        await _debug.info('BackupService', 'Imported settings (preserved API key, HF token, onboarding state, auto-backup enabled; restored backup location settings)');
         results.add(ImportItemResult(
           dataType: 'Settings',
           success: true,
@@ -807,6 +820,74 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Enabled Templates',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import check-in templates
+    try {
+      if (data.containsKey('checkin_templates') && data['checkin_templates'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('checkin_templates', data['checkin_templates'] as String);
+        // Parse to count
+        final templatesJson = json.decode(data['checkin_templates'] as String) as List;
+        await _debug.info('BackupService', 'Imported ${templatesJson.length} check-in templates');
+        results.add(ImportItemResult(
+          dataType: 'Check-In Templates',
+          success: true,
+          count: templatesJson.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Check-In Templates',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import check-in templates: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Check-In Templates',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import check-in responses
+    try {
+      if (data.containsKey('checkin_responses') && data['checkin_responses'] != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('checkin_responses', data['checkin_responses'] as String);
+        // Parse to count
+        final responsesJson = json.decode(data['checkin_responses'] as String) as List;
+        await _debug.info('BackupService', 'Imported ${responsesJson.length} check-in responses');
+        results.add(ImportItemResult(
+          dataType: 'Check-In Responses',
+          success: true,
+          count: responsesJson.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Check-In Responses',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import check-in responses: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Check-In Responses',
         success: false,
         count: 0,
         errorMessage: e.toString(),

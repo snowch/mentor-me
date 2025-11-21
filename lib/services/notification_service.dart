@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'debug_service.dart';
@@ -93,6 +95,49 @@ void _testAlarmCallback() async {
     debugPrint('✅✅✅ Test notification shown successfully! ✅✅✅');
   } catch (e, stackTrace) {
     debugPrint('❌❌❌ ERROR in test alarm callback: $e ❌❌❌');
+    debugPrint('❌ Stack trace: $stackTrace');
+  }
+}
+
+/// Custom check-in template callback - shows reminder for custom check-in
+@pragma('vm:entry-point')
+void customCheckInCallback() async {
+  debugPrint('📋📋📋 CUSTOM CHECK-IN CALLBACK FIRED! 📋📋📋');
+
+  try {
+    // Create a notification plugin instance
+    final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
+
+    // Initialize with simple settings
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const initSettings = InitializationSettings(android: androidSettings);
+
+    await notifications.initialize(initSettings);
+    debugPrint('📋 Notification plugin initialized');
+
+    // We can't easily access StorageService here, so we'll show a generic notification
+    // The real content will be shown when user opens the app
+    const androidDetails = AndroidNotificationDetails(
+      'custom_checkins',
+      'Custom Check-Ins',
+      channelDescription: 'Reminders for custom check-in templates',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/launcher_icon',
+    );
+
+    const notificationDetails = NotificationDetails(android: androidDetails);
+
+    await notifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      '📋 Check-In Time',
+      'Time for your scheduled check-in!',
+      notificationDetails,
+    );
+
+    debugPrint('✅ Custom check-in notification shown successfully');
+  } catch (e, stackTrace) {
+    debugPrint('❌ ERROR in customCheckInCallback: $e');
     debugPrint('❌ Stack trace: $stackTrace');
   }
 }
@@ -616,6 +661,101 @@ class NotificationService {
   Future<void> testNotification() async {
     debugPrint('🧪 Testing notification display...');
     await showImmediateNotification('🧪 Test Notification', 'If you see this, notifications are working!');
+  }
+
+  /// Schedule a custom check-in template reminder
+  Future<void> scheduleCustomCheckInReminder({
+    required String templateId,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+  }) async {
+    if (kIsWeb) {
+      debugPrint('⚠️ Custom check-in reminders not available on web');
+      return;
+    }
+
+    try {
+      debugPrint('📋 Scheduling custom check-in: $title for $scheduledTime');
+
+      if (!_initialized) {
+        debugPrint('⚠️ NotificationService not initialized, skipping');
+        return;
+      }
+
+      // Don't schedule if time is in the past
+      if (scheduledTime.isBefore(DateTime.now())) {
+        debugPrint('⚠️ Scheduled time is in the past, skipping');
+        return;
+      }
+
+      // Generate unique alarm ID from template ID (use hash to get consistent int)
+      final alarmId = templateId.hashCode.abs();
+
+      // Cancel existing alarm for this template
+      await AndroidAlarmManager.cancel(alarmId);
+
+      // Store the notification details for the callback
+      final notificationData = {
+        'title': title,
+        'body': body,
+        'templateId': templateId,
+      };
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('custom_checkin_$templateId', jsonEncode(notificationData));
+
+      // Schedule the alarm
+      await AndroidAlarmManager.oneShotAt(
+        scheduledTime,
+        alarmId,
+        customCheckInCallback,
+        exact: true,
+        wakeup: true,
+        rescheduleOnReboot: true,
+      );
+
+      debugPrint('✅ Custom check-in scheduled: $title');
+      await _debug.info('NotificationService', 'Custom check-in scheduled', metadata: {
+        'templateId': templateId,
+        'title': title,
+        'scheduledTime': scheduledTime.toIso8601String(),
+      });
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error scheduling custom check-in: $e');
+      await _debug.error(
+        'NotificationService',
+        'Failed to schedule custom check-in',
+        metadata: {'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+    }
+  }
+
+  /// Cancel a custom check-in template reminder
+  Future<void> cancelCustomCheckInReminder(String templateId) async {
+    if (kIsWeb) return;
+
+    try {
+      final alarmId = templateId.hashCode.abs();
+      await AndroidAlarmManager.cancel(alarmId);
+
+      // Clean up stored notification data
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('custom_checkin_$templateId');
+
+      debugPrint('🗑️ Cancelled custom check-in reminder: $templateId');
+      await _debug.info('NotificationService', 'Cancelled custom check-in', metadata: {
+        'templateId': templateId,
+      });
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error cancelling custom check-in: $e');
+      await _debug.error(
+        'NotificationService',
+        'Failed to cancel custom check-in',
+        metadata: {'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+    }
   }
 
   /// Check if notification permissions are granted

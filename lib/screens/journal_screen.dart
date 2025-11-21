@@ -252,7 +252,7 @@ class _JournalScreenState extends State<JournalScreen> {
         heroTag: 'journal_fab',
         onPressed: () => _showJournalChoice(context),
         icon: const Icon(Icons.edit_note),
-        label: const Text(AppStrings.reflectVerb),
+        label: const Text(AppStrings.newEntry),
       ),
     );
   }
@@ -386,7 +386,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
               AppSpacing.gapMd,
 
-              // 1-to-1 Mentor Session (formerly Structured Journaling)
+              // Structured Reflection (template-based journaling)
               Card(
                 child: InkWell(
                   onTap: () {
@@ -422,7 +422,7 @@ class _JournalScreenState extends State<JournalScreen> {
                               Row(
                                 children: [
                                   Text(
-                                    '1-to-1 Mentor Session',
+                                    AppStrings.structuredReflection,
                                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
                                         ),

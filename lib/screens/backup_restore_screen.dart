@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
+import '../models/backup_location.dart';
 import '../services/storage_service.dart';
 import '../services/backup_service.dart';
 import '../services/auto_backup_service.dart';
@@ -36,6 +38,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   bool _autoBackupEnabled = false;
   DateTime? _lastAutoBackupTime;
   String? _lastAutoBackupFilename;
+  BackupLocation _backupLocation = BackupLocation.internal;
+  String? _customBackupPath;
+  String? _currentBackupPath;
   Map<String, dynamic>? _currentDataCounts;
   Map<String, dynamic>? _lastExportStats;
   Map<String, dynamic>? _lastImportStats;
@@ -87,12 +92,21 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     final settings = await _storage.loadSettings();
     final lastBackupTime = await _autoBackupService.getLastAutoBackupTime();
     final lastBackupFilename = await _autoBackupService.getLastAutoBackupFilename();
+    final currentPath = await _autoBackupService.getCurrentBackupPath();
+
+    // Load backup location settings
+    final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
+    final location = backupLocationFromString(locationString);
+    final customPath = settings['autoBackupCustomPath'] as String?;
 
     if (mounted) {
       setState(() {
         _autoBackupEnabled = settings['autoBackupEnabled'] as bool? ?? false;
         _lastAutoBackupTime = lastBackupTime;
         _lastAutoBackupFilename = lastBackupFilename;
+        _backupLocation = location;
+        _customBackupPath = customPath;
+        _currentBackupPath = currentPath;
       });
     }
   }
@@ -570,6 +584,13 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 ),
               ),
             ],
+            // Backup location settings
+            if (_autoBackupEnabled && !kIsWeb) ...[
+              AppSpacing.gapLg,
+              const Divider(),
+              AppSpacing.gapMd,
+              _buildBackupLocationSettings(),
+            ],
             // Add diagnostics button for debugging
             if (_autoBackupEnabled && !kIsWeb) ...[
               AppSpacing.gapMd,
@@ -622,6 +643,258 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildBackupLocationSettings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.folder_outlined,
+              color: Theme.of(context).colorScheme.primary,
+              size: 18,
+            ),
+            AppSpacing.gapHorizontalSm,
+            Text(
+              AppStrings.autoBackupLocation,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ],
+        ),
+        AppSpacing.gapSm,
+        Text(
+          AppStrings.chooseBackupLocation,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+        ),
+        AppSpacing.gapMd,
+        // Internal storage option
+        RadioListTile<BackupLocation>(
+          value: BackupLocation.internal,
+          groupValue: _backupLocation,
+          onChanged: (value) => _updateBackupLocation(value!),
+          title: Row(
+            children: [
+              const Icon(Icons.lock, size: 16),
+              AppSpacing.gapHorizontalSm,
+              const Text(AppStrings.internalStorage),
+            ],
+          ),
+          subtitle: const Text(AppStrings.internalStorageDescription),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        // Downloads folder option
+        RadioListTile<BackupLocation>(
+          value: BackupLocation.downloads,
+          groupValue: _backupLocation,
+          onChanged: (value) => _updateBackupLocation(value!),
+          title: Row(
+            children: [
+              const Icon(Icons.download, size: 16),
+              AppSpacing.gapHorizontalSm,
+              const Text(AppStrings.downloadsFolder),
+            ],
+          ),
+          subtitle: const Text(AppStrings.downloadsFolderDescription),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        // Custom folder option
+        RadioListTile<BackupLocation>(
+          value: BackupLocation.custom,
+          groupValue: _backupLocation,
+          onChanged: (value) => _updateBackupLocation(value!),
+          title: Row(
+            children: [
+              const Icon(Icons.folder_open, size: 16),
+              AppSpacing.gapHorizontalSm,
+              const Text(AppStrings.customFolder),
+            ],
+          ),
+          subtitle: const Text(AppStrings.customFolderDescription),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+        ),
+        // Custom folder picker (shown when custom is selected)
+        if (_backupLocation == BackupLocation.custom) ...[
+          AppSpacing.gapSm,
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _selectCustomBackupFolder,
+                  icon: const Icon(Icons.folder_open, size: 18),
+                  label: Text(_customBackupPath == null
+                      ? AppStrings.selectCustomFolder
+                      : 'Change Folder'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                if (_customBackupPath != null) ...[
+                  AppSpacing.gapSm,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _customBackupPath!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                    ),
+                  ),
+                ] else ...[
+                  AppSpacing.gapSm,
+                  Text(
+                    AppStrings.customFolderNotSet,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .error
+                              .withOpacity(0.8),
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+        // Current backup path
+        if (_currentBackupPath != null) ...[
+          AppSpacing.gapMd,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    AppSpacing.gapHorizontalSm,
+                    Text(
+                      AppStrings.currentBackupPath,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                  ],
+                ),
+                AppSpacing.gapXs,
+                SelectableText(
+                  _currentBackupPath!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _updateBackupLocation(BackupLocation newLocation) async {
+    // If switching to custom but no path is set, prompt to select one
+    if (newLocation == BackupLocation.custom && _customBackupPath == null) {
+      await _selectCustomBackupFolder();
+      // If user cancelled folder selection, don't change location
+      if (_customBackupPath == null) {
+        return;
+      }
+    }
+
+    // Save the new location to settings
+    final settings = await _storage.loadSettings();
+    settings['autoBackupLocation'] = newLocation.name;
+    await _storage.saveSettings(settings);
+
+    setState(() {
+      _backupLocation = newLocation;
+    });
+
+    // Reload current backup path
+    await _loadAutoBackupSettings();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.backupLocationUpdated),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _selectCustomBackupFolder() async {
+    try {
+      // Use directory picker
+      final result = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: AppStrings.selectCustomFolder,
+      );
+
+      if (result != null) {
+        // Save custom path to settings
+        final settings = await _storage.loadSettings();
+        settings['autoBackupCustomPath'] = result;
+        await _storage.saveSettings(settings);
+
+        setState(() {
+          _customBackupPath = result;
+        });
+
+        // Reload current backup path
+        await _loadAutoBackupSettings();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Custom folder set: $result'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to select folder: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   /// Show auto-backup diagnostics dialog

@@ -13,6 +13,7 @@ import 'providers/pulse_provider.dart';
 import 'providers/pulse_type_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/journal_template_provider.dart';
+import 'providers/checkin_template_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -186,6 +187,7 @@ class MyApp extends StatelessWidget {
           provider.setSystemTemplates(service.getDefaultTemplates());
           return provider;
         }),
+        ChangeNotifierProvider(create: (_) => CheckInTemplateProvider()),
         ChangeNotifierProvider(create: (_) {
           final provider = SettingsProvider();
           // Load settings on initialization

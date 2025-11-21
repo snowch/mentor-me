@@ -4,7 +4,7 @@
 // Features:
 // - Debounced backups (waits 30 seconds after last change before backing up)
 // - File rotation (keeps last 7 auto-backups, deletes older ones)
-// - Platform-aware storage (app documents directory)
+// - Configurable storage location (internal, downloads, custom)
 // - Respects user preference (can be enabled/disabled)
 
 import 'dart:async';
@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import '../models/backup_location.dart';
 import 'storage_service.dart';
 import 'backup_service.dart';
 import 'debug_service.dart';
@@ -99,10 +100,49 @@ class AutoBackupService extends ChangeNotifier {
     try {
       await _debug.info('AutoBackupService', 'Starting auto-backup...');
 
-      // Get app documents directory
-      final directory = await getApplicationDocumentsDirectory();
-      final autoBackupDir = Directory('${directory.path}/auto_backups');
+      // Get backup location from settings
+      final settings = await _storage.loadSettings();
+      final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
+      final location = backupLocationFromString(locationString);
+      final customPath = settings['autoBackupCustomPath'] as String?;
 
+      await _debug.info('AutoBackupService', 'Backup location: ${location.displayName}', metadata: {
+        'location': location.name,
+        'customPath': customPath,
+      });
+
+      // Get directory for selected location
+      final autoBackupDir = await location.getDirectory(customPath: customPath);
+
+      if (autoBackupDir == null) {
+        await _debug.error(
+          'AutoBackupService',
+          'Failed to get backup directory for location: ${location.name}',
+          metadata: {'location': location.name, 'customPath': customPath},
+        );
+        // Fallback to internal storage
+        final fallbackDir = await getApplicationDocumentsDirectory();
+        final internalDir = Directory('${fallbackDir.path}/auto_backups');
+        await _performBackupToDirectory(internalDir, location);
+        return;
+      }
+
+      await _performBackupToDirectory(autoBackupDir, location);
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AutoBackupService',
+        'Auto-backup failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+    } finally {
+      _isBackingUp = false;
+      notifyListeners();
+    }
+  }
+
+  /// Perform backup to a specific directory
+  Future<void> _performBackupToDirectory(Directory autoBackupDir, BackupLocation location) async {
+    try {
       // Create directory if it doesn't exist
       if (!await autoBackupDir.exists()) {
         await autoBackupDir.create(recursive: true);
@@ -151,12 +191,10 @@ class AutoBackupService extends ChangeNotifier {
     } catch (e, stackTrace) {
       await _debug.error(
         'AutoBackupService',
-        'Auto-backup failed: ${e.toString()}',
+        'Backup to directory failed: ${e.toString()}',
         stackTrace: stackTrace.toString(),
       );
-    } finally {
-      _isBackingUp = false;
-      notifyListeners();
+      rethrow; // Propagate error to caller
     }
   }
 
@@ -262,10 +300,16 @@ class AutoBackupService extends ChangeNotifier {
     }
 
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final autoBackupDir = Directory('${directory.path}/auto_backups');
+      // Get backup location from settings
+      final settings = await _storage.loadSettings();
+      final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
+      final location = backupLocationFromString(locationString);
+      final customPath = settings['autoBackupCustomPath'] as String?;
 
-      if (!await autoBackupDir.exists()) {
+      // Get directory for selected location
+      final autoBackupDir = await location.getDirectory(customPath: customPath);
+
+      if (autoBackupDir == null || !await autoBackupDir.exists()) {
         return [];
       }
 
@@ -282,6 +326,25 @@ class AutoBackupService extends ChangeNotifier {
     } catch (e) {
       await _debug.error('AutoBackupService', 'Failed to list auto-backups: ${e.toString()}');
       return [];
+    }
+  }
+
+  /// Get the current backup directory path (for display)
+  Future<String?> getCurrentBackupPath() async {
+    if (kIsWeb) {
+      return null;
+    }
+
+    try {
+      final settings = await _storage.loadSettings();
+      final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
+      final location = backupLocationFromString(locationString);
+      final customPath = settings['autoBackupCustomPath'] as String?;
+
+      final dir = await location.getDirectory(customPath: customPath);
+      return dir?.path;
+    } catch (e) {
+      return null;
     }
   }
 }

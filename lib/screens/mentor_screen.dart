@@ -21,6 +21,8 @@ import '../widgets/add_habit_dialog.dart';
 import 'guided_journaling_screen.dart';
 import 'chat_screen.dart';
 import 'mentor_reminders_screen.dart';
+import 'reflection_session_screen.dart';
+import '../models/reflection_session.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -286,23 +288,41 @@ class _MentorScreenState extends State<MentorScreen> {
             ),
             AppSpacing.gapMd,
 
-            // Always-available chat option (unless primary or secondary action is already chat-related)
-            if (!_hasContextualChatAction(coachingCard))
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ChatScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  label: Text(AppStrings.chatWithMentor),
+            // Always-available actions row
+            Row(
+              children: [
+                // Chat option
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChatScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('Chat'),
+                  ),
                 ),
-              ),
+                // Deep dive session option
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ReflectionSessionScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.psychology_alt),
+                    label: const Text(AppStrings.deepDiveSession),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -375,6 +395,20 @@ class _MentorScreenState extends State<MentorScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => const ChatScreen(),
+          ),
+        );
+        break;
+      case 'ReflectionSession':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ReflectionSessionScreen(
+              sessionType: ReflectionSessionType.values.firstWhere(
+                (t) => t.name == (action.context?['sessionType'] as String?),
+                orElse: () => ReflectionSessionType.general,
+              ),
+              linkedGoalId: action.context?['goalId'] as String?,
+            ),
           ),
         );
         break;
@@ -474,6 +508,8 @@ class _MentorScreenState extends State<MentorScreen> {
             return Icons.settings;
           case 'GuidedJournaling':
             return Icons.self_improvement;
+          case 'ReflectionSession':
+            return Icons.psychology_alt;
           case 'AddGoal':
             return Icons.add_task;
           case 'AddHabit':

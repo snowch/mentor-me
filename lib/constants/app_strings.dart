@@ -17,8 +17,11 @@ class AppStrings {
   static const String journalNoun = 'Journal';
   static const String journalVerb = 'Journal';
   static const String reflectVerb = 'Reflect';
+  static const String newEntry = 'New Entry'; // Journal FAB button
   static const String reflectionNoun = 'Reflection';
   static const String writeVerb = 'Write';
+  static const String deepDiveSession = 'Deep Dive Session'; // Mentor screen reflection button
+  static const String structuredReflection = 'Structured Reflection'; // Journal menu option
 
   static const String journalEntry = 'journal entry';
   static const String journalEntries = 'entries';
@@ -432,6 +435,21 @@ class AppStrings {
   static const String yourBackupSavedTo = 'Your backup has been saved to:';
   static const String dataRestoredFromBackup = 'Your data has been restored from the backup. All your goals, journal entries, habits, and check-ins have been updated.';
 
+  // Auto Backup Location Strings
+  static const String autoBackupLocation = 'Auto-Backup Location';
+  static const String chooseBackupLocation = 'Choose where automatic backups are saved';
+  static const String internalStorage = 'Internal Storage';
+  static const String internalStorageDescription = 'Private and secure. Deleted when app is uninstalled.';
+  static const String downloadsFolder = 'Downloads Folder';
+  static const String downloadsFolderDescription = 'Public folder. Persists after uninstall. Easy to find.';
+  static const String customFolder = 'Custom Folder';
+  static const String customFolderDescription = 'Choose your own backup location.';
+  static const String selectCustomFolder = 'Select Custom Folder';
+  static const String customFolderNotSet = 'Custom folder not set';
+  static const String backupLocationUpdated = 'Backup location updated';
+  static const String currentBackupPath = 'Current backup path';
+  static const String notAvailable = 'Not available';
+
   // Reminder Strings
   static const String scheduleTimesForReminders = 'Schedule times when your mentor will send you a reminder to check in. The contextual guidance appears when you open the app.';
   static const String considerFewerReminders = 'Consider Fewer Reminders';
@@ -471,6 +489,54 @@ class AppStrings {
   static const String autoScroll = 'Auto-scroll';
   static const String metadata = 'Metadata:';
   static const String stackTrace = 'Stack Trace:';
+
+  // Reflection Session Strings
+  static const String reflectionSession = 'Reflection Session';
+  static const String startReflectionSession = 'Start Reflection Session';
+  static const String deeperReflection = 'Deeper Reflection';
+  static const String reflectionSessionDescription = 'A guided conversation to explore what\'s on your mind and discover helpful practices';
+  static const String letsReflectTogether = 'Let\'s reflect together';
+  static const String whatsBenOnYourMind = 'What\'s been on your mind lately?';
+  static const String howAreYouFeelingRightNow = 'How are you feeling right now?';
+  static const String tellMeMore = 'Tell me more...';
+  static const String takeYourTime = 'Take your time. There\'s no rush.';
+  static const String patternsNoticed = 'Patterns Noticed';
+  static const String basedOnWhatYouShared = 'Based on what you shared, I noticed some patterns that many people experience:';
+  static const String doesThisResonate = 'Does this resonate with you?';
+  static const String recommendedPractices = 'Recommended Practices';
+  static const String basedOnPatterns = 'Based on what we explored, here are some evidence-based techniques that might help:';
+  static const String selectPracticeToTry = 'Select a practice you\'d like to try';
+  static const String createHabitForPractice = 'Create a habit for this practice';
+  static const String howToPractice = 'How to practice';
+  static const String sessionComplete = 'Session Complete';
+  static const String reflectionSaved = 'Your reflection has been saved to your journal';
+  static const String scheduleFollowUp = 'Schedule Follow-up';
+  static const String wouldYouLikeToSchedule = 'Would you like to schedule a follow-up reflection session?';
+  static const String notRightNow = 'Not right now';
+  static const String safetyDisclaimer = 'This is a self-reflection tool, not therapy. If you\'re experiencing a crisis, please reach out to a mental health professional or crisis line.';
+  static const String crisisResourcesTitle = 'Crisis Resources';
+  static const String crisisResourcesMessage = 'If you\'re in crisis or having thoughts of self-harm, please reach out:\n\n• National Suicide Prevention Lifeline: 988\n• Crisis Text Line: Text HOME to 741741\n• International Association for Suicide Prevention: https://www.iasp.info/resources/Crisis_Centres/';
+  static const String skipQuestion = 'Skip this question';
+  static const String endSessionEarly = 'End session early';
+  static const String sessionSummary = 'Session Summary';
+  static const String keyThemesExplored = 'Key themes explored';
+  static const String interventionSelected = 'Practice selected';
+  static const String noPatternDetectedMessage = 'I didn\'t detect any specific patterns from our conversation, but that\'s okay. Sometimes reflection itself is valuable.';
+  static const String generalWellnessRecommendation = 'Here are some general practices that support wellbeing:';
+
+  // Agentic Action Confirmation
+  static const String actionsTaken = 'Actions Taken';
+  static const String doIt = 'Do It';
+  static const String errorExecutingAction = 'Error executing action';
+
+  // Action Success Messages (additional ones - reuse existing constants where available)
+  static const String checkInTemplateCreated = 'Check-in template created!';
+  static const String goalMovedToBacklog = 'Goal moved to backlog';
+  static const String goalActivated = 'Goal activated!';
+  static const String goalMarkedComplete = 'Goal marked as complete!';
+  static const String sessionSavedToJournal = 'Session saved to journal';
+  static const String followUpReminderScheduled = 'Follow-up reminder scheduled';
+  static const String actionCompletedSuccessfully = 'Action completed successfully';
 
   // Helper function to get time-appropriate greeting
   static String getGreeting() {

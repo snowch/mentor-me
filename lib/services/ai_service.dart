@@ -565,6 +565,229 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
     }
   }
 
+  /// Get coaching response with tool/function calling support.
+  ///
+  /// This method enables Claude to propose actions (goals, habits, templates, etc.)
+  /// during reflection sessions by providing tool definitions.
+  ///
+  /// Returns a Map with:
+  /// - 'message': The AI's text response
+  /// - 'tool_uses': List of tool use blocks (empty if no tools used)
+  ///
+  /// Each tool use contains:
+  /// - 'id': Unique identifier for this tool use
+  /// - 'name': Tool name (e.g., 'create_goal')
+  /// - 'input': Map of parameters for the tool
+  ///
+  /// Example:
+  /// ```dart
+  /// final result = await aiService.getCoachingResponseWithTools(
+  ///   prompt: 'I want to start exercising',
+  ///   tools: ReflectionFunctionSchemas.allTools,
+  /// );
+  /// print(result['message']); // AI's advice
+  /// print(result['tool_uses']); // Proposed actions
+  /// ```
+  Future<Map<String, dynamic>> getCoachingResponseWithTools({
+    required String prompt,
+    required List<Map<String, dynamic>> tools,
+    List<Goal>? goals,
+    List<Habit>? habits,
+    List<JournalEntry>? recentEntries,
+    List<PulseEntry>? pulseEntries,
+    List<ChatMessage>? conversationHistory,
+  }) async {
+    // Function calling only supported by cloud AI
+    if (_selectedProvider == AIProvider.local) {
+      await _debug.warning(
+        'AIService',
+        'Function calling requested but local AI does not support it',
+      );
+      // Fall back to regular response without tools
+      final message = await getCoachingResponse(
+        prompt: prompt,
+        goals: goals,
+        habits: habits,
+        recentEntries: recentEntries,
+        pulseEntries: pulseEntries,
+        conversationHistory: conversationHistory,
+      );
+      return {
+        'message': message,
+        'tool_uses': <Map<String, dynamic>>[],
+      };
+    }
+
+    // Cloud provider requires API key
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      await _debug.error('AIService', 'Cloud AI selected but no API key configured');
+      throw Exception(
+        "Cloud AI is not configured. Please set your Claude API key in Settings → AI Settings."
+      );
+    }
+
+    return _getCloudResponseWithTools(
+      prompt,
+      tools,
+      goals,
+      habits,
+      recentEntries,
+      pulseEntries,
+      conversationHistory,
+    );
+  }
+
+  /// Get response from cloud API with tool/function calling support
+  Future<Map<String, dynamic>> _getCloudResponseWithTools(
+    String prompt,
+    List<Map<String, dynamic>> tools,
+    List<Goal>? goals,
+    List<Habit>? habits,
+    List<JournalEntry>? recentEntries,
+    List<PulseEntry>? pulseEntries,
+    List<ChatMessage>? conversationHistory,
+  ) async {
+    try {
+      // Build comprehensive context for cloud AI
+      final contextResult = _contextService.buildCloudContext(
+        goals: goals ?? [],
+        habits: habits ?? [],
+        journalEntries: recentEntries ?? [],
+        pulseEntries: pulseEntries ?? [],
+        conversationHistory: conversationHistory,
+      );
+
+      final fullPrompt = '''You are an empathetic AI mentor conducting a deep reflection session.
+
+Context:
+${contextResult.context}
+
+User message: $prompt
+
+TOOL USE GUIDELINES:
+- Only use tools when the user explicitly requests an action OR when a clear, actionable need emerges
+- Don't overwhelm with multiple actions at once (max 2-3)
+- Explain WHY you're proposing each action
+- Give the user agency - they can decline
+- Focus on HIGH-VALUE actions that will genuinely help
+
+Provide supportive, thoughtful guidance. Use tools judiciously to help the user make progress.''';
+
+      // Use proxy for web, direct API for mobile
+      final url = kIsWeb ? _proxyUrl : _apiUrl;
+
+      await _debug.info('AIService', 'Cloud AI request with tools', metadata: {
+        'model': _selectedModel,
+        'promptLength': prompt.length,
+        'contextTokens': contextResult.estimatedTokens,
+        'toolCount': tools.length,
+      });
+
+      final startTime = DateTime.now();
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': _apiKey!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: json.encode({
+          'model': _selectedModel,
+          'max_tokens': 4096,
+          'tools': tools, // Function calling tools
+          'messages': [
+            {
+              'role': 'user',
+              'content': fullPrompt,
+            }
+          ],
+        }),
+      ).timeout(
+        const Duration(seconds: 60), // Longer timeout for tool calling
+        onTimeout: () {
+          throw Exception('Request timed out after 60 seconds');
+        },
+      );
+
+      final duration = DateTime.now().difference(startTime);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final content = data['content'] as List;
+
+        // Extract text blocks and tool use blocks
+        String messageContent = '';
+        final List<Map<String, dynamic>> toolUses = [];
+
+        for (final block in content) {
+          if (block['type'] == 'text') {
+            messageContent += block['text'] as String;
+          } else if (block['type'] == 'tool_use') {
+            toolUses.add({
+              'id': block['id'],
+              'name': block['name'],
+              'input': block['input'],
+            });
+          }
+        }
+
+        // Clear error state on success
+        _lastCloudError = null;
+        _lastCloudErrorTime = null;
+
+        await _debug.info('AIService', 'Cloud AI response with tools received', metadata: {
+          'responseLength': messageContent.length,
+          'toolUsesCount': toolUses.length,
+          'toolNames': toolUses.map((t) => t['name']).toList(),
+          'model': _selectedModel,
+          'duration': '${duration.inMilliseconds}ms',
+        });
+
+        return {
+          'message': messageContent.trim(),
+          'tool_uses': toolUses,
+        };
+      } else {
+        // Same error handling as regular response
+        await _debug.error('AIService', 'Cloud AI error response', metadata: {
+          'statusCode': response.statusCode,
+          'error': response.body.substring(0, response.body.length > 500 ? 500 : response.body.length),
+        });
+
+        _lastCloudErrorTime = DateTime.now();
+
+        if (response.statusCode == 401) {
+          _lastCloudError = 'Invalid API key';
+          throw Exception("Invalid API key. Please check your API key in Settings → AI Settings.");
+        } else if (response.statusCode == 429) {
+          _lastCloudError = 'Rate limit exceeded';
+          throw Exception("Rate limit exceeded or no credits available.");
+        } else if (response.statusCode == 404) {
+          _lastCloudError = 'Model not available';
+          throw Exception("The selected model ($_selectedModel) is not available.");
+        } else {
+          _lastCloudError = 'API error ${response.statusCode}';
+          throw Exception("API error: ${response.statusCode}");
+        }
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AIService',
+        'API request with tools failed: ${e.toString()}',
+        metadata: {
+          'model': _selectedModel,
+          'toolCount': tools.length,
+        },
+        stackTrace: stackTrace.toString(),
+      );
+
+      _lastCloudErrorTime = DateTime.now();
+      _lastCloudError = 'Network error';
+
+      rethrow;
+    }
+  }
 
   Future<Map<String, String>> analyzeJournalEntry(
     JournalEntry entry,
