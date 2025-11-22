@@ -16,13 +16,9 @@ import '../models/mentor_message.dart' as mentor;
 import '../models/goal.dart';
 import '../models/habit.dart';
 import '../models/journal_entry.dart';
-import '../widgets/add_goal_dialog.dart';
-import '../widgets/add_habit_dialog.dart';
-import 'guided_journaling_screen.dart';
 import 'chat_screen.dart';
 import 'mentor_reminders_screen.dart';
 import 'reflection_session_screen.dart';
-import '../models/reflection_session.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -190,8 +186,6 @@ class _MentorScreenState extends State<MentorScreen> {
       context,
       _cachedCoachingCard!,
       _userName,
-      goalProvider,
-      habitProvider,
     );
   }
 
@@ -200,8 +194,6 @@ class _MentorScreenState extends State<MentorScreen> {
     BuildContext context,
     mentor.MentorCoachingCard coachingCard,
     String userName,
-    GoalProvider goalProvider,
-    HabitProvider habitProvider,
   ) {
     return Card(
       elevation: 2,
@@ -254,283 +246,12 @@ class _MentorScreenState extends State<MentorScreen> {
                 listBullet: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
               ),
             ),
-            AppSpacing.gapXl,
-
-            // Dynamic action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _handleAction(
-                      context,
-                      coachingCard.primaryAction,
-                      goalProvider,
-                      habitProvider,
-                    ),
-                    icon: Icon(_getActionIcon(coachingCard.primaryAction)),
-                    label: Text(coachingCard.primaryAction.label),
-                  ),
-                ),
-                AppSpacing.gapHorizontalMd,
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _handleAction(
-                      context,
-                      coachingCard.secondaryAction,
-                      goalProvider,
-                      habitProvider,
-                    ),
-                    icon: Icon(_getActionIcon(coachingCard.secondaryAction)),
-                    label: Text(coachingCard.secondaryAction.label),
-                  ),
-                ),
-              ],
-            ),
-            AppSpacing.gapMd,
-
-            // Always-available actions row
-            Row(
-              children: [
-                // Chat option
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ChatScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('Chat'),
-                  ),
-                ),
-                // Deep dive session option
-                Expanded(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ReflectionSessionScreen(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.psychology_alt),
-                    label: const Text(AppStrings.deepDiveSession),
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
-  /// Handle action button taps
-  void _handleAction(
-    BuildContext context,
-    mentor.MentorAction action,
-    GoalProvider goalProvider,
-    HabitProvider habitProvider,
-  ) {
-    switch (action.type) {
-      case mentor.MentorActionType.navigate:
-        _handleNavigateAction(context, action);
-        break;
-      case mentor.MentorActionType.chat:
-        _handleChatAction(context, action);
-        break;
-      case mentor.MentorActionType.quickAction:
-        _handleQuickAction(context, action, goalProvider, habitProvider);
-        break;
-    }
-  }
-
-  /// Handle navigation actions
-  void _handleNavigateAction(BuildContext context, mentor.MentorAction action) {
-    final destination = action.destination;
-
-    switch (destination) {
-      case 'Goals':
-        widget.onNavigateToTab(3);
-        break;
-      case 'Habits':
-        widget.onNavigateToTab(2);
-        break;
-      case 'Journal':
-        widget.onNavigateToTab(1);
-        break;
-      case 'Settings':
-        widget.onNavigateToTab(4);
-        break;
-      case 'GuidedJournaling':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const GuidedJournalingScreen(isCheckIn: true),
-          ),
-        );
-        break;
-      case 'AddGoal':
-        showDialog(
-          context: context,
-          builder: (context) => AddGoalDialog(
-            suggestedTitle: action.context?['suggestedTitle'] as String?,
-          ),
-        );
-        break;
-      case 'AddHabit':
-        showDialog(
-          context: context,
-          builder: (context) => AddHabitDialog(
-            suggestedTitle: action.context?['suggestedTitle'] as String?,
-          ),
-        );
-        break;
-      case 'ChatScreen':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ChatScreen(),
-          ),
-        );
-        break;
-      case 'ReflectionSession':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ReflectionSessionScreen(
-              sessionType: ReflectionSessionType.values.firstWhere(
-                (t) => t.name == (action.context?['sessionType'] as String?),
-                orElse: () => ReflectionSessionType.general,
-              ),
-              linkedGoalId: action.context?['goalId'] as String?,
-            ),
-          ),
-        );
-        break;
-      default:
-        // Unknown destination - fallback to journaling
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const GuidedJournalingScreen(isCheckIn: true),
-          ),
-        );
-    }
-  }
-
-  /// Handle chat actions (with pre-filled messages)
-  void _handleChatAction(BuildContext context, mentor.MentorAction action) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(
-          initialMessage: action.chatPreFill,
-        ),
-      ),
-    );
-  }
-
-  /// Handle quick actions (immediate operations)
-  void _handleQuickAction(
-    BuildContext context,
-    mentor.MentorAction action,
-    GoalProvider goalProvider,
-    HabitProvider habitProvider,
-  ) {
-    final actionType = action.context?['action'] as String?;
-
-    switch (actionType) {
-      case 'completeHabit':
-        final habitId = action.context?['habitId'] as String?;
-        if (habitId != null) {
-          final habit = habitProvider.habits.firstWhere(
-            (h) => h.id == habitId,
-            orElse: () => habitProvider.habits.first,
-          );
-          habitProvider.completeHabit(habit.id, DateTime.now());
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${habit.title} marked complete! 🎉'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-        break;
-
-      case 'updateGoalProgress':
-        final goalId = action.context?['goalId'] as String?;
-        if (goalId != null) {
-          // Navigate to goals tab where user can update progress
-          widget.onNavigateToTab(3);
-        }
-        break;
-
-      default:
-        // Unknown quick action - show message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Action not yet implemented')),
-        );
-    }
-  }
-
-  /// Check if the coaching card has a contextual chat action
-  /// (either a chat action or a navigation to ChatScreen)
-  bool _hasContextualChatAction(mentor.MentorCoachingCard card) {
-    return _isChatAction(card.primaryAction) ||
-           _isChatAction(card.secondaryAction);
-  }
-
-  /// Check if an action is chat-related
-  bool _isChatAction(mentor.MentorAction action) {
-    return action.type == mentor.MentorActionType.chat ||
-           (action.type == mentor.MentorActionType.navigate &&
-            action.destination == 'ChatScreen');
-  }
-
-  /// Get appropriate icon for action type
-  IconData _getActionIcon(mentor.MentorAction action) {
-    switch (action.type) {
-      case mentor.MentorActionType.navigate:
-        switch (action.destination) {
-          case 'Goals':
-            return Icons.flag;
-          case 'Habits':
-            return Icons.check_circle;
-          case 'Journal':
-            return Icons.auto_stories;
-          case 'Settings':
-            return Icons.settings;
-          case 'GuidedJournaling':
-            return Icons.self_improvement;
-          case 'ReflectionSession':
-            return Icons.psychology_alt;
-          case 'AddGoal':
-            return Icons.add_task;
-          case 'AddHabit':
-            return Icons.add_circle;
-          default:
-            return Icons.arrow_forward;
-        }
-      case mentor.MentorActionType.chat:
-        return Icons.chat_bubble_outline;
-      case mentor.MentorActionType.quickAction:
-        final actionType = action.context?['action'] as String?;
-        switch (actionType) {
-          case 'completeHabit':
-            return Icons.check_circle;
-          case 'updateGoalProgress':
-            return Icons.trending_up;
-          default:
-            return Icons.touch_app;
-        }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -556,6 +277,50 @@ class _MentorScreenState extends State<MentorScreen> {
           goalProvider,
           habitProvider,
           journalProvider,
+        ),
+        AppSpacing.gapLg,
+
+        // Always-available action buttons (Chat and Deep Reflection)
+        Row(
+          children: [
+            // Chat button
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ChatScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.chat_bubble_outline),
+                label: const Text('Chat with Mentor'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                ),
+              ),
+            ),
+            AppSpacing.gapHorizontalMd,
+            // Deep Reflection button
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ReflectionSessionScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.psychology_alt),
+                label: const Text(AppStrings.deepDiveSession),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
