@@ -13,8 +13,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/backup_location.dart';
+import '../models/backup_destination.dart';
 import 'storage_service.dart';
 import 'backup_service.dart';
+import 'drive_backup_service.dart';
+import 'saf_service.dart';
 import 'debug_service.dart';
 
 class AutoBackupService extends ChangeNotifier {
@@ -24,6 +27,8 @@ class AutoBackupService extends ChangeNotifier {
 
   final StorageService _storage = StorageService();
   final BackupService _backupService = BackupService();
+  final DriveBackupService _driveBackupService = DriveBackupService();
+  final SAFService _safService = SAFService();
   final DebugService _debug = DebugService();
 
   Timer? _debounceTimer;
@@ -100,34 +105,21 @@ class AutoBackupService extends ChangeNotifier {
     try {
       await _debug.info('AutoBackupService', 'Starting auto-backup...');
 
-      // Get backup location from settings
+      // Get backup destination from settings
       final settings = await _storage.loadSettings();
-      final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
-      final location = backupLocationFromString(locationString);
-      final customPath = settings['autoBackupCustomPath'] as String?;
+      final destinationString = settings['autoBackupDestination'] as String? ?? BackupDestination.local.name;
+      final destination = backupDestinationFromString(destinationString);
 
-      await _debug.info('AutoBackupService', 'Backup location: ${location.displayName}', metadata: {
-        'location': location.name,
-        'customPath': customPath,
+      await _debug.info('AutoBackupService', 'Backup destination: ${destination.displayName}', metadata: {
+        'destination': destination.name,
       });
 
-      // Get directory for selected location
-      final autoBackupDir = await location.getDirectory(customPath: customPath);
-
-      if (autoBackupDir == null) {
-        await _debug.error(
-          'AutoBackupService',
-          'Failed to get backup directory for location: ${location.name}',
-          metadata: {'location': location.name, 'customPath': customPath},
-        );
-        // Fallback to internal storage
-        final fallbackDir = await getApplicationDocumentsDirectory();
-        final internalDir = Directory('${fallbackDir.path}/auto_backups');
-        await _performBackupToDirectory(internalDir, location);
-        return;
+      // Route to appropriate backup method
+      if (destination == BackupDestination.drive) {
+        await _performDriveBackup();
+      } else {
+        await _performLocalBackup(settings);
       }
-
-      await _performBackupToDirectory(autoBackupDir, location);
     } catch (e, stackTrace) {
       await _debug.error(
         'AutoBackupService',
@@ -137,6 +129,191 @@ class AutoBackupService extends ChangeNotifier {
     } finally {
       _isBackingUp = false;
       notifyListeners();
+    }
+  }
+
+  /// Perform backup to local storage
+  Future<void> _performLocalBackup(Map<String, dynamic> settings) async {
+    // Get backup location from settings
+    final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
+    final location = backupLocationFromString(locationString);
+
+    await _debug.info('AutoBackupService', 'Backup location: ${location.displayName}', metadata: {
+      'location': location.name,
+    });
+
+    // Use SAF for External Storage (downloads) location if configured
+    if (location == BackupLocation.downloads && await _safService.hasFolderAccess()) {
+      await _performSAFBackup();
+      return;
+    }
+
+    // Get directory for selected location (only for internal storage)
+    final autoBackupDir = await location.getDirectory();
+
+    if (autoBackupDir == null) {
+      await _debug.error(
+        'AutoBackupService',
+        'Failed to get backup directory for location: ${location.name}. SAF may not be configured.',
+        metadata: {'location': location.name},
+      );
+      // Fallback to internal storage
+      final fallbackDir = await getApplicationDocumentsDirectory();
+      final internalDir = Directory('${fallbackDir.path}/auto_backups');
+      await _performBackupToDirectory(internalDir, location);
+      return;
+    }
+
+    await _performBackupToDirectory(autoBackupDir, location);
+  }
+
+  /// Perform backup using Storage Access Framework
+  Future<void> _performSAFBackup() async {
+    try {
+      final folderUri = await _safService.getSavedFolderUri();
+      if (folderUri == null) {
+        await _debug.error('AutoBackupService', 'No SAF folder URI saved');
+        return;
+      }
+
+      // Create backup filename with timestamp
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final filename = 'auto_backup_$timestamp.json';
+
+      // Generate backup JSON
+      final backupJson = await _backupService.createBackupJson();
+
+      // Parse backup to get statistics for logging
+      final backupData = json.decode(backupJson) as Map<String, dynamic>;
+      final stats = backupData['statistics'] as Map<String, dynamic>?;
+
+      // Write to SAF folder
+      final fileUri = await _safService.writeFile(folderUri, filename, backupJson);
+
+      if (fileUri != null) {
+        // Update last backup time in settings
+        final settings = await _storage.loadSettings();
+        settings['lastAutoBackupTime'] = DateTime.now().toIso8601String();
+        settings['lastAutoBackupFilename'] = filename;
+        await _storage.saveSettings(settings);
+
+        await _debug.info(
+          'AutoBackupService',
+          'SAF backup completed: $filename',
+          metadata: {
+            'filename': filename,
+            'fileUri': fileUri,
+            'sizeBytes': backupJson.length,
+            'sizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+            'goals': stats?['totalGoals'] ?? 0,
+            'habits': stats?['totalHabits'] ?? 0,
+            'journalEntries': stats?['totalJournalEntries'] ?? 0,
+            'pulseEntries': stats?['totalPulseEntries'] ?? 0,
+            'conversations': stats?['totalConversations'] ?? 0,
+          },
+        );
+
+        // Clean up old SAF backups
+        await _rotateSAFBackups(folderUri);
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AutoBackupService',
+        'SAF backup failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      rethrow;
+    }
+  }
+
+  /// Delete old SAF backups, keeping only the most recent N
+  Future<void> _rotateSAFBackups(String folderUri) async {
+    try {
+      final files = await _safService.listFiles(folderUri);
+
+      // Delete files beyond the limit
+      if (files.length > _maxAutoBackups) {
+        final filesToDelete = files.sublist(_maxAutoBackups);
+        for (final file in filesToDelete) {
+          await _safService.deleteFile(file.uri);
+          await _debug.info('AutoBackupService', 'Deleted old SAF backup: ${file.name}');
+        }
+
+        await _debug.info(
+          'AutoBackupService',
+          'SAF rotation completed',
+          metadata: {
+            'total_files': files.length,
+            'deleted': filesToDelete.length,
+            'kept': _maxAutoBackups,
+          },
+        );
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AutoBackupService',
+        'SAF backup rotation failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+    }
+  }
+
+  /// Perform backup to Google Drive
+  Future<void> _performDriveBackup() async {
+    try {
+      // Check if signed in to Drive
+      if (!_driveBackupService.isSignedIn) {
+        await _debug.warning('AutoBackupService', 'Cannot backup to Drive: not signed in');
+        return;
+      }
+
+      // Create backup filename with timestamp
+      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
+      final filename = 'auto_backup_$timestamp.json';
+
+      // Generate backup JSON
+      final backupJson = await _backupService.createBackupJson();
+
+      // Parse backup to get statistics for logging
+      final backupData = json.decode(backupJson) as Map<String, dynamic>;
+      final stats = backupData['statistics'] as Map<String, dynamic>?;
+
+      // Upload to Drive
+      final fileId = await _driveBackupService.uploadBackup(filename, backupJson);
+
+      if (fileId != null) {
+        // Update last backup time in settings
+        final settings = await _storage.loadSettings();
+        settings['lastAutoBackupTime'] = DateTime.now().toIso8601String();
+        settings['lastAutoBackupFilename'] = filename;
+        await _storage.saveSettings(settings);
+
+        await _debug.info(
+          'AutoBackupService',
+          'Drive backup completed: $filename',
+          metadata: {
+            'filename': filename,
+            'fileId': fileId,
+            'sizeBytes': backupJson.length,
+            'sizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+            'goals': stats?['totalGoals'] ?? 0,
+            'habits': stats?['totalHabits'] ?? 0,
+            'journalEntries': stats?['totalJournalEntries'] ?? 0,
+            'pulseEntries': stats?['totalPulseEntries'] ?? 0,
+            'conversations': stats?['totalConversations'] ?? 0,
+          },
+        );
+
+        // Clean up old Drive backups
+        await _rotateDriveBackups();
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AutoBackupService',
+        'Drive backup failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      rethrow;
     }
   }
 
@@ -237,6 +414,38 @@ class AutoBackupService extends ChangeNotifier {
     }
   }
 
+  /// Delete old Drive backups, keeping only the most recent N
+  Future<void> _rotateDriveBackups() async {
+    try {
+      final backups = await _driveBackupService.listBackups();
+
+      // Delete files beyond the limit
+      if (backups.length > _maxAutoBackups) {
+        final backupsToDelete = backups.sublist(_maxAutoBackups);
+        for (final backup in backupsToDelete) {
+          await _driveBackupService.deleteBackup(backup.id);
+          await _debug.info('AutoBackupService', 'Deleted old Drive backup: ${backup.name}');
+        }
+
+        await _debug.info(
+          'AutoBackupService',
+          'Drive rotation completed',
+          metadata: {
+            'total_files': backups.length,
+            'deleted': backupsToDelete.length,
+            'kept': _maxAutoBackups,
+          },
+        );
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AutoBackupService',
+        'Drive backup rotation failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+    }
+  }
+
   /// Get the last auto-backup time (if any)
   Future<DateTime?> getLastAutoBackupTime() async {
     final settings = await _storage.loadSettings();
@@ -304,10 +513,9 @@ class AutoBackupService extends ChangeNotifier {
       final settings = await _storage.loadSettings();
       final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
       final location = backupLocationFromString(locationString);
-      final customPath = settings['autoBackupCustomPath'] as String?;
 
-      // Get directory for selected location
-      final autoBackupDir = await location.getDirectory(customPath: customPath);
+      // Get directory for selected location (only works for internal storage)
+      final autoBackupDir = await location.getDirectory();
 
       if (autoBackupDir == null || !await autoBackupDir.exists()) {
         return [];
@@ -339,9 +547,17 @@ class AutoBackupService extends ChangeNotifier {
       final settings = await _storage.loadSettings();
       final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
       final location = backupLocationFromString(locationString);
-      final customPath = settings['autoBackupCustomPath'] as String?;
 
-      final dir = await location.getDirectory(customPath: customPath);
+      // If External Storage (downloads) location and SAF is configured, show SAF URI
+      if (location == BackupLocation.downloads && await _safService.hasFolderAccess()) {
+        final safUri = await _safService.getSavedFolderUri();
+        if (safUri != null) {
+          return safUri;
+        }
+      }
+
+      // For internal storage, get directory path
+      final dir = await location.getDirectory();
       return dir?.path;
     } catch (e) {
       return null;

@@ -61,6 +61,11 @@ dependencies:
   # Cryptographic hashing for file verification
   crypto: ^3.0.3
 
+  # Google Drive integration for cloud backups
+  googleapis: ^13.2.0
+  googleapis_auth: ^1.6.0
+  google_sign_in: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

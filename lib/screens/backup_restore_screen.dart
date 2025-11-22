@@ -1,6 +1,7 @@
 // lib/screens/backup_restore_screen.dart
 // Screen for managing data backup and restore operations
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
@@ -9,6 +10,7 @@ import '../models/backup_location.dart';
 import '../services/storage_service.dart';
 import '../services/backup_service.dart';
 import '../services/auto_backup_service.dart';
+import '../services/saf_service.dart';
 import '../services/ai_service.dart';
 import '../providers/goal_provider.dart';
 import '../providers/journal_provider.dart';
@@ -33,6 +35,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final _backupService = BackupService();
   final _autoBackupService = AutoBackupService();
   final _storage = StorageService();
+  final _safService = SAFService();
   bool _isExporting = false;
   bool _isImporting = false;
   bool _autoBackupEnabled = false;
@@ -238,10 +241,19 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         // Reload current data counts to show updated values
         await _loadCurrentDataCounts();
 
+        // Reload backup settings to check if location was reset
+        await _loadAutoBackupSettings();
+
         // Save statistics for display
         setState(() {
           _lastImportStats = result.statistics;
         });
+
+        // Check if backup location was reset to internal (happens when restoring
+        // a backup that had external storage but SAF URI is not available)
+        final settings = await _storage.loadSettings();
+        final wasReset = settings['autoBackupLocation'] == 'internal' &&
+            !(await _safService.hasFolderAccess());
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -250,10 +262,44 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           ),
         );
 
+        // Show info about backup location reset if applicable
+        if (wasReset && _autoBackupEnabled) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Note: Backup location set to Internal Storage. To use External Storage, select it below and choose a folder.',
+                  ),
+                  backgroundColor: Colors.blue,
+                  duration: Duration(seconds: 5),
+                ),
+              );
+            }
+          });
+        }
+
         // Show success dialog with detailed results
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
+        _showImportResultDialog(result);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppStrings.importFailed}: ${result.message}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+    }
+  }
+
+  void _showImportResultDialog(ImportResult result) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
             title: Row(
               children: [
                 Icon(
@@ -326,19 +372,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             ],
           ),
         );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${AppStrings.importFailed}: ${result.message}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isImporting = false);
-      }
-    }
   }
 
   Future<void> _reloadAllProviders() async {
@@ -689,14 +722,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           contentPadding: EdgeInsets.zero,
           dense: true,
         ),
-        // Downloads folder option
+        // External storage option (SAF)
         RadioListTile<BackupLocation>(
           value: BackupLocation.downloads,
           groupValue: _backupLocation,
           onChanged: (value) => _updateBackupLocation(value!),
           title: Row(
             children: [
-              const Icon(Icons.download, size: 16),
+              const Icon(Icons.folder_open, size: 16),
               AppSpacing.gapHorizontalSm,
               const Text(AppStrings.downloadsFolder),
             ],
@@ -705,75 +738,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           contentPadding: EdgeInsets.zero,
           dense: true,
         ),
-        // Custom folder option
-        RadioListTile<BackupLocation>(
-          value: BackupLocation.custom,
-          groupValue: _backupLocation,
-          onChanged: (value) => _updateBackupLocation(value!),
-          title: Row(
-            children: [
-              const Icon(Icons.folder_open, size: 16),
-              AppSpacing.gapHorizontalSm,
-              const Text(AppStrings.customFolder),
-            ],
-          ),
-          subtitle: const Text(AppStrings.customFolderDescription),
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-        ),
-        // Custom folder picker (shown when custom is selected)
-        if (_backupLocation == BackupLocation.custom) ...[
-          AppSpacing.gapSm,
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _selectCustomBackupFolder,
-                  icon: const Icon(Icons.folder_open, size: 18),
-                  label: Text(_customBackupPath == null
-                      ? AppStrings.selectCustomFolder
-                      : 'Change Folder'),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                if (_customBackupPath != null) ...[
-                  AppSpacing.gapSm,
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _customBackupPath!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                          ),
-                    ),
-                  ),
-                ] else ...[
-                  AppSpacing.gapSm,
-                  Text(
-                    AppStrings.customFolderNotSet,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .error
-                              .withOpacity(0.8),
-                          fontStyle: FontStyle.italic,
-                        ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
         // Current backup path
         if (_currentBackupPath != null) ...[
           AppSpacing.gapMd,
@@ -823,11 +787,20 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   }
 
   Future<void> _updateBackupLocation(BackupLocation newLocation) async {
-    // If switching to custom but no path is set, prompt to select one
-    if (newLocation == BackupLocation.custom && _customBackupPath == null) {
-      await _selectCustomBackupFolder();
+    // If switching to External Storage, request SAF folder access
+    if (newLocation == BackupLocation.downloads) {
+      final uri = await _safService.requestFolderAccess();
       // If user cancelled folder selection, don't change location
-      if (_customBackupPath == null) {
+      if (uri == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Folder selection cancelled. External storage requires folder access.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
         return;
       }
     }
@@ -852,48 +825,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
-    }
-  }
-
-  Future<void> _selectCustomBackupFolder() async {
-    try {
-      // Use directory picker
-      final result = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: AppStrings.selectCustomFolder,
-      );
-
-      if (result != null) {
-        // Save custom path to settings
-        final settings = await _storage.loadSettings();
-        settings['autoBackupCustomPath'] = result;
-        await _storage.saveSettings(settings);
-
-        setState(() {
-          _customBackupPath = result;
-        });
-
-        // Reload current backup path
-        await _loadAutoBackupSettings();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Custom folder set: $result'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to select folder: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 

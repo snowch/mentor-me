@@ -21,6 +21,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_io/io.dart';
 import 'storage_service.dart';
+import 'saf_service.dart';
 import 'debug_service.dart';
 import 'migration_service.dart';
 import 'schema_validator.dart';
@@ -38,6 +39,7 @@ import 'web_download_helper_stub.dart'
 
 class BackupService {
   final StorageService _storage = StorageService();
+  final SAFService _safService = SAFService();
   final DebugService _debug = DebugService();
   final MigrationService _migrationService = MigrationService();
   final SchemaValidator _schemaValidator = SchemaValidator();
@@ -253,7 +255,58 @@ class BackupService {
     }
   }
 
-  /// Import data from a backup file
+  /// Import data from a specific file path (for auto-backup browsing)
+  Future<ImportResult> importBackupFromPath(String filePath) async {
+    try {
+      await _debug.info('BackupService', 'Starting import from path: $filePath');
+
+      final file = File(filePath);
+      if (!await file.exists()) {
+        return ImportResult(success: false, message: 'File not found');
+      }
+
+      final jsonString = await file.readAsString();
+      return await _processImport(jsonString);
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Import from path failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+
+      return ImportResult(
+        success: false,
+        message: 'Error restoring backup: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Import data from a SAF file URI
+  Future<ImportResult> importBackupFromSAF(String fileUri) async {
+    try {
+      await _debug.info('BackupService', 'Starting import from SAF URI: $fileUri');
+
+      final jsonString = await _safService.readFile(fileUri);
+      if (jsonString == null) {
+        return ImportResult(success: false, message: 'Failed to read file');
+      }
+
+      return await _processImport(jsonString);
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Import from SAF failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+
+      return ImportResult(
+        success: false,
+        message: 'Error restoring backup: ${e.toString()}',
+      );
+    }
+  }
+
+  /// Import data from a backup file (using file picker)
   Future<ImportResult> importBackup() async {
     try {
       await _debug.info('BackupService', 'Starting import');
@@ -288,151 +341,7 @@ class BackupService {
         jsonString = await file.readAsString();
       }
 
-      var backupData = json.decode(jsonString) as Map<String, dynamic>;
-
-      // Check for legacy format and migrate if needed
-      if (_migrationService.isLegacyFormat(backupData)) {
-        await _debug.info(
-          'BackupService',
-          'Detected legacy format backup, migrating to current schema...',
-        );
-
-        try {
-          backupData = await _migrationService.migrateLegacy(backupData);
-          await _debug.info(
-            'BackupService',
-            'Successfully migrated legacy backup',
-          );
-        } catch (e, stackTrace) {
-          await _debug.error(
-            'BackupService',
-            'Failed to migrate legacy backup: ${e.toString()}',
-            stackTrace: stackTrace.toString(),
-          );
-          return ImportResult(
-            success: false,
-            message: 'Failed to migrate legacy backup format: ${e.toString()}',
-          );
-        }
-      }
-
-      // Validate import file structure
-      if (!await _schemaValidator.validateImportFile(backupData)) {
-        return ImportResult(
-          success: false,
-          message: 'Invalid backup file format. File may be corrupted or from an incompatible app version.',
-        );
-      }
-
-      final importVersion = backupData['schemaVersion'] as int? ?? 1;
-      final currentVersion = _migrationService.getCurrentVersion();
-
-      await _debug.info(
-        'BackupService',
-        'Importing backup: v$importVersion (current app: v$currentVersion)',
-      );
-
-      // Check if backup is from a newer app version
-      if (importVersion > currentVersion) {
-        return ImportResult(
-          success: false,
-          message: 'This backup is from a newer version of the app (v$importVersion). '
-              'Please update the app to v$importVersion or later before importing.',
-        );
-      }
-
-      // Run migrations if needed (brings old backups up to current version)
-      Map<String, dynamic> data;
-      if (importVersion < currentVersion) {
-        await _debug.info(
-          'BackupService',
-          'Migrating backup from v$importVersion to v$currentVersion...',
-        );
-
-        try {
-          data = await _migrationService.migrate(backupData);
-
-          await _debug.info(
-            'BackupService',
-            'Successfully migrated backup to v$currentVersion',
-          );
-        } catch (e, stackTrace) {
-          await _debug.error(
-            'BackupService',
-            'Migration failed during import',
-            stackTrace: stackTrace.toString(),
-          );
-          return ImportResult(
-            success: false,
-            message: 'Failed to migrate backup data: ${e.toString()}',
-          );
-        }
-      } else {
-        // Already at current version
-        data = backupData;
-      }
-
-      // Validate migrated data
-      if (!await _schemaValidator.validateStructure(data)) {
-        return ImportResult(
-          success: false,
-          message: 'Backup validation failed after migration. Data may be corrupted.',
-        );
-      }
-
-      // Import data with detailed tracking (resilient - continues on errors)
-      final detailedResults = await _importData(data);
-
-      // Determine overall success
-      final failures = detailedResults.where((r) => !r.success).toList();
-      final successes = detailedResults.where((r) => r.success).toList();
-      final hasFailures = failures.isNotEmpty;
-      final hasSuccesses = successes.isNotEmpty;
-
-      final stats = data['statistics'] as Map<String, dynamic>?;
-
-      // Build result message
-      String message;
-      bool overallSuccess;
-
-      if (!hasSuccesses) {
-        // Everything failed
-        message = 'Restore failed completely. No data could be imported.';
-        overallSuccess = false;
-      } else if (hasFailures) {
-        // Partial success
-        message = 'Restore partially successful. ${successes.length} of ${detailedResults.length} data types imported.';
-        overallSuccess = true; // Still success if we got some data
-      } else {
-        // Complete success
-        if (importVersion < currentVersion) {
-          message = 'Backup restored successfully! (Migrated from v$importVersion to v$currentVersion)';
-        } else {
-          message = 'Backup restored successfully!';
-        }
-        overallSuccess = true;
-      }
-
-      await _debug.info(
-        'BackupService',
-        'Import completed',
-        metadata: {
-          'importVersion': importVersion,
-          'currentVersion': currentVersion,
-          'exportDate': data['exportDate'],
-          'successes': successes.length,
-          'failures': failures.length,
-          'total_types': detailedResults.length,
-        },
-      );
-
-      return ImportResult(
-        success: overallSuccess,
-        message: message,
-        statistics: stats,
-        detailedResults: detailedResults,
-        hasPartialFailure: hasFailures && hasSuccesses,
-      );
+      return await _processImport(jsonString);
     } catch (e, stackTrace) {
       await _debug.error(
         'BackupService',
@@ -446,6 +355,169 @@ class BackupService {
       );
     }
   }
+
+  /// Process the import from JSON string (shared logic)
+  Future<ImportResult> _processImport(String jsonString) async {
+    try {
+
+    var backupData = json.decode(jsonString) as Map<String, dynamic>;
+
+    // Check for legacy format and migrate if needed
+    if (_migrationService.isLegacyFormat(backupData)) {
+      await _debug.info(
+        'BackupService',
+        'Detected legacy format backup, migrating to current schema...',
+      );
+
+      try {
+        backupData = await _migrationService.migrateLegacy(backupData);
+        await _debug.info(
+          'BackupService',
+          'Successfully migrated legacy backup',
+        );
+      } catch (e, stackTrace) {
+        await _debug.error(
+          'BackupService',
+          'Failed to migrate legacy backup: ${e.toString()}',
+          stackTrace: stackTrace.toString(),
+        );
+        return ImportResult(
+          success: false,
+          message: 'Failed to migrate legacy backup format: ${e.toString()}',
+        );
+      }
+    }
+
+    // Validate import file structure
+    if (!await _schemaValidator.validateImportFile(backupData)) {
+      return ImportResult(
+        success: false,
+        message: 'Invalid backup file format. File may be corrupted or from an incompatible app version.',
+      );
+    }
+
+    final importVersion = backupData['schemaVersion'] as int? ?? 1;
+    final currentVersion = _migrationService.getCurrentVersion();
+
+    await _debug.info(
+      'BackupService',
+      'Importing backup: v$importVersion (current app: v$currentVersion)',
+    );
+
+    // Check if backup is from a newer app version
+    if (importVersion > currentVersion) {
+      return ImportResult(
+        success: false,
+        message: 'This backup is from a newer version of the app (v$importVersion). '
+            'Please update the app to v$importVersion or later before importing.',
+      );
+    }
+
+    // Run migrations if needed (brings old backups up to current version)
+    Map<String, dynamic> data;
+    if (importVersion < currentVersion) {
+      await _debug.info(
+        'BackupService',
+        'Migrating backup from v$importVersion to v$currentVersion...',
+      );
+
+      try {
+        data = await _migrationService.migrate(backupData);
+
+        await _debug.info(
+          'BackupService',
+          'Successfully migrated backup to v$currentVersion',
+        );
+      } catch (e, stackTrace) {
+        await _debug.error(
+          'BackupService',
+          'Migration failed during import',
+          stackTrace: stackTrace.toString(),
+        );
+        return ImportResult(
+          success: false,
+          message: 'Failed to migrate backup data: ${e.toString()}',
+        );
+      }
+    } else {
+      // Already at current version
+      data = backupData;
+    }
+
+    // Validate migrated data
+    if (!await _schemaValidator.validateStructure(data)) {
+      return ImportResult(
+        success: false,
+        message: 'Backup validation failed after migration. Data may be corrupted.',
+      );
+    }
+
+    // Import data with detailed tracking (resilient - continues on errors)
+    final detailedResults = await _importData(data);
+
+    // Determine overall success
+    final failures = detailedResults.where((r) => !r.success).toList();
+    final successes = detailedResults.where((r) => r.success).toList();
+    final hasFailures = failures.isNotEmpty;
+    final hasSuccesses = successes.isNotEmpty;
+
+    final stats = data['statistics'] as Map<String, dynamic>?;
+
+    // Build result message
+    String message;
+    bool overallSuccess;
+
+    if (!hasSuccesses) {
+      // Everything failed
+      message = 'Restore failed completely. No data could be imported.';
+      overallSuccess = false;
+    } else if (hasFailures) {
+      // Partial success
+      message = 'Restore partially successful. ${successes.length} of ${detailedResults.length} data types imported.';
+      overallSuccess = true; // Still success if we got some data
+    } else {
+      // Complete success
+      if (importVersion < currentVersion) {
+        message = 'Backup restored successfully! (Migrated from v$importVersion to v$currentVersion)';
+      } else {
+        message = 'Backup restored successfully!';
+      }
+      overallSuccess = true;
+    }
+
+    await _debug.info(
+      'BackupService',
+      'Import completed',
+      metadata: {
+        'importVersion': importVersion,
+        'currentVersion': currentVersion,
+        'exportDate': data['exportDate'],
+        'successes': successes.length,
+        'failures': failures.length,
+        'total_types': detailedResults.length,
+      },
+    );
+
+    return ImportResult(
+      success: overallSuccess,
+      message: message,
+      statistics: stats,
+      detailedResults: detailedResults,
+      hasPartialFailure: hasFailures && hasSuccesses,
+    );
+  } catch (e, stackTrace) {
+    await _debug.error(
+      'BackupService',
+      'Process import failed: ${e.toString()}',
+      stackTrace: stackTrace.toString(),
+    );
+
+    return ImportResult(
+      success: false,
+      message: 'Error processing backup: ${e.toString()}',
+    );
+  }
+}
 
   Future<List<ImportItemResult>> _importData(Map<String, dynamic> data) async {
     final results = <ImportItemResult>[];
@@ -705,6 +777,27 @@ class BackupService {
         };
 
         await _storage.saveSettings(mergedSettings);
+
+        // Post-import validation: Check if External Storage is selected but SAF not configured
+        // This happens after fresh install when restoring a backup that had external storage
+        final restoredLocation = mergedSettings['autoBackupLocation'] as String?;
+        if (restoredLocation == 'downloads') {
+          // Check if SAF folder access is configured
+          final safUri = await _safService.getSavedFolderUri();
+          if (safUri == null) {
+            // External storage selected but no SAF URI - reset to internal storage
+            mergedSettings['autoBackupLocation'] = 'internal';
+            await _storage.saveSettings(mergedSettings);
+
+            await _debug.info(
+              'BackupService',
+              'Reset backup location to Internal Storage (External Storage requires folder selection)',
+            );
+
+            // Note: We'll add a warning to the import result later
+          }
+        }
+
         await _debug.info('BackupService', 'Imported settings (preserved API key, HF token, onboarding state, auto-backup enabled; restored backup location settings)');
         results.add(ImportItemResult(
           dataType: 'Settings',

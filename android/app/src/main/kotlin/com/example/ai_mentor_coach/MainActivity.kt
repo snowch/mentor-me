@@ -1,7 +1,11 @@
 package com.example.ai_mentor_coach
 
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -23,16 +27,21 @@ import kotlinx.coroutines.withContext
 class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MentorMe"
+        private const val REQUEST_CODE_OPEN_DOCUMENT_TREE = 42
     }
 
     private val CHANNEL = "com.mentorme/on_device_ai"
     private val LOCAL_AI_CHANNEL = "com.mentorme/local_ai"
+    private val SAF_CHANNEL = "com.mentorme/saf"
     private val AICORE_PACKAGE = "com.google.android.aicore"
 
     // LiteRT LLM Engine instance with thread-safe access
     // Note: We create a fresh Conversation for each inference to avoid context accumulation
     private var engine: Engine? = null
     private val modelLock = Any()  // Lock for thread-safe model access
+
+    // SAF callback result handler
+    private var safResultHandler: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -128,6 +137,72 @@ class MainActivity : FlutterActivity() {
                     } catch (e: Exception) {
                         Log.e(TAG, "Unload model error: ${e.message}", e)
                         result.error("UNLOAD_FAILED", "Failed to unload model: ${e.message}", null)
+                    }
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Storage Access Framework channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SAF_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "requestFolderAccess" -> {
+                    requestFolderAccess(result)
+                }
+                "listFiles" -> {
+                    val uriString = call.argument<String>("uri")
+                    if (uriString != null) {
+                        try {
+                            val files = listSAFFiles(uriString)
+                            result.success(files)
+                        } catch (e: Exception) {
+                            result.error("LIST_FAILED", "Failed to list files: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "URI is required", null)
+                    }
+                }
+                "writeFile" -> {
+                    val uriString = call.argument<String>("uri")
+                    val fileName = call.argument<String>("fileName")
+                    val content = call.argument<String>("content")
+                    if (uriString != null && fileName != null && content != null) {
+                        try {
+                            val fileUri = writeSAFFile(uriString, fileName, content)
+                            result.success(fileUri)
+                        } catch (e: Exception) {
+                            result.error("WRITE_FAILED", "Failed to write file: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "URI, fileName, and content are required", null)
+                    }
+                }
+                "readFile" -> {
+                    val fileUriString = call.argument<String>("fileUri")
+                    if (fileUriString != null) {
+                        try {
+                            val content = readSAFFile(fileUriString)
+                            result.success(content)
+                        } catch (e: Exception) {
+                            result.error("READ_FAILED", "Failed to read file: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "File URI is required", null)
+                    }
+                }
+                "deleteFile" -> {
+                    val fileUriString = call.argument<String>("fileUri")
+                    if (fileUriString != null) {
+                        try {
+                            val success = deleteSAFFile(fileUriString)
+                            result.success(success)
+                        } catch (e: Exception) {
+                            result.error("DELETE_FAILED", "Failed to delete file: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "File URI is required", null)
                     }
                 }
                 else -> {
@@ -444,6 +519,127 @@ class MainActivity : FlutterActivity() {
             engine = null
         }
         Log.d(TAG, "LiteRT model unloaded")
+    }
+
+    //
+    // Storage Access Framework (SAF) Methods
+    //
+
+    /// Request folder access from user via system picker
+    private fun requestFolderAccess(result: MethodChannel.Result) {
+        safResultHandler = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            // Suggest Downloads folder as starting location
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI)
+            }
+        }
+        startActivityForResult(intent, REQUEST_CODE_OPEN_DOCUMENT_TREE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_CODE_OPEN_DOCUMENT_TREE && safResultHandler != null) {
+            if (resultCode == Activity.RESULT_OK) {
+                data?.data?.let { uri ->
+                    // Take persistable URI permission
+                    val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    contentResolver.takePersistableUriPermission(uri, takeFlags)
+
+                    Log.d(TAG, "SAF folder access granted: $uri")
+                    safResultHandler?.success(uri.toString())
+                } ?: safResultHandler?.error("NO_URI", "No URI returned", null)
+            } else {
+                safResultHandler?.error("CANCELLED", "User cancelled folder selection", null)
+            }
+            safResultHandler = null
+        }
+    }
+
+    /// List files in SAF directory
+    private fun listSAFFiles(uriString: String): List<Map<String, Any>> {
+        val treeUri = Uri.parse(uriString)
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri,
+            DocumentsContract.getTreeDocumentId(treeUri)
+        )
+
+        val files = mutableListOf<Map<String, Any>>()
+
+        contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_SIZE,
+                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            ),
+            null,
+            null,
+            "${DocumentsContract.Document.COLUMN_LAST_MODIFIED} DESC"
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val documentId = cursor.getString(0)
+                val displayName = cursor.getString(1)
+                val size = cursor.getLong(2)
+                val lastModified = cursor.getLong(3)
+                val mimeType = cursor.getString(4)
+
+                // Only include JSON files
+                if (displayName.endsWith(".json")) {
+                    val documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId)
+                    files.add(mapOf(
+                        "uri" to documentUri.toString(),
+                        "name" to displayName,
+                        "size" to size,
+                        "lastModified" to lastModified,
+                        "mimeType" to (mimeType ?: "application/json")
+                    ))
+                }
+            }
+        }
+
+        return files
+    }
+
+    /// Write file to SAF directory
+    private fun writeSAFFile(uriString: String, fileName: String, content: String): String {
+        val treeUri = Uri.parse(uriString)
+        val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
+        val parentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocumentId)
+
+        // Create new document
+        val newFileUri = DocumentsContract.createDocument(
+            contentResolver,
+            parentUri,
+            "application/json",
+            fileName
+        ) ?: throw Exception("Failed to create document")
+
+        // Write content
+        contentResolver.openOutputStream(newFileUri)?.use { outputStream ->
+            outputStream.write(content.toByteArray())
+        } ?: throw Exception("Failed to open output stream")
+
+        Log.d(TAG, "SAF file written: $fileName")
+        return newFileUri.toString()
+    }
+
+    /// Read file from SAF URI
+    private fun readSAFFile(fileUriString: String): String {
+        val fileUri = Uri.parse(fileUriString)
+
+        contentResolver.openInputStream(fileUri)?.use { inputStream ->
+            return inputStream.bufferedReader().use { it.readText() }
+        } ?: throw Exception("Failed to open input stream")
+    }
+
+    /// Delete file from SAF URI
+    private fun deleteSAFFile(fileUriString: String): Boolean {
+        val fileUri = Uri.parse(fileUriString)
+        return DocumentsContract.deleteDocument(contentResolver, fileUri)
     }
 
     override fun onDestroy() {

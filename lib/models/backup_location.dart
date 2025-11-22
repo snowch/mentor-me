@@ -10,17 +10,11 @@ enum BackupLocation {
   /// - No permissions needed
   internal,
 
-  /// Public Downloads folder
+  /// User-selected external folder (via SAF)
   /// - Survives app uninstall
-  /// - Easy to find and share
-  /// - No permissions needed on Android 10+
+  /// - Choose any folder (Downloads, Documents, SD card, etc.)
+  /// - Uses Storage Access Framework (no Play Protect warnings)
   downloads,
-
-  /// Custom user-selected folder
-  /// - Maximum flexibility
-  /// - May require permissions
-  /// - User chooses exact location
-  custom,
 }
 
 extension BackupLocationExtension on BackupLocation {
@@ -29,9 +23,7 @@ extension BackupLocationExtension on BackupLocation {
       case BackupLocation.internal:
         return 'Internal Storage';
       case BackupLocation.downloads:
-        return 'Downloads Folder';
-      case BackupLocation.custom:
-        return 'Custom Folder';
+        return 'External Storage';
     }
   }
 
@@ -40,9 +32,7 @@ extension BackupLocationExtension on BackupLocation {
       case BackupLocation.internal:
         return 'Private, secure. Deleted on uninstall.';
       case BackupLocation.downloads:
-        return 'Public, persists after uninstall. Easy to find.';
-      case BackupLocation.custom:
-        return 'Choose your own backup location.';
+        return 'Choose any folder. Survives uninstall. No Play Protect warnings.';
     }
   }
 
@@ -51,15 +41,14 @@ extension BackupLocationExtension on BackupLocation {
       case BackupLocation.internal:
         return '🔒';
       case BackupLocation.downloads:
-        return '📥';
-      case BackupLocation.custom:
         return '📁';
     }
   }
 
   /// Get the directory path for this location
-  /// Returns null if location is not available (e.g., web platform, custom not configured)
-  Future<Directory?> getDirectory({String? customPath}) async {
+  /// Returns null if location is not available (e.g., web platform)
+  /// Note: For downloads/external storage, SAF URIs should be used instead
+  Future<Directory?> getDirectory() async {
     if (kIsWeb) {
       return null; // No persistent directories on web
     }
@@ -71,31 +60,9 @@ extension BackupLocationExtension on BackupLocation {
           return Directory('${appDir.path}/auto_backups');
 
         case BackupLocation.downloads:
-          // Use getExternalStorageDirectory for Android
-          // This gives us app-specific external storage (no permissions needed on Android 10+)
-          Directory? downloadsDir;
-
-          if (Platform.isAndroid) {
-            // Try to get Downloads directory
-            // Note: This requires MANAGE_EXTERNAL_STORAGE on Android 11+ for true Downloads access
-            // For now, use app-specific external storage as fallback
-            final externalDir = await getExternalStorageDirectory();
-            if (externalDir != null) {
-              // Navigate up to get to public Downloads
-              // /storage/emulated/0/Android/data/{package}/files -> /storage/emulated/0/Download
-              final parts = externalDir.path.split('/');
-              final publicPath = '/${parts[1]}/${parts[2]}/${parts[3]}/Download/MentorMe_Backups';
-              downloadsDir = Directory(publicPath);
-            }
-          }
-
-          return downloadsDir;
-
-        case BackupLocation.custom:
-          if (customPath == null || customPath.isEmpty) {
-            return null; // Custom path not configured
-          }
-          return Directory(customPath);
+          // External storage uses SAF URIs - this path is only for fallback/legacy
+          // Should not be used in normal operation
+          return null;
       }
     } catch (e) {
       return null;

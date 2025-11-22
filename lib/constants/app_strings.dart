@@ -440,12 +440,8 @@ class AppStrings {
   static const String chooseBackupLocation = 'Choose where automatic backups are saved';
   static const String internalStorage = 'Internal Storage';
   static const String internalStorageDescription = 'Private and secure. Deleted when app is uninstalled.';
-  static const String downloadsFolder = 'Downloads Folder';
-  static const String downloadsFolderDescription = 'Public folder. Persists after uninstall. Easy to find.';
-  static const String customFolder = 'Custom Folder';
-  static const String customFolderDescription = 'Choose your own backup location.';
-  static const String selectCustomFolder = 'Select Custom Folder';
-  static const String customFolderNotSet = 'Custom folder not set';
+  static const String downloadsFolder = 'External Storage';
+  static const String downloadsFolderDescription = 'Choose any folder. Survives uninstall. No Play Protect warnings.';
   static const String backupLocationUpdated = 'Backup location updated';
   static const String currentBackupPath = 'Current backup path';
   static const String notAvailable = 'Not available';
