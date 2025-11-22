@@ -61,6 +61,9 @@ dependencies:
   # Cryptographic hashing for file verification
   crypto: ^3.0.3
 
+  # URL launching for phone calls and web links
+  url_launcher: ^6.3.1
+
   # Google Drive integration for cloud backups
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
