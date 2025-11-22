@@ -74,6 +74,14 @@ if [ -d "proxy" ] && [ -f "proxy/package.json" ]; then
   echo "Proxy dependencies installed"
 fi
 
+# Install git hooks for pre-commit validation
+if [ -f ".githooks/install.sh" ]; then
+  echo "Installing git hooks..."
+  bash .githooks/install.sh
+else
+  echo "Git hooks not found (expected at .githooks/install.sh)"
+fi
+
 echo "=== Flutter environment setup complete! ==="
 echo "You can now run:"
 echo "  - flutter test       # Run tests"

@@ -11,6 +11,7 @@ import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../models/chat_message.dart';
+import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
