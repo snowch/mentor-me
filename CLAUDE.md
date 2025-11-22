@@ -95,6 +95,49 @@ flutter clean
 flutter pub run build_runner build --delete-conflicting-outputs
 ```
 
+### Local CI/CD Testing
+
+**NEW:** Replicate the GitHub Actions CI/CD pipeline locally before committing:
+
+```bash
+# Quick validation (recommended before every commit)
+./scripts/local-ci-build.sh --skip-build
+
+# Full build including APKs (recommended before PR)
+./scripts/local-ci-build.sh
+
+# Show all options
+./scripts/local-ci-build.sh --help
+```
+
+**What it does:**
+1. Generates `build_info.dart` (same as CI/CD)
+2. Runs `flutter analyze`
+3. Runs all tests with coverage
+4. Runs critical tests (schema validation, provider tests)
+5. Builds debug and release APKs (unless `--skip-build`)
+
+**Recommended workflow:**
+```bash
+# 1. Make your code changes
+vim lib/some_file.dart
+
+# 2. Run quick validation (1-2 minutes)
+./scripts/local-ci-build.sh --skip-build
+
+# 3. If passes, commit and push
+git add .
+git commit -m "Your changes"
+git push
+
+# Before creating PR, run full build (5-10 minutes)
+./scripts/local-ci-build.sh
+```
+
+**See `scripts/README.md` for detailed documentation.**
+
+This ensures your changes will pass CI/CD before you push!
+
 ### Proxy Server (Required for Web AI Features)
 
 The web version requires a proxy server to bypass CORS restrictions when calling the Claude API:
@@ -109,6 +152,124 @@ npm start
 ```
 
 **Note:** Mobile builds use direct Claude API calls (no proxy needed).
+
+---
+
+## Working with Flutter in Claude Code Web
+
+### SessionStart Hook
+
+This project includes a `.claude/SessionStart` hook that automatically sets up the Flutter development environment when starting a new Claude Code web session:
+
+**What it does:**
+- ✅ Verifies Flutter SDK installation (Flutter 3.27.1)
+- ✅ Enables web support (`flutter config --enable-web`)
+- ✅ Installs Flutter dependencies (`flutter pub get`)
+- ✅ Installs proxy server dependencies (`cd proxy && npm install`)
+- ✅ Disables Flutter analytics
+
+**After hook runs, you can immediately use:**
+```bash
+flutter test        # Run tests
+flutter analyze     # Run code analysis
+flutter run -d chrome  # Run web app (requires proxy server in another terminal)
+```
+
+### Important Notes for Claude Code Web
+
+**1. Flutter Analyze**
+
+When running `flutter analyze`, you may see an error about a missing file:
+```
+lib/screens/debug_settings_screen.dart:7:8
+Target of URI doesn't exist: '../config/build_info.dart'
+```
+
+**This is expected in local development.**
+
+- `build_info.dart` is a **generated file** created during CI/CD builds
+- It contains build metadata (git commit, build timestamp) for the Debug Settings screen
+- The app compiles successfully in CI/CD where this file is generated
+- Local `flutter analyze` will flag this as an error, but it's not a blocker
+
+**Typical flutter analyze output:**
+- **~3 errors** (build_info.dart related - expected)
+- **~11 warnings** (unused imports, variables)
+- **~1,764 info messages** (code style suggestions, deprecated API usage)
+
+**2. Development Workflow**
+
+Since Flutter web requires the proxy server, the typical development flow is:
+
+```bash
+# Terminal 1: Start proxy server (required for AI features)
+cd proxy && npm start
+
+# Terminal 2: Run Flutter app (in Claude Code, use Bash tool)
+flutter run -d chrome --web-port=8080
+```
+
+**Note:** In Claude Code web sessions, you typically cannot run the full Flutter web app interactively. Instead, use:
+- `flutter test` - Run automated tests
+- `flutter analyze` - Check code quality
+- `flutter build web` - Build production assets
+- CI/CD pipeline for full app testing
+
+**3. Project Structure Quick Reference**
+
+```
+mentor-me-fork/
+├── lib/                    # Main Flutter application code
+│   ├── models/            # Data models (Goal, Habit, Journal, etc.)
+│   ├── providers/         # State management (Provider pattern)
+│   ├── services/          # Business logic (AI, Storage, Notifications)
+│   ├── screens/           # UI screens
+│   ├── widgets/           # Reusable UI components
+│   └── main.dart          # App entry point
+├── test/                  # Unit and widget tests
+├── proxy/                 # Node.js proxy server for web AI features
+├── .claude/               # Claude Code configuration
+│   └── SessionStart       # Auto-setup hook
+└── CLAUDE.md             # This file (project documentation)
+```
+
+**4. Common Tasks**
+
+| Task | Command | Notes |
+|------|---------|-------|
+| **Run tests** | `flutter test` | Safe to run in Claude Code web |
+| **Code analysis** | `flutter analyze` | Expect ~1,778 issues (mostly style) |
+| **Format code** | `flutter format lib/` | Auto-format Dart code |
+| **Update deps** | `flutter pub get` | After changing pubspec.yaml |
+| **Clean build** | `flutter clean` | Clear cache/build artifacts |
+| **Build web** | `flutter build web` | Production build (output in `build/web/`) |
+
+**5. Testing Strategy**
+
+The project uses Flutter's testing framework:
+
+```bash
+# Run all tests
+flutter test
+
+# Run specific test file
+flutter test test/providers/goal_provider_test.dart
+
+# Run with coverage
+flutter test --coverage
+```
+
+See `TESTING.md` for comprehensive testing guidelines.
+
+**6. Code Quality Notes**
+
+- **Deprecated APIs**: The codebase uses some deprecated Flutter APIs:
+  - `.withOpacity()` → Migrate to `.withValues()`
+  - `surfaceVariant` → Migrate to `surfaceContainerHighest`
+- **Code style**: Many missing trailing commas (Dart convention)
+- **Unused code**: Some unused imports and variables to clean up
+
+These are non-blocking but should be addressed for long-term maintainability.
 
 ---
 
