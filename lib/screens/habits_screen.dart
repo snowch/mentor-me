@@ -250,20 +250,25 @@ class HabitsScreen extends StatelessWidget {
           // This shouldn't happen as we handle it in onMove
         } else {
           // Cross-section move
+          // Capture messenger before async operation to avoid context issues
+          final messenger = ScaffoldMessenger.of(context);
+          final habitTitle = draggedHabit.title;
+          final statusName = status == HabitStatus.active ? "Active" : "Backlog";
+
           try {
             await habitProvider.moveHabitToStatus(
               draggedHabit.id,
               status,
               habits.length, // Add to end
             );
-            ScaffoldMessenger.of(context).showSnackBar(
+            messenger.showSnackBar(
               SnackBar(
-                content: Text('Moved "${draggedHabit.title}" to ${status == HabitStatus.active ? "Active" : "Backlog"}'),
+                content: Text('Moved "$habitTitle" to $statusName'),
                 duration: const Duration(seconds: 2),
               ),
             );
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            messenger.showSnackBar(
               SnackBar(
                 content: Text(e.toString().replaceAll('Exception: ', '')),
                 backgroundColor: Colors.red,
@@ -276,7 +281,7 @@ class HabitsScreen extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final isHighlighted = candidateData.isNotEmpty;
         final isDraggingFromDifferentSection = candidateData.isNotEmpty &&
-            (candidateData.first as Habit?)?.status != status;
+            candidateData.first?.status != status;
 
         return Container(
           decoration: isHighlighted && isDraggingFromDifferentSection

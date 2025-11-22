@@ -9,7 +9,6 @@ import '../providers/journal_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../models/goal.dart';
 import '../theme/app_spacing.dart';
-import '../constants/app_strings.dart';
 import 'halt_analytics_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {

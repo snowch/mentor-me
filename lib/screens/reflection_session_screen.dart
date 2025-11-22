@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../constants/app_strings.dart';
 import '../models/reflection_session.dart';
-import '../models/goal.dart';
 import '../models/habit.dart';
 import '../models/journal_entry.dart';
 import '../providers/goal_provider.dart';
@@ -51,7 +50,6 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
   ReflectionSession? _session;
   SessionPhase _phase = SessionPhase.loading;
   String _currentQuestion = '';
-  String? _sessionId;
   bool _isLoading = false;
   bool _showCrisisResources = false;
 
@@ -121,7 +119,6 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
       );
 
       setState(() {
-        _sessionId = result.sessionId;
         _session = ReflectionSession(
           id: result.sessionId,
           startedAt: DateTime.now(),
@@ -228,6 +225,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
       setState(() => _proposedActions.add(action));
 
       // Show confirmation dialog
+      if (!mounted) return;
       final approved = await ActionConfirmationDialog.show(context, action);
 
       if (approved && mounted && _actionService != null) {
@@ -308,59 +306,6 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
         return AppStrings.followUpReminderScheduled;
       default:
         return AppStrings.actionCompletedSuccessfully;
-    }
-  }
-
-  String _getActionDescription(ActionType type) {
-    switch (type) {
-      case ActionType.createGoal:
-        return 'Created a new goal';
-      case ActionType.updateGoal:
-        return 'Updated goal';
-      case ActionType.deleteGoal:
-        return 'Deleted goal';
-      case ActionType.moveGoalToActive:
-        return 'Activated a goal';
-      case ActionType.moveGoalToBacklog:
-        return 'Moved goal to backlog';
-      case ActionType.completeGoal:
-        return 'Completed a goal';
-      case ActionType.abandonGoal:
-        return 'Abandoned a goal';
-      case ActionType.createMilestone:
-        return 'Added a milestone';
-      case ActionType.updateMilestone:
-        return 'Updated milestone';
-      case ActionType.deleteMilestone:
-        return 'Deleted milestone';
-      case ActionType.completeMilestone:
-        return 'Completed milestone';
-      case ActionType.uncompleteMilestone:
-        return 'Reopened milestone';
-      case ActionType.createHabit:
-        return 'Created a new habit';
-      case ActionType.updateHabit:
-        return 'Updated habit';
-      case ActionType.deleteHabit:
-        return 'Deleted habit';
-      case ActionType.pauseHabit:
-        return 'Paused habit';
-      case ActionType.activateHabit:
-        return 'Activated habit';
-      case ActionType.archiveHabit:
-        return 'Archived habit';
-      case ActionType.markHabitComplete:
-        return 'Marked habit complete for a day';
-      case ActionType.unmarkHabitComplete:
-        return 'Unmarked habit completion';
-      case ActionType.createCheckInTemplate:
-        return 'Created check-in template';
-      case ActionType.scheduleCheckInReminder:
-        return 'Scheduled check-in reminder';
-      case ActionType.saveSessionAsJournal:
-        return 'Saved session as journal entry';
-      case ActionType.scheduleFollowUp:
-        return 'Scheduled follow-up reminder';
     }
   }
 
@@ -578,6 +523,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
     await journalProvider.addEntry(journalEntry);
 
     // Create habit if intervention selected
+    if (!mounted) return;
     if (_selectedIntervention?.habitSuggestion != null) {
       final habitProvider = context.read<HabitProvider>();
       final habit = Habit(

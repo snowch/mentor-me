@@ -29,7 +29,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final StorageService _storage = StorageService();
   final BackupService _backupService = BackupService();
   final TextEditingController _nameController = TextEditingController();
-  String _userName = '';
   bool _isCreatingHabit = false;
   bool _isRestoring = false;
 
@@ -96,10 +95,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     settings['userName'] = name;
     await _storage.saveSettings(settings);
 
-    setState(() {
-      _userName = name;
-    });
-
     _nextPage();
   }
 
@@ -161,11 +156,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     // Reload all providers to pick up the restored data
     await Provider.of<GoalProvider>(context, listen: false).reload();
+    if (!mounted) return;
     await Provider.of<HabitProvider>(context, listen: false).reload();
+    if (!mounted) return;
     await Provider.of<JournalProvider>(context, listen: false).reload();
+    if (!mounted) return;
     await Provider.of<CheckinProvider>(context, listen: false).reload();
+    if (!mounted) return;
     await Provider.of<PulseProvider>(context, listen: false).reload();
+    if (!mounted) return;
     await Provider.of<PulseTypeProvider>(context, listen: false).reload();
+    if (!mounted) return;
     await Provider.of<ChatProvider>(context, listen: false).reload();
   }
 
@@ -224,7 +225,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // On first page, show exit warning
         if (_currentPage == 0) {
           final shouldExit = await _showExitWarning();
-          if (shouldExit && mounted) {
+          if (!mounted) return;
+          if (shouldExit) {
             Navigator.of(context).pop();
           }
         } else {

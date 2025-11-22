@@ -421,6 +421,7 @@ Keep your tone warm, encouraging, and focused on growth. Be specific and referen
           });
 
           // Pop back to check-in screen
+          if (!mounted) return;
           Navigator.of(context).pop();
         } else {
           // This was initial onboarding - navigate to goal suggestions

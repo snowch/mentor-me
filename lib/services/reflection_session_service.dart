@@ -142,7 +142,7 @@ Always maintain a supportive, non-judgmental tone.''';
       final linkedGoal = goals.where((g) => g.id == linkedGoalId).firstOrNull;
       if (linkedGoal != null) {
         sessionContext.writeln('\nFOCUSED GOAL: ${linkedGoal.title}');
-        if (linkedGoal.description != null) {
+        if (linkedGoal.description.isNotEmpty) {
           sessionContext.writeln('Description: ${linkedGoal.description}');
         }
         sessionContext.writeln('Progress: ${linkedGoal.currentProgress}%');

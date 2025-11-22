@@ -243,20 +243,25 @@ class GoalsScreen extends StatelessWidget {
           // This shouldn't happen as we handle it in onMove
         } else {
           // Cross-section move
+          // Capture messenger before async operation to avoid context issues
+          final messenger = ScaffoldMessenger.of(context);
+          final goalTitle = draggedGoal.title;
+          final statusName = status == GoalStatus.active ? "Active" : "Backlog";
+
           try {
             await goalProvider.moveGoalToStatus(
               draggedGoal.id,
               status,
               goals.length, // Add to end
             );
-            ScaffoldMessenger.of(context).showSnackBar(
+            messenger.showSnackBar(
               SnackBar(
-                content: Text('Moved "${draggedGoal.title}" to ${status == GoalStatus.active ? "Active" : "Backlog"}'),
+                content: Text('Moved "$goalTitle" to $statusName'),
                 duration: const Duration(seconds: 2),
               ),
             );
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            messenger.showSnackBar(
               SnackBar(
                 content: Text(e.toString().replaceAll('Exception: ', '')),
                 backgroundColor: Colors.red,
@@ -269,7 +274,7 @@ class GoalsScreen extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final isHighlighted = candidateData.isNotEmpty;
         final isDraggingFromDifferentSection = candidateData.isNotEmpty &&
-            (candidateData.first as Goal?)?.status != status;
+            candidateData.first?.status != status;
 
         return Container(
           decoration: isHighlighted && isDraggingFromDifferentSection

@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../models/pulse_entry.dart';
 import '../providers/pulse_provider.dart';
 import '../theme/app_spacing.dart';
-import '../constants/app_strings.dart';
 
 class QuickHaltWidget extends StatefulWidget {
   const QuickHaltWidget({super.key});

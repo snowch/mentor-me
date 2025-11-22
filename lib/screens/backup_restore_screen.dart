@@ -1,11 +1,9 @@
 // lib/screens/backup_restore_screen.dart
 // Screen for managing data backup and restore operations
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
 import '../models/backup_location.dart';
 import '../services/storage_service.dart';
 import '../services/backup_service.dart';
@@ -21,7 +19,6 @@ import '../providers/pulse_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_colors.dart';
 import '../constants/app_strings.dart';
 
 class BackupRestoreScreen extends StatefulWidget {
@@ -42,11 +39,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   DateTime? _lastAutoBackupTime;
   String? _lastAutoBackupFilename;
   BackupLocation _backupLocation = BackupLocation.internal;
-  String? _customBackupPath;
   String? _currentBackupPath;
   Map<String, dynamic>? _currentDataCounts;
-  Map<String, dynamic>? _lastExportStats;
-  Map<String, dynamic>? _lastImportStats;
 
   @override
   void initState() {
@@ -100,7 +94,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     // Load backup location settings
     final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
     final location = backupLocationFromString(locationString);
-    final customPath = settings['autoBackupCustomPath'] as String?;
 
     if (mounted) {
       setState(() {
@@ -108,7 +101,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _lastAutoBackupTime = lastBackupTime;
         _lastAutoBackupFilename = lastBackupFilename;
         _backupLocation = location;
-        _customBackupPath = customPath;
         _currentBackupPath = currentPath;
       });
     }
@@ -146,11 +138,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (!mounted) return;
 
       if (result.success) {
-        // Save statistics for display
-        setState(() {
-          _lastExportStats = result.statistics;
-        });
-
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -244,17 +231,13 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         // Reload backup settings to check if location was reset
         await _loadAutoBackupSettings();
 
-        // Save statistics for display
-        setState(() {
-          _lastImportStats = result.statistics;
-        });
-
         // Check if backup location was reset to internal (happens when restoring
         // a backup that had external storage but SAF URI is not available)
         final settings = await _storage.loadSettings();
         final wasReset = settings['autoBackupLocation'] == 'internal' &&
             !(await _safService.hasFolderAccess());
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),
@@ -891,17 +874,17 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           ),
           FilledButton.icon(
             onPressed: () async {
+              // Capture messenger before async gap
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
               // Manually trigger a backup for testing
               await _autoBackupService.scheduleAutoBackup();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Manual backup scheduled (will complete in 30s)'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              }
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Manual backup scheduled (will complete in 30s)'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
             },
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Trigger Backup Now'),

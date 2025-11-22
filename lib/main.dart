@@ -1,7 +1,6 @@
 // lib/main.dart
 // UPDATED: Added Onboarding
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -117,13 +116,8 @@ void main() async {
     }
 
     // Initialize structured journaling templates
-    try {
-      final structuredJournalingService = StructuredJournalingService();
-      // Templates will be loaded in provider initialization
-    } catch (e) {
-      debugPrint('Warning: Structured journaling service initialization failed: $e');
-      // Continue app launch even if structured journaling fails
-    }
+    // Note: Templates are loaded lazily in JournalTemplateProvider initialization
+    // No explicit service initialization needed here
 
     runApp(MyApp(showOnboarding: !hasCompletedOnboarding));
   } catch (e, stackTrace) {

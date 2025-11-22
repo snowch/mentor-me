@@ -441,6 +441,7 @@ class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
                 await _notificationService.requestExactAlarmPermission();
                 // Notify listeners so UI updates immediately
                 _notificationService.notifyStatusChanged();
+                if (!context.mounted) return;
                 Navigator.pop(context);
               },
               child: const Text('Enable Exact Alarms'),

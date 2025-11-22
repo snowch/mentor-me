@@ -8,12 +8,10 @@ import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/model_availability_service.dart';
 import '../services/model_download_service.dart';
-import '../services/local_ai_service.dart';
 import '../services/debug_service.dart';
 import '../models/ai_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_colors.dart';
 import '../constants/app_strings.dart';
 
 class AISettingsScreen extends StatefulWidget {
@@ -1317,9 +1315,11 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
 
                           // Auto-save when model changes and notify HomeScreen
                           await _saveSettings();
+                          if (!mounted) return;
                           // Update SettingsProvider to notify listeners
                           final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
                           await settingsProvider.setClaudeModel(value);
+                          if (!mounted) return;
                         }
                       },
                     ),
