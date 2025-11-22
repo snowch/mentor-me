@@ -221,96 +221,51 @@ git push
 
 The repository includes a **pre-commit hook** that automatically runs local CI/CD validation before every commit.
 
-### What it does
+**📖 Full documentation:** See [`.githooks/README.md`](../.githooks/README.md)
 
-When you run `git commit`, the hook will:
-1. Automatically run `./scripts/local-ci-build.sh --skip-build`
-2. Check Flutter analyzer, run tests, and validate schemas
-3. **Allow commit** if all checks pass ✅
-4. **Abort commit** if checks fail ❌
-
-### Benefits
-
-- **Prevents build failures** - Catches issues before they reach CI/CD
-- **Saves time** - No waiting for CI/CD to fail on GitHub
-- **Enforces quality** - All commits are pre-validated
-
-### Installation
-
-The pre-commit hook is located at `.git/hooks/pre-commit` and should be automatically set up.
-
-To verify it's installed:
-```bash
-ls -la .git/hooks/pre-commit
-# Should show: -rwxr-xr-x (executable)
-```
-
-To manually install/reinstall:
-```bash
-cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
-```
-
-### Bypassing (NOT recommended)
-
-If you absolutely need to commit without validation:
-```bash
-git commit --no-verify -m "Emergency fix"
-```
-
-**⚠️ Warning:** This may cause CI/CD failures. Only use in emergencies.
-
-### Example output
-
-```
-🔍 Running pre-commit validation...
-
-[1/9] Generating build_info.dart...
-✓ Generated build_info.dart
-
-[2/9] Verifying Flutter installation...
-✓ Flutter verified
-
-[3/9] Getting Flutter dependencies...
-✓ Dependencies installed
-
-[4/9] Running Flutter analyzer...
-✓ Analyzer passed
-
-[5/9] Running all tests with coverage...
-✓ All tests passed (37 tests)
-
-[6/9] Running schema validation test...
-✓ Schema validation passed
-
-[7/9] Running provider tests...
-✓ Provider tests passed
-
-✅ Pre-commit validation PASSED!
-Proceeding with commit...
-
-[main 1234567] Your commit message
- 2 files changed, 50 insertions(+)
-```
-
-### Workflow with pre-commit hook
+### Quick Install
 
 ```bash
-# 1. Make your changes
+./.githooks/install.sh
+```
+
+This installs a git hook that:
+- Runs `./scripts/local-ci-build.sh --skip-build` before every commit
+- Validates code with analyzer, tests, and schemas
+- **Prevents CI/CD failures** by catching issues locally
+
+### Why Use It?
+
+| Without Hook ❌ | With Hook ✅ |
+|----------------|-------------|
+| Commit → Push → Wait 5-10 min → **CI/CD fails** → Fix → Repeat | Commit → **Hook validates (1-2 min)** → Fix if needed → Push → **CI/CD passes** |
+
+**Benefits:**
+- 🚀 **Faster feedback** - 1-2 minutes vs 5-10 minutes
+- 🛡️ **Prevent failures** - Catch issues before push
+- 💰 **Save time** - No failed builds to debug
+- ✅ **Quality assurance** - All commits pre-validated
+
+### After Installation
+
+The hook runs automatically on every commit:
+
+```bash
+# Make changes
 vim lib/screens/chat_screen.dart
 
-# 2. Stage your changes
+# Stage and commit
 git add lib/screens/chat_screen.dart
+git commit -m "Add new feature"
+# → Hook runs automatically
+# → If passes: commit succeeds ✅
+# → If fails: commit aborted ❌
 
-# 3. Commit (hook runs automatically)
-git commit -m "Add save to journal feature"
-# → Hook runs local CI/CD validation
-# → If passes: commit succeeds
-# → If fails: commit aborted, fix issues first
-
-# 4. Push
+# Push with confidence
 git push
 ```
+
+See [`.githooks/README.md`](../.githooks/README.md) for full details, troubleshooting, and advanced usage.
 
 ---
 
