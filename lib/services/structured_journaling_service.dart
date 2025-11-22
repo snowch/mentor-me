@@ -21,6 +21,8 @@ class StructuredJournalingService {
       _createDreamJournalTemplate(),
       _createExerciseLogTemplate(),
       _createFoodLogTemplate(),
+      _createUrgeSurfingTemplate(),
+      _createHALTTemplate(),
     ];
   }
 
@@ -766,6 +768,200 @@ class StructuredJournalingService {
       createdAt: DateTime.now(),
       showProgressIndicator: true,
       allowSkipFields: true,
+    );
+  }
+
+  JournalTemplate _createUrgeSurfingTemplate() {
+    return JournalTemplate(
+      id: 'urge_surfing',
+      name: 'Urge Surfing',
+      description: 'Mindfully observe and ride out urges without acting on them',
+      emoji: '🌊',
+      isSystemDefined: true,
+      category: TemplateCategory.therapy,
+      fields: [
+        TemplateField(
+          id: 'urge_description',
+          label: 'The Urge',
+          prompt: 'What urge or craving are you experiencing right now?',
+          type: FieldType.text,
+          helpText: 'Examples: smoke, eat, drink, check phone, shop, argue, etc.',
+          aiCoaching: 'Help the user name the urge specifically and without judgment',
+        ),
+        TemplateField(
+          id: 'initial_intensity',
+          label: 'Initial Intensity',
+          prompt: 'How strong is this urge right now, from 0 to 10?',
+          type: FieldType.scale,
+          validation: {'min': 0, 'max': 10},
+          helpText: '0 = No urge at all, 10 = Overwhelming, impossible to resist',
+        ),
+        TemplateField(
+          id: 'physical_sensations',
+          label: 'Physical Sensations',
+          prompt: 'What physical sensations are you noticing in your body?',
+          type: FieldType.longText,
+          helpText: 'Examples: tension, tightness, heat, restlessness, shakiness, tingling',
+          aiCoaching: 'Guide them to scan their body mindfully - where do they feel the urge?',
+        ),
+        TemplateField(
+          id: 'thoughts',
+          label: 'Thoughts',
+          prompt: 'What thoughts are coming up as you sit with this urge?',
+          type: FieldType.longText,
+          helpText: 'Just observe the thoughts without judging them',
+          aiCoaching: 'Encourage curiosity about their thoughts, not resistance',
+        ),
+        TemplateField(
+          id: 'emotions',
+          label: 'Emotions',
+          prompt: 'What emotions are you feeling alongside this urge?',
+          type: FieldType.text,
+          helpText: 'Examples: anxiety, boredom, loneliness, stress, excitement',
+        ),
+        TemplateField(
+          id: 'waiting_period',
+          label: 'Observation Time',
+          prompt: 'Take 5-10 minutes to observe the urge without acting. How has it changed?',
+          type: FieldType.longText,
+          helpText: 'Notice: Did it peak? Fade? Change shape? Stay the same?',
+          aiCoaching: 'Remind them that urges are like waves - they rise, peak, and fall',
+        ),
+        TemplateField(
+          id: 'current_intensity',
+          label: 'Current Intensity',
+          prompt: 'How strong is the urge now, from 0 to 10?',
+          type: FieldType.scale,
+          validation: {'min': 0, 'max': 10},
+          helpText: 'Compare with your initial rating',
+        ),
+        TemplateField(
+          id: 'what_you_learned',
+          label: 'What You Learned',
+          prompt: 'What did you notice or learn from surfing this urge?',
+          type: FieldType.longText,
+          required: false,
+          aiCoaching: 'Help them reflect on the impermanence of urges',
+        ),
+        TemplateField(
+          id: 'linked_habit',
+          label: 'Related Habit',
+          prompt: 'Is this related to any habit you\'re working on?',
+          type: FieldType.linkedHabit,
+          required: false,
+        ),
+      ],
+      aiGuidance:
+          'You are a mindfulness teacher trained in DBT (Dialectical Behavior Therapy) and addiction recovery techniques. '
+          'Guide the user through urge surfing with patience and non-judgment. '
+          'Emphasize that the goal is NOT to suppress urges, but to observe them mindfully and let them pass naturally. '
+          'Urges are like waves - they rise, peak, and fall. Reinforce that they did not have to act on the urge.',
+      completionMessage:
+          'Well done surfing that urge! Remember: urges are temporary visitors, not permanent residents.',
+      createdAt: DateTime.now(),
+      showProgressIndicator: true,
+      allowSkipFields: false,
+    );
+  }
+
+  JournalTemplate _createHALTTemplate() {
+    return JournalTemplate(
+      id: 'halt_check',
+      name: 'HALT Check',
+      description: 'Check in on basic needs: Hungry, Angry, Lonely, Tired',
+      emoji: '🛑',
+      isSystemDefined: true,
+      category: TemplateCategory.wellness,
+      fields: [
+        TemplateField(
+          id: 'hungry_check',
+          label: 'Hungry - Physical Needs',
+          prompt: 'Have you eaten recently? How\'s your physical energy and nourishment?',
+          type: FieldType.longText,
+          helpText: 'When did you last eat? Are you taking care of basic physical needs?',
+          aiCoaching: 'Help them assess if physical hunger might be affecting their mood or decisions',
+        ),
+        TemplateField(
+          id: 'hungry_rating',
+          label: 'Hunger/Energy Level',
+          prompt: 'Rate your current physical energy from 1 to 10',
+          type: FieldType.scale,
+          validation: {'min': 1, 'max': 10},
+          helpText: '1 = Depleted/starving, 10 = Energized/nourished',
+        ),
+        TemplateField(
+          id: 'angry_check',
+          label: 'Angry - Emotions',
+          prompt: 'What\'s frustrating or irritating you right now? Any resentments?',
+          type: FieldType.longText,
+          helpText: 'Be honest about what\'s bothering you',
+          aiCoaching: 'Create a safe, non-judgmental space for them to express frustration',
+        ),
+        TemplateField(
+          id: 'angry_rating',
+          label: 'Frustration Level',
+          prompt: 'Rate your current frustration/anger from 1 to 10',
+          type: FieldType.scale,
+          validation: {'min': 1, 'max': 10},
+          helpText: '1 = Calm/content, 10 = Very angry/frustrated',
+        ),
+        TemplateField(
+          id: 'lonely_check',
+          label: 'Lonely - Connection',
+          prompt: 'Who have you connected with today? How\'s your sense of belonging?',
+          type: FieldType.longText,
+          helpText: 'Think about meaningful connections, not just interactions',
+          aiCoaching: 'Help them distinguish between alone-time and loneliness',
+        ),
+        TemplateField(
+          id: 'lonely_rating',
+          label: 'Connection Level',
+          prompt: 'Rate your sense of connection from 1 to 10',
+          type: FieldType.scale,
+          validation: {'min': 1, 'max': 10},
+          helpText: '1 = Very isolated/disconnected, 10 = Deeply connected',
+        ),
+        TemplateField(
+          id: 'tired_check',
+          label: 'Tired - Rest & Energy',
+          prompt: 'How\'s your sleep been? Are you running on empty?',
+          type: FieldType.longText,
+          helpText: 'Physical tiredness, mental fatigue, emotional exhaustion',
+          aiCoaching: 'Help them identify different types of tiredness (physical, mental, emotional)',
+        ),
+        TemplateField(
+          id: 'tired_rating',
+          label: 'Fatigue Level',
+          prompt: 'Rate your current fatigue from 1 to 10',
+          type: FieldType.scale,
+          validation: {'min': 1, 'max': 10},
+          helpText: '1 = Exhausted, 10 = Well-rested/energized',
+        ),
+        TemplateField(
+          id: 'action_plan',
+          label: 'What You Need',
+          prompt: 'Based on these reflections, what\'s one thing you could do for yourself right now?',
+          type: FieldType.longText,
+          helpText: 'Small, actionable steps work best',
+          aiCoaching: 'Help them identify a concrete, achievable action to address their greatest need',
+        ),
+        TemplateField(
+          id: 'linked_goal',
+          label: 'Related Goal',
+          prompt: 'Is this related to any self-care or wellness goals?',
+          type: FieldType.linkedGoal,
+          required: false,
+        ),
+      ],
+      aiGuidance:
+          'You are a supportive wellness coach using the HALT framework - a tool commonly used in recovery, therapy, and stress management. '
+          'HALT helps people check in on basic needs (Hungry, Angry, Lonely, Tired) that often trigger poor decisions or emotional distress. '
+          'Be warm and non-judgmental. Help them see patterns between unmet needs and their struggles.',
+      completionMessage:
+          'Great work checking in on your basic needs! Remember: HALT when you\'re struggling.',
+      createdAt: DateTime.now(),
+      showProgressIndicator: true,
+      allowSkipFields: false,
     );
   }
 }

@@ -141,6 +141,31 @@ class ContextManagementService {
       addSection(journalsSection.toString(), 'journal_entries', journalCount);
     }
 
+    // 3b. HALT Check-In Summary (basic needs assessment)
+    final haltJournals = journalEntries.where((j) {
+      // Check if journal is a HALT check
+      if (j.type == JournalEntryType.guidedJournal && j.qaPairs != null) {
+        final guidedData = j.toJson()['guidedJournalData'];
+        if (guidedData != null && guidedData is Map) {
+          final reflectionType = guidedData['reflectionType'];
+          return reflectionType == 'halt';
+        }
+      }
+      return false;
+    }).take(2).toList(); // Include last 2 HALT checks
+
+    if (haltJournals.isNotEmpty) {
+      final haltSection = StringBuffer('\n**HALT Check-Ins (Basic Needs):**\n');
+      int haltCount = 0;
+      for (final entry in haltJournals) {
+        final summary = _summarizeHaltJournal(entry);
+        haltSection.writeln('- ${_formatDate(entry.createdAt)}: $summary');
+        haltCount++;
+      }
+      haltSection.writeln();
+      addSection(haltSection.toString(), 'halt_checks', haltCount);
+    }
+
     // 4. Recent Pulse/Wellness Entries (last 7 days)
     final recentPulse = pulseEntries.take(7).toList();
     if (recentPulse.isNotEmpty) {
@@ -238,7 +263,30 @@ class ContextManagementService {
     }
 
     // 3. Most Recent Journal Entry (heavily truncated)
-    if (journalEntries.isNotEmpty) {
+    // Prioritize HALT check if recent, otherwise use most recent journal
+    final haltJournals = journalEntries.where((j) {
+      if (j.type == JournalEntryType.guidedJournal && j.qaPairs != null) {
+        final guidedData = j.toJson()['guidedJournalData'];
+        if (guidedData != null && guidedData is Map) {
+          return guidedData['reflectionType'] == 'halt';
+        }
+      }
+      return false;
+    }).toList();
+
+    if (haltJournals.isNotEmpty &&
+        haltJournals.first.createdAt.isAfter(
+            DateTime.now().subtract(const Duration(days: 3)))) {
+      // Recent HALT check exists - prioritize it for local AI
+      final summary = _summarizeHaltJournal(haltJournals.first);
+      final haltSection = '\nHALT check: $summary\n';
+      if (canAdd(haltSection)) {
+        buffer.write(haltSection);
+        currentTokens += estimateTokens(haltSection);
+        itemCounts['halt_checks'] = 1;
+      }
+    } else if (journalEntries.isNotEmpty) {
+      // Regular journal entry
       final entry = journalEntries.first;
       final entryText = _extractEntryText(entry);
       final preview = entryText.length > 100
@@ -329,5 +377,85 @@ class ContextManagementService {
     if (diff == 1) return 'Yesterday';
     if (diff < 7) return '$diff days ago';
     return '${date.month}/${date.day}';
+  }
+
+  /// Summarize a HALT check-in journal for context
+  ///
+  /// Extracts key information about which basic needs were identified as concerns
+  String _summarizeHaltJournal(JournalEntry entry) {
+    if (entry.qaPairs == null || entry.qaPairs!.isEmpty) {
+      return 'Completed HALT check';
+    }
+
+    final concerns = <String>[];
+    final strengths = <String>[];
+
+    // Analyze the answers for keywords indicating unmet needs
+    for (final pair in entry.qaPairs!) {
+      final question = pair.question.toLowerCase();
+      final answer = pair.answer.toLowerCase();
+
+      if (question.contains('hungry') || question.contains('physical')) {
+        if (answer.contains('not') ||
+            answer.contains('haven\'t') ||
+            answer.contains('skip') ||
+            answer.contains('tired') ||
+            answer.contains('low')) {
+          concerns.add('Hungry (low energy/nourishment)');
+        } else if (answer.contains('good') || answer.contains('well')) {
+          strengths.add('nourished');
+        }
+      }
+
+      if (question.contains('angry') || question.contains('frustrat')) {
+        if (answer.contains('yes') ||
+            answer.contains('frustrat') ||
+            answer.contains('annoyed') ||
+            answer.contains('upset') ||
+            answer.length > 50) {
+          // Long answer = venting
+          concerns.add('Angry (frustration/resentment)');
+        } else if (answer.contains('no') ||
+            answer.contains('calm') ||
+            answer.contains('fine')) {
+          strengths.add('calm');
+        }
+      }
+
+      if (question.contains('lonely') || question.contains('connection')) {
+        if (answer.contains('no one') ||
+            answer.contains('alone') ||
+            answer.contains('isolated') ||
+            answer.contains('haven\'t')) {
+          concerns.add('Lonely (disconnected)');
+        } else if (answer.contains('connected') ||
+            answer.contains('talked') ||
+            answer.contains('spent time')) {
+          strengths.add('connected');
+        }
+      }
+
+      if (question.contains('tired') || question.contains('sleep') || question.contains('rest')) {
+        if (answer.contains('exhaust') ||
+            answer.contains('not enough') ||
+            answer.contains('bad') ||
+            answer.contains('running on empty') ||
+            answer.contains('drained')) {
+          concerns.add('Tired (exhausted/drained)');
+        } else if (answer.contains('good') ||
+            answer.contains('rested') ||
+            answer.contains('fine')) {
+          strengths.add('rested');
+        }
+      }
+    }
+
+    if (concerns.isNotEmpty) {
+      return 'Unmet needs: ${concerns.join(", ")}';
+    } else if (strengths.isNotEmpty) {
+      return 'Doing well (${strengths.join(", ")})';
+    } else {
+      return 'Checked in on basic needs';
+    }
   }
 }

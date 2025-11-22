@@ -386,6 +386,64 @@ class _JournalScreenState extends State<JournalScreen> {
 
               AppSpacing.gapMd,
 
+              // HALT Check-In
+              Card(
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const GuidedJournalingScreen(isHaltCheck: true),
+                      ),
+                    );
+                  },
+                  borderRadius: AppRadius.radiusLg,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm + AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.tertiaryContainer,
+                            borderRadius: AppRadius.radiusLg,
+                          ),
+                          child: Icon(
+                            Icons.self_improvement_outlined,
+                            color: Theme.of(context).colorScheme.tertiary,
+                          ),
+                        ),
+                        AppSpacing.gapHorizontalLg,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppStrings.haltCheckIn,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                AppStrings.haltCheckInDescription,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              AppSpacing.gapMd,
+
               // Structured Reflection (template-based journaling)
               Card(
                 child: InkWell(

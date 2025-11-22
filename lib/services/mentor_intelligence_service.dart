@@ -1166,6 +1166,9 @@ class MentorIntelligenceService {
       case mentor.UserStateType.comeback:
         return _generateComebackCard(userState.context!);
 
+      case mentor.UserStateType.needsHaltCheck:
+        return _generateHaltCheckCard(userState.context!);
+
       case mentor.UserStateType.winning:
         return _generateWinningCard(userState.context!);
 
@@ -1328,6 +1331,19 @@ class MentorIntelligenceService {
           context: {'days': daysSinceLastJournal},
         );
       }
+    }
+
+    // 6b. Check if user needs a HALT check (stress/basic needs assessment)
+    // Trigger conditions:
+    // - No journaling in 3+ days (isolation signal)
+    // - Recent journal mentions stress/overwhelm keywords
+    // - No HALT check in last 7 days
+    final haltCheckNeeded = _shouldSuggestHaltCheck(journals);
+    if (haltCheckNeeded['needed'] as bool) {
+      return mentor.UserState(
+        type: mentor.UserStateType.needsHaltCheck,
+        context: haltCheckNeeded,
+      );
     }
 
     // FEATURE DISCOVERY CHECKS (medium priority)
@@ -1758,6 +1774,58 @@ class MentorIntelligenceService {
     );
   }
 
+  mentor.MentorCoachingCard _generateHaltCheckCard(Map<String, dynamic> context) {
+    final reason = context['reason'] as String;
+    final daysSinceLastHalt = context['daysSinceLastHalt'] as int?;
+
+    String message;
+    if (reason == 'stress_keywords') {
+      message = "🛑 I noticed some stress in your recent journal entries.\n\n"
+          "When we're overwhelmed, it's easy to forget our basic needs. "
+          "Let's do a quick HALT check - it only takes 3-5 minutes.\n\n"
+          "HALT stands for:\n"
+          "• **H**ungry - Are you nourished?\n"
+          "• **A**ngry - Are you frustrated?\n"
+          "• **L**onely - Are you connected?\n"
+          "• **T**ired - Are you rested?\n\n"
+          "Checking in on these basic needs can make a big difference.";
+    } else if (reason == 'no_journaling') {
+      message = "🛑 It's been a while since you checked in.\n\n"
+          "When life gets hectic, it's easy to ignore our basic needs. "
+          "A quick HALT check can help you reconnect with yourself.\n\n"
+          "HALT stands for:\n"
+          "• **H**ungry - Physical needs\n"
+          "• **A**ngry - Emotions\n"
+          "• **L**onely - Connection\n"
+          "• **T**ired - Rest\n\n"
+          "Takes 3-5 minutes and can really help.";
+    } else {
+      message = "🛑 Time for a HALT check?\n\n"
+          "It's been ${daysSinceLastHalt ?? 7}+ days since you last checked in on your basic needs.\n\n"
+          "HALT stands for:\n"
+          "• **H**ungry - Physical needs\n"
+          "• **A**ngry - Emotions\n"
+          "• **L**onely - Connection\n"
+          "• **T**ired - Rest\n\n"
+          "When these needs go unmet, everything else gets harder. "
+          "Quick 3-5 minute check-in?";
+    }
+
+    return mentor.MentorCoachingCard(
+      message: message,
+      primaryAction: mentor.MentorAction.navigate(
+        label: "Take HALT Check",
+        destination: "GuidedJournalingScreen",
+        context: {'isHaltCheck': true},
+      ),
+      secondaryAction: mentor.MentorAction.navigate(
+        label: "Regular Check-In",
+        destination: "GuidedJournalingScreen",
+        context: {'isCheckIn': true},
+      ),
+    );
+  }
+
   mentor.MentorCoachingCard _generateWinningCard(Map<String, dynamic> context) {
     final streak = context['streak'] as int;
     final streakHabit = context['streakHabit'] as Habit?;
@@ -1976,5 +2044,101 @@ class MentorIntelligenceService {
         chatPreFill: "Can you help me break down '${goal.title}' into smaller milestones?",
       ),
     );
+  }
+
+  // ============================================================================
+  // HELPER METHODS
+  // ============================================================================
+
+  /// Check if user should be prompted for a HALT check
+  ///
+  /// Triggers when:
+  /// - Recent journals contain stress/overwhelm keywords
+  /// - No journaling in 3+ days (isolation signal)
+  /// - No HALT check in last 7 days
+  Map<String, dynamic> _shouldSuggestHaltCheck(List<JournalEntry> journals) {
+    final now = DateTime.now();
+
+    // Keywords that suggest stress or unmet basic needs
+    const stressKeywords = [
+      'stress', 'overwhelm', 'exhausted', 'tired', 'frustrated',
+      'angry', 'alone', 'lonely', 'isolated', 'anxious', 'panic',
+      'burnt out', 'burnout', 'can\'t cope', 'too much', 'struggling'
+    ];
+
+    // Check last 7 days of journals for stress keywords
+    final recentJournals = journals.where((j) {
+      final daysAgo = now.difference(j.createdAt).inDays;
+      return daysAgo <= 7;
+    }).toList();
+
+    // Check for stress keywords in recent journals
+    for (final journal in recentJournals) {
+      final content = journal.content?.toLowerCase() ?? '';
+      for (final keyword in stressKeywords) {
+        if (content.contains(keyword)) {
+          return {
+            'needed': true,
+            'reason': 'stress_keywords',
+            'keyword': keyword,
+          };
+        }
+      }
+    }
+
+    // Check for no journaling in 3+ days (isolation signal)
+    if (journals.isNotEmpty) {
+      final lastJournalDate = journals
+          .reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
+          .createdAt;
+      final daysSinceLastJournal = now.difference(lastJournalDate).inDays;
+
+      if (daysSinceLastJournal >= 3) {
+        return {
+          'needed': true,
+          'reason': 'no_journaling',
+          'daysSinceLastJournal': daysSinceLastJournal,
+        };
+      }
+    }
+
+    // Check for no HALT check in last 7 days
+    final haltJournals = journals.where((j) {
+      // Check if journal is a HALT check (reflectionType: 'halt' in metadata)
+      if (j.type == JournalEntryType.guidedJournal && j.qaPairs != null) {
+        final guidedData = j.toJson()['guidedJournalData'];
+        if (guidedData != null && guidedData is Map) {
+          final reflectionType = guidedData['reflectionType'];
+          return reflectionType == 'halt';
+        }
+      }
+      return false;
+    }).toList();
+
+    if (haltJournals.isNotEmpty) {
+      final lastHaltDate = haltJournals
+          .reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
+          .createdAt;
+      final daysSinceLastHalt = now.difference(lastHaltDate).inDays;
+
+      if (daysSinceLastHalt >= 7) {
+        return {
+          'needed': true,
+          'reason': 'periodic_check',
+          'daysSinceLastHalt': daysSinceLastHalt,
+        };
+      }
+    } else {
+      // No HALT checks ever done, suggest one if they have 5+ journals
+      if (journals.length >= 5) {
+        return {
+          'needed': true,
+          'reason': 'first_halt',
+          'daysSinceLastHalt': null,
+        };
+      }
+    }
+
+    return {'needed': false};
   }
 }

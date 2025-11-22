@@ -96,6 +96,9 @@ enum UserStateType {
   dataQuality,          // Data quality issues (vague goals, etc)
   balanced,             // Default: has all types of data, no issues
 
+  // Wellness check states
+  needsHaltCheck,       // User showing signs of stress/unmet basic needs
+
   // Feature discovery states (help users learn the app organically)
   discoverChat,         // User hasn't tried chat feature yet
   discoverHabitChecking,// User completed reflection but hasn't checked off habit

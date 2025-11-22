@@ -19,6 +19,7 @@ import '../models/journal_entry.dart';
 import 'chat_screen.dart';
 import 'mentor_reminders_screen.dart';
 import 'reflection_session_screen.dart';
+import '../widgets/quick_halt_widget.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -322,6 +323,10 @@ class _MentorScreenState extends State<MentorScreen> {
             ),
           ],
         ),
+        AppSpacing.gapLg,
+
+        // Quick HALT Widget
+        const QuickHaltWidget(),
       ],
     );
   }

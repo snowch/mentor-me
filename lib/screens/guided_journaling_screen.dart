@@ -18,10 +18,12 @@ import 'goal_suggestions_screen.dart';
 
 class GuidedJournalingScreen extends StatefulWidget {
   final bool isCheckIn;
+  final bool isHaltCheck;
 
   const GuidedJournalingScreen({
     super.key,
     this.isCheckIn = false,
+    this.isHaltCheck = false,
   });
 
   @override
@@ -93,17 +95,55 @@ class _GuidedJournalingScreenState extends State<GuidedJournalingScreen> {
     ),
   ];
 
+  // HALT Check-In Prompts (Hungry, Angry, Lonely, Tired)
+  final List<ReflectionPrompt> _haltPrompts = [
+    ReflectionPrompt(
+      title: 'Hungry - Physical Needs',
+      prompt: 'Have you eaten recently? How\'s your physical energy and nourishment? Are you taking care of your basic physical needs?',
+      hint: 'When did you last eat? How\'s your energy level?',
+      icon: Icons.restaurant_outlined,
+    ),
+    ReflectionPrompt(
+      title: 'Angry - Emotions',
+      prompt: 'What\'s frustrating or irritating you right now? Are you feeling angry, annoyed, or resentful about anything?',
+      hint: 'Be honest about what\'s bothering you...',
+      icon: Icons.sentiment_dissatisfied_outlined,
+    ),
+    ReflectionPrompt(
+      title: 'Lonely - Connection',
+      prompt: 'Who have you connected with today? Are you feeling isolated or disconnected? How\'s your sense of belonging?',
+      hint: 'Think about meaningful connections, not just interactions...',
+      icon: Icons.people_outline,
+    ),
+    ReflectionPrompt(
+      title: 'Tired - Rest & Energy',
+      prompt: 'How\'s your sleep been? Are you running on empty? What\'s draining your energy right now?',
+      hint: 'Physical tiredness, mental fatigue, emotional exhaustion...',
+      icon: Icons.bedtime_outlined,
+    ),
+    ReflectionPrompt(
+      title: 'What You Need',
+      prompt: 'Based on these reflections, what\'s one thing you could do for yourself right now to address these needs?',
+      hint: 'Small, actionable steps work best...',
+      icon: Icons.self_improvement_outlined,
+    ),
+  ];
+
   late final List<ReflectionPrompt> _prompts;
 
   @override
   void initState() {
     super.initState();
 
-    // Choose prompts based on whether this is a check-in or onboarding
-    if (widget.isCheckIn) {
+    // Choose prompts based on the type of reflection
+    if (widget.isHaltCheck) {
+      // HALT check-in prompts
+      _prompts = _haltPrompts;
+    } else if (widget.isCheckIn) {
       // For check-ins, build prompts dynamically based on what user has set up
       _prompts = _buildCheckInPrompts();
     } else {
+      // Onboarding prompts
       _prompts = _onboardingPrompts;
     }
 
@@ -351,8 +391,9 @@ Keep your tone warm, encouraging, and focused on growth. Be specific and referen
 
       if (qaPairs.isNotEmpty) {
         // Determine reflection type based on context
-        final reflectionType = widget.isCheckIn ? 'checkin' :
-            (journalProvider.entries.isEmpty ? 'onboarding' : 'general');
+        final reflectionType = widget.isHaltCheck ? 'halt' :
+            (widget.isCheckIn ? 'checkin' :
+            (journalProvider.entries.isEmpty ? 'onboarding' : 'general'));
 
         // Include AI insights if mentor feedback was fetched
         final aiInsights = _mentorFeedback != null
@@ -437,7 +478,8 @@ Keep your tone warm, encouraging, and focused on growth. Be specific and referen
 
     final currentPrompt = _prompts[_currentPromptIndex];
     final progress = (_currentPromptIndex + 1) / _prompts.length;
-    final screenTitle = widget.isCheckIn ? AppStrings.checkIn : AppStrings.reflectionNoun;
+    final screenTitle = widget.isHaltCheck ? AppStrings.haltCheckIn :
+        (widget.isCheckIn ? AppStrings.checkIn : AppStrings.reflectionNoun);
 
     return Scaffold(
       appBar: AppBar(

@@ -228,6 +228,14 @@ class AppStrings {
   static const String quickCheckIn = 'Pulse Check-in';
   static const String howWouldYouLikeToReflect = 'How would you like to reflect?';
 
+  // HALT Check-In
+  static const String haltCheckIn = 'HALT Check-in';
+  static const String haltCheckInDescription = 'Quick check on your basic needs (3-5 min)';
+  static const String haltAcronym = 'HALT: Hungry, Angry, Lonely, Tired';
+  static const String haltExplanation = 'HALT is a simple framework for checking in on basic needs that often trigger stress or poor decisions.';
+  static const String quickHaltCheck = 'Quick HALT Check';
+  static const String takeAHaltCheck = 'Take a HALT Check';
+
   // Mentor Screen
   static const String yourFocusToday = 'Your Focus Today';
   static const String thisWeeksProgress = 'This Week\'s Progress';

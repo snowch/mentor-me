@@ -20,6 +20,7 @@ import 'habits_screen.dart';
 import 'settings_screen.dart' as settings;
 import 'mentor_screen.dart';
 import 'ai_settings_screen.dart';
+import 'analytics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -486,6 +487,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const JournalScreen(),
           const HabitsScreen(),
           const GoalsScreen(),
+          const AnalyticsScreen(),
           const settings.SettingsScreen(),
         ],
       ),
@@ -512,6 +514,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             icon: const Icon(Icons.flag_outlined),
             selectedIcon: const Icon(Icons.flag),
             label: AppStrings.featureGoals,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.analytics_outlined),
+            selectedIcon: const Icon(Icons.analytics),
+            label: 'Analytics',
           ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),
