@@ -411,4 +411,57 @@ class ChatProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Save current conversation as a journal entry
+  /// Returns formatted content and detected goal IDs
+  Map<String, dynamic>? saveConversationAsJournal({List<Goal>? goals}) {
+    if (_currentConversation == null || _currentConversation!.messages.isEmpty) {
+      return null;
+    }
+
+    final conversation = _currentConversation!;
+    final buffer = StringBuffer();
+
+    // Add header
+    buffer.writeln('# ${conversation.title}');
+    buffer.writeln();
+    buffer.writeln('_Conversation saved from chat on ${DateTime.now().toString().substring(0, 19)}_');
+    buffer.writeln();
+    buffer.writeln('---');
+    buffer.writeln();
+
+    // Format messages with clear user/AI separation
+    for (final message in conversation.messages) {
+      final sender = message.isFromUser ? '**You**' : '**Mentor**';
+      final timestamp = message.timestamp.toString().substring(11, 16);
+
+      buffer.writeln('### $sender [$timestamp]');
+      buffer.writeln();
+      buffer.writeln(message.content);
+      buffer.writeln();
+    }
+
+    final formattedContent = buffer.toString();
+
+    // Auto-detect goal mentions in the conversation
+    final linkedGoalIds = <String>[];
+    if (goals != null && goals.isNotEmpty) {
+      final conversationText = conversation.messages
+          .map((m) => m.content.toLowerCase())
+          .join(' ');
+
+      for (final goal in goals) {
+        // Check if goal title is mentioned in conversation
+        if (conversationText.contains(goal.title.toLowerCase())) {
+          linkedGoalIds.add(goal.id);
+        }
+      }
+    }
+
+    return {
+      'content': formattedContent,
+      'goalIds': linkedGoalIds,
+      'conversationTitle': conversation.title,
+    };
+  }
 }

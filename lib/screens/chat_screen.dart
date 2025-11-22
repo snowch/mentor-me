@@ -549,6 +549,60 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _saveAsJournal() async {
+    final chatProvider = context.read<ChatProvider>();
+    final goalProvider = context.read<GoalProvider>();
+    final journalProvider = context.read<JournalProvider>();
+
+    try {
+      // Get formatted conversation content and linked goals
+      final result = chatProvider.saveConversationAsJournal(
+        goals: goalProvider.goals,
+      );
+
+      if (result == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No messages to save')),
+          );
+        }
+        return;
+      }
+
+      // Create journal entry
+      final journalEntry = JournalEntry(
+        type: JournalEntryType.quickNote,
+        content: result['content'] as String,
+        goalIds: result['goalIds'] as List<String>,
+      );
+
+      await journalProvider.addEntry(journalEntry);
+
+      if (mounted) {
+        final goalCount = (result['goalIds'] as List<String>).length;
+        final message = goalCount > 0
+            ? 'Saved to journal and linked to $goalCount goal${goalCount > 1 ? 's' : ''}!'
+            : 'Saved to journal!';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            action: SnackBarAction(
+              label: 'View',
+              onPressed: () => Navigator.pushNamed(context, '/journal'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _exportChat() async {
     final chatProvider = context.read<ChatProvider>();
     final conversation = chatProvider.currentConversation;
@@ -614,6 +668,15 @@ class _ChatScreenState extends State<ChatScreen> {
               onTap: () {
                 Navigator.pop(context);
                 context.read<ChatProvider>().startNewConversation();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.book),
+              title: const Text('Save to Journal'),
+              subtitle: const Text('Save this conversation as a journal entry'),
+              onTap: () {
+                Navigator.pop(context);
+                _saveAsJournal();
               },
             ),
             ListTile(
