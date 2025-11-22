@@ -1,0 +1,31 @@
+#!/bin/bash
+# Pre-commit hook to run local CI/CD validation
+# This ensures all commits pass tests before being pushed
+
+echo ""
+echo "🔍 Running pre-commit validation..."
+echo ""
+
+# Run the local CI/CD validation (skip-build for speed)
+./scripts/local-ci-build.sh --skip-build
+
+# Check if the validation passed
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ Pre-commit validation FAILED!"
+  echo ""
+  echo "Your commit has been aborted to prevent CI/CD failures."
+  echo "Please fix the issues above and try again."
+  echo ""
+  echo "To bypass this check (NOT recommended):"
+  echo "  git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo "✅ Pre-commit validation PASSED!"
+echo "Proceeding with commit..."
+echo ""
+
+exit 0

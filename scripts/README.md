@@ -217,6 +217,58 @@ git push
 
 ---
 
+## Pre-commit Hook
+
+The repository includes a **pre-commit hook** that automatically runs local CI/CD validation before every commit.
+
+**📖 Full documentation:** See [`.githooks/README.md`](../.githooks/README.md)
+
+### Quick Install
+
+```bash
+./.githooks/install.sh
+```
+
+This installs a git hook that:
+- Runs `./scripts/local-ci-build.sh --skip-build` before every commit
+- Validates code with analyzer, tests, and schemas
+- **Prevents CI/CD failures** by catching issues locally
+
+### Why Use It?
+
+| Without Hook ❌ | With Hook ✅ |
+|----------------|-------------|
+| Commit → Push → Wait 5-10 min → **CI/CD fails** → Fix → Repeat | Commit → **Hook validates (1-2 min)** → Fix if needed → Push → **CI/CD passes** |
+
+**Benefits:**
+- 🚀 **Faster feedback** - 1-2 minutes vs 5-10 minutes
+- 🛡️ **Prevent failures** - Catch issues before push
+- 💰 **Save time** - No failed builds to debug
+- ✅ **Quality assurance** - All commits pre-validated
+
+### After Installation
+
+The hook runs automatically on every commit:
+
+```bash
+# Make changes
+vim lib/screens/chat_screen.dart
+
+# Stage and commit
+git add lib/screens/chat_screen.dart
+git commit -m "Add new feature"
+# → Hook runs automatically
+# → If passes: commit succeeds ✅
+# → If fails: commit aborted ❌
+
+# Push with confidence
+git push
+```
+
+See [`.githooks/README.md`](../.githooks/README.md) for full details, troubleshooting, and advanced usage.
+
+---
+
 ## Future scripts
 
 Other scripts that could be added here:
