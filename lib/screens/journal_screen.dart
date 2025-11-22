@@ -12,7 +12,6 @@ import '../providers/pulse_provider.dart';
 import '../providers/pulse_type_provider.dart';
 import '../providers/goal_provider.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../constants/app_strings.dart';
 import '../utils/icon_mapper.dart';

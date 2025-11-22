@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/habit.dart';
-import '../models/goal.dart';
 import '../providers/habit_provider.dart';
 import '../providers/goal_provider.dart';
 import 'package:mentor_me/constants/app_strings.dart';

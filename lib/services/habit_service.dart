@@ -8,10 +8,9 @@ class HabitService {
     // Sort dates in descending order
     final sortedDates = List<DateTime>.from(dates)
       ..sort((a, b) => b.compareTo(a));
-    
+
     final today = DateTime.now();
-    final yesterday = today.subtract(const Duration(days: 1));
-    
+
     // Check if completed today or yesterday
     final lastCompletion = sortedDates.first;
     final daysSinceCompletion = _daysBetween(lastCompletion, today);

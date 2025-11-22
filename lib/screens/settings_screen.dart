@@ -12,8 +12,6 @@ import '../providers/pulse_provider.dart';
 import '../providers/pulse_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_text_styles.dart';
 import '../constants/app_strings.dart';
 import 'onboarding_screen.dart';
 import 'mentor_reminders_screen.dart';
@@ -167,11 +165,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Now reload ALL providers from empty storage to clear in-memory data
       if (mounted) {
         await context.read<GoalProvider>().reload();
+        if (!mounted) return;
         await context.read<JournalProvider>().reload();
+        if (!mounted) return;
         await context.read<HabitProvider>().reload();
+        if (!mounted) return;
         await context.read<CheckinProvider>().reload();
+        if (!mounted) return;
         await context.read<PulseProvider>().reload();
+        if (!mounted) return;
         await context.read<PulseTypeProvider>().reload();
+        if (!mounted) return;
         await context.read<ChatProvider>().reload();
       }
 

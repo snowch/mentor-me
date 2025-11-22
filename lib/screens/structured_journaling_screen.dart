@@ -122,6 +122,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
         currentStep: 0,
       );
 
+      if (!mounted) return;
       await context.read<JournalTemplateProvider>().updateSession(updatedSession);
 
       setState(() {
@@ -220,6 +221,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
       final fullPrompt = '$systemPrompt\n\n$prompt\n\nConversation so far:\n$conversationContext';
 
       // Get user's goals and habits for context
+      if (!mounted) return;
       final goals = context.read<GoalProvider>().goals;
       final habits = context.read<HabitProvider>().habits;
 
@@ -241,6 +243,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
         isComplete: isComplete,
       );
 
+      if (!mounted) return;
       await context.read<JournalTemplateProvider>().updateSession(updatedSession);
 
       setState(() {
@@ -272,6 +275,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
           final completedSession = updatedSession.copyWith(isComplete: true);
           await context.read<JournalTemplateProvider>().updateSession(completedSession);
 
+          if (!mounted) return;
           setState(() {
             _currentSession = completedSession;
           });
@@ -362,6 +366,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
         isComplete: true,
       );
 
+      if (!mounted) return;
       await context.read<JournalTemplateProvider>().updateSession(finalSession);
 
       // Generate a summary of the conversation for the journal entry content
@@ -376,6 +381,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
         createdAt: finalSession.createdAt,
       );
 
+      if (!mounted) return;
       await context.read<JournalProvider>().addEntry(journalEntry);
 
       await _debug.info(
@@ -495,6 +501,7 @@ class _StructuredJournalingScreenState extends State<StructuredJournalingScreen>
           FilledButton(
             onPressed: () async {
               if (_currentSession != null) {
+                if (!mounted) return;
                 await context
                     .read<JournalTemplateProvider>()
                     .deleteSession(_currentSession!.id);

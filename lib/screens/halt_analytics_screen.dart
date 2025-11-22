@@ -6,8 +6,6 @@ import 'package:provider/provider.dart';
 import '../models/journal_entry.dart';
 import '../providers/journal_provider.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_colors.dart';
-import '../constants/app_strings.dart';
 import 'guided_journaling_screen.dart';
 
 class HaltAnalyticsScreen extends StatelessWidget {

@@ -369,7 +369,6 @@ Future<List<Map<String, String>>> _checkCriticalItems() async {
 
   try {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
 
     // Load habits and goals (already typed objects)
     final habits = await storage.loadHabits();

@@ -41,7 +41,6 @@ class _GoalSuggestionsScreenState extends State<GoalSuggestionsScreen> {
   String? _error;
   List<SuggestedGoal> _suggestions = [];
   final Set<int> _selectedIndices = {};
-  bool _journalHabitSuggested = false;
 
   @override
   void initState() {
@@ -88,7 +87,6 @@ class _GoalSuggestionsScreenState extends State<GoalSuggestionsScreen> {
     if (!widget.hasApiKey) {
       setState(() {
         _isLoading = false;
-        _journalHabitSuggested = true;
         _error = null; // No error, just no AI suggestions
       });
       return;
@@ -142,9 +140,6 @@ Focus on goals that are:
 
       // Parse suggestions
       _suggestions = _parseSuggestions(response);
-
-      // Always include daily reflection habit
-      _journalHabitSuggested = true;
 
       await _debug.info('GoalSuggestions', 'Generated ${_suggestions.length} suggestions');
 

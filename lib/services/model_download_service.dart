@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:crypto/crypto.dart';
-import 'dart:convert';
 import 'package:flutter/foundation.dart' show compute;
 import 'debug_service.dart';
 import 'storage_service.dart';

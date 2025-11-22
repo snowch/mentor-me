@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:app_settings/app_settings.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../constants/app_strings.dart';
 import '../services/notification_service.dart';
@@ -36,7 +35,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storage = StorageService();
   bool _notificationsEnabled = true;
   bool _exactAlarmsEnabled = true;
-  bool _aiConfigured = true;
 
   @override
   void initState() {
@@ -86,13 +84,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _checkAIStatus() async {
-    final isConfigured = await _aiService.isAvailableAsync();
-
-    if (mounted) {
-      setState(() {
-        _aiConfigured = isConfigured;
-      });
-    }
+    // Check AI availability (used for determining if AI features are ready)
+    await _aiService.isAvailableAsync();
   }
 
   Future<void> _toggleAIProvider() async {
@@ -316,6 +309,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 _notificationService.notifyStatusChanged();
 
                 // Show success message if permission was granted
+                if (!mounted) return;
                 if (_notificationsEnabled && _exactAlarmsEnabled) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

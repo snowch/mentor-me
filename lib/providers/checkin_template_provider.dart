@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mentor_me/models/checkin_template.dart';
-import 'package:mentor_me/services/storage_service.dart';
 import 'package:mentor_me/services/notification_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -10,7 +9,6 @@ import 'package:mentor_me/services/debug_service.dart';
 ///
 /// Handles CRUD operations, scheduling reminders, and tracking responses
 class CheckInTemplateProvider with ChangeNotifier {
-  final StorageService _storage = StorageService();
   final NotificationService _notifications = NotificationService();
   final DebugService _debug = DebugService();
 

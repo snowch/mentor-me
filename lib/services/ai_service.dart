@@ -883,7 +883,7 @@ Theme:''';
       });
 
       return theme;
-    } catch (e, stackTrace) {
+    } catch (e) {
       await _debug.warning(
         'AIService',
         'Failed to analyze journal theme, falling back to keyword matching',
@@ -945,7 +945,7 @@ Insight:''';
       });
 
       return insight;
-    } catch (e, stackTrace) {
+    } catch (e) {
       await _debug.warning(
         'AIService',
         'Failed to generate journaling insight, falling back to templates',
@@ -1015,7 +1015,7 @@ Goals:''';
       });
 
       return goals;
-    } catch (e, stackTrace) {
+    } catch (e) {
       await _debug.warning(
         'AIService',
         'Failed to suggest goals from journals',

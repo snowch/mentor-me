@@ -191,6 +191,9 @@ Target of URI doesn't exist: '../config/build_info.dart'
 - It contains build metadata (git commit, build timestamp) for the Debug Settings screen
 - The app compiles successfully in CI/CD where this file is generated
 - Local `flutter analyze` will flag this as an error, but it's not a blocker
+- **IMPORTANT**: This file is in `.gitignore` and should **NEVER** be committed to git
+  - For local builds, you may create a temporary `lib/config/build_info.dart` with stub values
+  - The file will be regenerated with real values during CI/CD pipeline
 
 **Typical flutter analyze output:**
 - **~3 errors** (build_info.dart related - expected)

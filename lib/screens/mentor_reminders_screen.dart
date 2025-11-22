@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../services/notification_service.dart';
-import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 
 class MentorRemindersScreen extends StatefulWidget {
@@ -72,7 +71,7 @@ class _MentorRemindersScreenState extends State<MentorRemindersScreen> {
     }
 
     // Show time picker
-    final now = DateTime.now();
+    if (!mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: 18, minute: 0),
@@ -83,6 +82,7 @@ class _MentorRemindersScreenState extends State<MentorRemindersScreen> {
 
     // Show label dialog
     final labelController = TextEditingController(text: _getSuggestedLabel(time));
+    if (!mounted) return;
     final label = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -159,6 +159,7 @@ class _MentorRemindersScreenState extends State<MentorRemindersScreen> {
       minute: reminder['minute'] as int,
     );
 
+    if (!mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: currentTime,
@@ -169,6 +170,7 @@ class _MentorRemindersScreenState extends State<MentorRemindersScreen> {
 
     // Show label dialog
     final labelController = TextEditingController(text: reminder['label'] as String);
+    if (!mounted) return;
     final label = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(

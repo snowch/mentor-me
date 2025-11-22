@@ -1,13 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:googleapis_auth/googleapis_auth.dart' as auth;
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'debug_service.dart';
-import 'storage_service.dart';
 
 /// Service for managing backups on Google Drive
 /// Provides cloud backup functionality as an alternative to local storage
@@ -17,7 +13,6 @@ class DriveBackupService extends ChangeNotifier {
   DriveBackupService._internal();
 
   final _debug = DebugService();
-  final _storage = StorageService();
 
   // Google Drive API scopes
   static const _scopes = [drive.DriveApi.driveFileScope];

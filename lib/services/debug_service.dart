@@ -78,7 +78,6 @@ class LogEntry {
 }
 
 class DebugService {
-  static const String _logsKey = 'debug_logs';
   static const int _maxLogs = 500; // Keep last 500 logs
 
   static final DebugService _instance = DebugService._internal();

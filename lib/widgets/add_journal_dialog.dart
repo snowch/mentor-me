@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/journal_entry.dart';
-import '../models/goal.dart';
 import '../providers/journal_provider.dart';
 import '../providers/goal_provider.dart';
 import 'package:mentor_me/constants/app_strings.dart';

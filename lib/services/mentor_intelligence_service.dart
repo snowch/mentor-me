@@ -1256,7 +1256,6 @@ class MentorIntelligenceService {
     String? precomputedTheme,
   }) async {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
 
     // Load feature discovery state
     final discoveryService = FeatureDiscoveryService();
@@ -2006,8 +2005,6 @@ class MentorIntelligenceService {
 
   /// Card to teach the reflection → habit check-off workflow
   mentor.MentorCoachingCard _generateDiscoverHabitCheckingCard(Map<String, dynamic> context) {
-    final habit = context['habit'] as Habit?;
-
     return mentor.MentorCoachingCard(
       message: "✅ Nice work completing your reflection!\n\n"
           "Here's a key workflow you might have missed:\n\n"
