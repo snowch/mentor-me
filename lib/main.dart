@@ -14,6 +14,14 @@ import 'providers/chat_provider.dart';
 import 'providers/journal_template_provider.dart';
 import 'providers/checkin_template_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/assessment_provider.dart';
+import 'providers/behavioral_activation_provider.dart';
+import 'providers/gratitude_provider.dart';
+import 'providers/worry_provider.dart';
+import 'providers/self_compassion_provider.dart';
+import 'providers/values_provider.dart';
+import 'providers/implementation_intention_provider.dart';
+import 'providers/intervention_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/notification_service.dart';
@@ -174,6 +182,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PulseProvider()),
         ChangeNotifierProvider(create: (_) => PulseTypeProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => AssessmentProvider()),
+        ChangeNotifierProvider(create: (_) => BehavioralActivationProvider()),
+        ChangeNotifierProvider(create: (_) => GratitudeProvider()),
+        ChangeNotifierProvider(create: (_) => WorryProvider()),
+        ChangeNotifierProvider(create: (_) => SelfCompassionProvider()),
+        ChangeNotifierProvider(create: (_) => ValuesProvider()),
+        ChangeNotifierProvider(create: (_) => ImplementationIntentionProvider()),
+        ChangeNotifierProvider(create: (_) => InterventionProvider()),
         ChangeNotifierProvider(create: (_) {
           final provider = JournalTemplateProvider();
           // Initialize system templates

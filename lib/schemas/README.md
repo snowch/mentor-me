@@ -17,10 +17,19 @@ These schemas are used for:
 - Structured journal entries may have `null` content field
 - Used by app versions before the v1→v2 migration
 
-### v2.json - Schema Version 2 (Current)
+### v2.json - Schema Version 2
 - Structured journal entries **must** have populated `content` field
 - Content is auto-generated from `structuredData` during migration
 - Format: `emoji name\n\nField: Value`
+
+### v3.json - Schema Version 3 (Current)
+- Adds `sortOrder` field to goals and habits for drag-and-drop reordering
+- Adds comprehensive wellness app features (Phases 0-3):
+  - Clinical assessments (PHQ-9, GAD-7, PSS-10)
+  - CBT interventions (thought records, behavioral experiments)
+  - Behavioral activation (activity scheduling)
+  - Gratitude practice, worry time, self-compassion
+  - Values clarification and implementation intentions
 
 ## How to Use
 

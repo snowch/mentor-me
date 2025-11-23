@@ -1,5 +1,5 @@
 // lib/screens/analytics_screen.dart
-// Comprehensive Analytics Dashboard
+// Comprehensive Analytics Dashboard with Wellness Hub Segmentation
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,9 +7,14 @@ import '../providers/goal_provider.dart';
 import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart';
 import '../providers/pulse_provider.dart';
+import '../providers/assessment_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/goal.dart';
 import '../theme/app_spacing.dart';
 import 'halt_analytics_screen.dart';
+import 'assessment_dashboard_screen.dart';
+import 'wellness_dashboard_screen.dart';
+import 'settings_screen.dart' as settings;
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -25,12 +30,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final habitProvider = context.watch<HabitProvider>();
     final journalProvider = context.watch<JournalProvider>();
     final pulseProvider = context.watch<PulseProvider>();
+    final assessmentProvider = context.watch<AssessmentProvider>();
+    final settingsProvider = context.watch<SettingsProvider>();
+
+    final clinicalFeaturesEnabled = settingsProvider.enableClinicalFeatures;
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            title: const Text('Analytics'),
+            title: const Text('Wellness Hub'),
             centerTitle: false,
             pinned: true,
             floating: false,
@@ -47,25 +56,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   journalProvider,
                   pulseProvider,
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.xl),
 
-                // Category Cards
-                _buildCategoryCard(
+                // SECTION 1: Growth & Achievement
+                _buildSectionHeader(
                   context,
-                  title: 'HALT Check-ins',
-                  icon: Icons.self_improvement_outlined,
-                  color: Colors.purple,
-                  description: 'Track your basic needs and wellness patterns',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const HaltAnalyticsScreen(),
-                      ),
-                    );
-                  },
+                  icon: Icons.trending_up,
+                  title: 'Growth & Achievement',
+                  subtitle: 'Track your goals, habits, and progress',
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
 
                 _buildCategoryCard(
                   context,
@@ -85,7 +85,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   description: '${habitProvider.habits.length} total · ${habitProvider.activeHabits.length} active',
                   stats: _getHabitStats(habitProvider),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xl),
+
+                // SECTION 2: Reflection & Journaling
+                _buildSectionHeader(
+                  context,
+                  icon: Icons.auto_stories,
+                  title: 'Reflection & Journaling',
+                  subtitle: 'Express yourself and track your wellness',
+                ),
+                const SizedBox(height: AppSpacing.md),
 
                 _buildCategoryCard(
                   context,
@@ -105,6 +114,71 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   description: '${pulseProvider.entries.length} wellness check-ins',
                   stats: _getPulseStats(pulseProvider),
                 ),
+                const SizedBox(height: AppSpacing.xl),
+
+                // SECTION 3: Mental Health Tools (Conditional)
+                if (clinicalFeaturesEnabled) ...[
+                  _buildSectionHeader(
+                    context,
+                    icon: Icons.healing,
+                    title: 'Mental Health Tools',
+                    subtitle: 'Evidence-based interventions • Not a substitute for professional care',
+                    isOptional: true,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  _buildCategoryCard(
+                    context,
+                    title: 'Wellness Tools',
+                    icon: Icons.spa_outlined,
+                    color: Colors.deepPurple,
+                    description: 'Self-compassion, worry time, behavioral activation',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const WellnessDashboardScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+
+                  _buildCategoryCard(
+                    context,
+                    title: 'Clinical Assessments',
+                    icon: Icons.assessment_outlined,
+                    color: Colors.teal,
+                    description: '${assessmentProvider.assessments.length} total · PHQ-9, GAD-7, PSS-10',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AssessmentDashboardScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+
+                  _buildCategoryCard(
+                    context,
+                    title: 'HALT Check-ins',
+                    icon: Icons.self_improvement_outlined,
+                    color: Colors.purple,
+                    description: 'Track your basic needs and wellness patterns',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const HaltAnalyticsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ] else ...[
+                  _buildLockedClinicalCard(context),
+                ],
               ]),
             ),
           ),
@@ -402,5 +476,149 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return {
       'This Week': '$thisWeek',
     };
+  }
+
+  Widget _buildSectionHeader(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    bool isOptional = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isOptional
+                  ? Colors.orange.shade700
+                  : Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Padding(
+          padding: const EdgeInsets.only(left: 32),
+          child: Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLockedClinicalCard(BuildContext context) {
+    return Card(
+      color: Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  color: Colors.orange.shade700,
+                  size: 28,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Mental Health Tools',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Access evidence-based mental health interventions including:',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _buildFeatureBullet(context, '🧘 Self-Compassion Exercises'),
+            _buildFeatureBullet(context, '⏰ CBT Worry Time Practice'),
+            _buildFeatureBullet(context, '🎯 Behavioral Activation'),
+            _buildFeatureBullet(context, '📊 Clinical Assessments (PHQ-9, GAD-7, PSS-10)'),
+            _buildFeatureBullet(context, '💭 HALT Check-ins'),
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'These tools are evidence-based but not a substitute for professional mental health care',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.blue.shade900,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const settings.SettingsScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.settings),
+              label: const Text('Enable in Settings'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.orange.shade700,
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureBullet(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.sm, bottom: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('• ', style: Theme.of(context).textTheme.bodyMedium),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

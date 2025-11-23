@@ -28,6 +28,9 @@ class SettingsProvider extends ChangeNotifier {
   // Auto-Backup Settings
   bool _showAutoBackupIcon = false; // Default: hidden (user can enable)
 
+  // Wellness Features Settings
+  bool _enableClinicalFeatures = false; // Default: disabled (opt-in for mental health tools)
+
   // Getters
   AIProvider get currentProvider => _currentProvider;
   bool get currentProviderConfigured => _currentProviderConfigured;
@@ -37,6 +40,7 @@ class SettingsProvider extends ChangeNotifier {
   String get huggingfaceToken => _huggingfaceToken;
   bool get darkMode => _darkMode;
   bool get showAutoBackupIcon => _showAutoBackupIcon;
+  bool get enableClinicalFeatures => _enableClinicalFeatures;
 
   /// Load settings from storage
   Future<void> loadSettings() async {
@@ -71,6 +75,9 @@ class SettingsProvider extends ChangeNotifier {
 
       // Load auto-backup settings
       _showAutoBackupIcon = settings['showAutoBackupIcon'] as bool? ?? false;
+
+      // Load wellness features settings
+      _enableClinicalFeatures = settings['enableClinicalFeatures'] as bool? ?? false;
 
       // Check provider configuration status
       await _updateProviderStatus();
@@ -251,6 +258,26 @@ class SettingsProvider extends ChangeNotifier {
     await _debug.info(
       'SettingsProvider',
       'Show auto-backup icon ${enabled ? "enabled" : "disabled"}',
+    );
+  }
+
+  /// Set enableClinicalFeatures and notify listeners
+  Future<void> setEnableClinicalFeatures(bool enabled) async {
+    if (_enableClinicalFeatures == enabled) return;
+
+    _enableClinicalFeatures = enabled;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['enableClinicalFeatures'] = enabled;
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Clinical features ${enabled ? "enabled" : "disabled"}',
+      metadata: {'enabled': enabled},
     );
   }
 }

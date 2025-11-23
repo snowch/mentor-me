@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://mentorme.app/schemas/v3.json",
   "title": "MentorMe Data Schema v3",
-  "description": "Schema for MentorMe app data export/storage format version 3. This version adds sortOrder field to goals and habits for drag-and-drop reordering. IMPORTANT: When modifying this schema, ensure corresponding Dart models are updated. See lib/services/backup_service.dart for export format implementation. See CLAUDE.md 'Data Schema Management' section for full synchronization checklist.",
+  "description": "Schema for MentorMe app data export/storage format version 3. This version adds sortOrder field to goals and habits for drag-and-drop reordering, plus comprehensive wellness app features including clinical assessments (PHQ-9, GAD-7, PSS-10), CBT interventions, behavioral activation, gratitude practice, worry time, self-compassion, values clarification, and implementation intentions. IMPORTANT: When modifying this schema, ensure corresponding Dart models are updated. See lib/services/backup_service.dart for export format implementation. See CLAUDE.md 'Data Schema Management' section for full synchronization checklist.",
   "type": "object",
   "required": ["schemaVersion"],
   "properties": {
@@ -68,6 +68,46 @@
     "enabled_templates": {
       "type": ["string", "null"],
       "description": "JSON-encoded array of enabled template IDs"
+    },
+    "assessments": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of clinical assessments (PHQ-9, GAD-7, PSS-10)"
+    },
+    "intervention_attempts": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of CBT intervention attempts"
+    },
+    "activities": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of behavioral activation activities"
+    },
+    "scheduled_activities": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of scheduled behavioral activation activities"
+    },
+    "gratitude_entries": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of gratitude journal entries"
+    },
+    "worries": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of worry entries for worry time practice"
+    },
+    "worry_sessions": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of completed worry time sessions"
+    },
+    "self_compassion_entries": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of self-compassion practice entries"
+    },
+    "personal_values": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of identified personal values"
+    },
+    "implementation_intentions": {
+      "type": ["string", "null"],
+      "description": "JSON-encoded array of implementation intentions (if-then plans)"
     }
   },
   "additionalProperties": true,
@@ -199,7 +239,16 @@
       "changes": [
         "Added sortOrder field to goals for drag-and-drop reordering within status groups",
         "Added sortOrder field to habits for drag-and-drop reordering within status groups",
-        "sortOrder is auto-assigned during migration based on current order"
+        "sortOrder is auto-assigned during migration based on current order",
+        "Added comprehensive wellness app features (Phase 0-3):",
+        "  - Clinical Assessments: PHQ-9, GAD-7, PSS-10 with evidence-based scoring",
+        "  - CBT Interventions: thought records, behavioral experiments, exposure hierarchy",
+        "  - Behavioral Activation: activity scheduling and pleasant events tracking",
+        "  - Gratitude Practice: three good things journal with reflection",
+        "  - Worry Time: designated worry practice with problem-solving",
+        "  - Self-Compassion: guided self-compassion exercises",
+        "  - Values Clarification: identify and prioritize personal values",
+        "  - Implementation Intentions: if-then planning for behavior change"
       ],
       "migration": "v2_to_v3_add_sort_order"
     }

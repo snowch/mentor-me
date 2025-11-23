@@ -33,6 +33,19 @@ class StorageService {
   static const String _templatesKey = 'journal_templates_custom';
   static const String _sessionsKey = 'structured_journaling_sessions';
   static const String _schemaVersionKey = 'schema_version';
+  static const String _safetyPlanKey = 'safety_plan';
+
+  // Phase 1-3 wellness features
+  static const String _assessmentsKey = 'clinical_assessments';
+  static const String _interventionAttemptsKey = 'intervention_attempts';
+  static const String _activitiesKey = 'activities';
+  static const String _scheduledActivitiesKey = 'scheduled_activities';
+  static const String _gratitudeEntriesKey = 'gratitude_entries';
+  static const String _worriesKey = 'worries';
+  static const String _worrySessionsKey = 'worry_sessions';
+  static const String _selfCompassionEntriesKey = 'self_compassion_entries';
+  static const String _personalValuesKey = 'personal_values';
+  static const String _implementationIntentionsKey = 'implementation_intentions';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -409,6 +422,27 @@ class StorageService {
     return prefs.getString(_sessionsKey);
   }
 
+  // Save/Load Safety Plan
+  Future<void> saveSafetyPlan(Map<String, dynamic> safetyPlan) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_safetyPlanKey, json.encode(safetyPlan));
+    await _notifyPersistence('safety_plan');
+  }
+
+  Future<Map<String, dynamic>?> getSafetyPlan() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_safetyPlanKey);
+    if (jsonString == null) return null;
+
+    try {
+      return json.decode(jsonString) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('Warning: Corrupted safety plan data, returning null. Error: $e');
+      await prefs.remove(_safetyPlanKey);
+      return null;
+    }
+  }
+
   // ============================================================================
   // MIGRATION SUPPORT
   // ============================================================================
@@ -598,5 +632,139 @@ class StorageService {
     }
     await setEnabledTemplates(enabled);
     return enabled;
+  }
+
+  // ============================================================================
+  // PHASE 1-3 WELLNESS FEATURES STORAGE
+  // ============================================================================
+
+  // Clinical Assessments (PHQ-9, GAD-7, PSS-10)
+  Future<void> saveAssessments(List<dynamic> assessments) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_assessmentsKey, json.encode(assessments));
+    await _notifyPersistence('assessments');
+  }
+
+  Future<List<dynamic>?> getAssessments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_assessmentsKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Intervention Attempts
+  Future<void> saveInterventionAttempts(List<dynamic> attempts) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_interventionAttemptsKey, json.encode(attempts));
+    await _notifyPersistence('intervention_attempts');
+  }
+
+  Future<List<dynamic>?> getInterventionAttempts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_interventionAttemptsKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Activities (library)
+  Future<void> saveActivities(List<dynamic> activities) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_activitiesKey, json.encode(activities));
+    await _notifyPersistence('activities');
+  }
+
+  Future<List<dynamic>?> getActivities() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_activitiesKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Scheduled Activities
+  Future<void> saveScheduledActivities(List<dynamic> scheduledActivities) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_scheduledActivitiesKey, json.encode(scheduledActivities));
+    await _notifyPersistence('scheduled_activities');
+  }
+
+  Future<List<dynamic>?> getScheduledActivities() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_scheduledActivitiesKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Gratitude Entries
+  Future<void> saveGratitudeEntries(List<dynamic> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_gratitudeEntriesKey, json.encode(entries));
+    await _notifyPersistence('gratitude_entries');
+  }
+
+  Future<List<dynamic>?> getGratitudeEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_gratitudeEntriesKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Worries
+  Future<void> saveWorries(List<dynamic> worries) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_worriesKey, json.encode(worries));
+    await _notifyPersistence('worries');
+  }
+
+  Future<List<dynamic>?> getWorries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_worriesKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Worry Sessions
+  Future<void> saveWorrySessions(List<dynamic> sessions) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_worrySessionsKey, json.encode(sessions));
+    await _notifyPersistence('worry_sessions');
+  }
+
+  Future<List<dynamic>?> getWorrySessions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_worrySessionsKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Self-Compassion Entries
+  Future<void> saveSelfCompassionEntries(List<dynamic> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_selfCompassionEntriesKey, json.encode(entries));
+    await _notifyPersistence('self_compassion_entries');
+  }
+
+  Future<List<dynamic>?> getSelfCompassionEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_selfCompassionEntriesKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Personal Values
+  Future<void> savePersonalValues(List<dynamic> values) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_personalValuesKey, json.encode(values));
+    await _notifyPersistence('personal_values');
+  }
+
+  Future<List<dynamic>?> getPersonalValues() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_personalValuesKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Implementation Intentions
+  Future<void> saveImplementationIntentions(List<dynamic> intentions) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_implementationIntentionsKey, json.encode(intentions));
+    await _notifyPersistence('implementation_intentions');
+  }
+
+  Future<List<dynamic>?> getImplementationIntentions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_implementationIntentionsKey);
+    return data != null ? json.decode(data) : null;
   }
 }

@@ -31,6 +31,14 @@ import '../models/checkin.dart';
 import '../models/habit.dart';
 import '../models/pulse_entry.dart';
 import '../models/pulse_type.dart';
+import '../models/clinical_assessment.dart';
+import '../models/intervention_attempt.dart';
+import '../models/behavioral_activation.dart';
+import '../models/gratitude.dart';
+import '../models/worry_session.dart';
+import '../models/self_compassion.dart';
+import '../models/values_and_smart_goals.dart';
+import '../models/implementation_intention.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -64,6 +72,18 @@ class BackupService {
     final prefs = await SharedPreferences.getInstance();
     final checkinTemplates = prefs.getString('checkin_templates');
     final checkinResponses = prefs.getString('checkin_responses');
+
+    // Load wellness app data types
+    final assessments = await _storage.getAssessments() ?? [];
+    final interventionAttempts = await _storage.getInterventionAttempts() ?? [];
+    final activities = await _storage.getActivities() ?? [];
+    final scheduledActivities = await _storage.getScheduledActivities() ?? [];
+    final gratitudeEntries = await _storage.getGratitudeEntries() ?? [];
+    final worries = await _storage.getWorries() ?? [];
+    final worrySessions = await _storage.getWorrySessions() ?? [];
+    final selfCompassionEntries = await _storage.getSelfCompassionEntries() ?? [];
+    final personalValues = await _storage.getPersonalValues() ?? [];
+    final implementationIntentions = await _storage.getImplementationIntentions() ?? [];
 
     // Remove sensitive data (API key, HF token) from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -103,6 +123,18 @@ class BackupService {
       'checkin_responses': checkinResponses,
       'settings': json.encode(exportSettings),
 
+      // Wellness app data types
+      'clinical_assessments': json.encode(assessments.map((a) => a.toJson()).toList()),
+      'intervention_attempts': json.encode(interventionAttempts.map((i) => i.toJson()).toList()),
+      'activities': json.encode(activities.map((a) => a.toJson()).toList()),
+      'scheduled_activities': json.encode(scheduledActivities.map((s) => s.toJson()).toList()),
+      'gratitude_entries': json.encode(gratitudeEntries.map((g) => g.toJson()).toList()),
+      'worries': json.encode(worries.map((w) => w.toJson()).toList()),
+      'worry_sessions': json.encode(worrySessions.map((w) => w.toJson()).toList()),
+      'self_compassion_entries': json.encode(selfCompassionEntries.map((s) => s.toJson()).toList()),
+      'personal_values': json.encode(personalValues.map((p) => p.toJson()).toList()),
+      'implementation_intentions': json.encode(implementationIntentions.map((i) => i.toJson()).toList()),
+
       // Statistics for UI display
       'statistics': {
         'totalGoals': goals.length,
@@ -114,6 +146,17 @@ class BackupService {
         'hasCustomTemplates': customTemplates != null && customTemplates.isNotEmpty,
         'hasSessions': sessions != null && sessions.isNotEmpty,
         'totalEnabledTemplates': enabledTemplates.length,
+        // Wellness app data types
+        'totalAssessments': assessments.length,
+        'totalInterventionAttempts': interventionAttempts.length,
+        'totalActivities': activities.length,
+        'totalScheduledActivities': scheduledActivities.length,
+        'totalGratitudeEntries': gratitudeEntries.length,
+        'totalWorries': worries.length,
+        'totalWorrySessions': worrySessions.length,
+        'totalSelfCompassionEntries': selfCompassionEntries.length,
+        'totalPersonalValues': personalValues.length,
+        'totalImplementationIntentions': implementationIntentions.length,
       },
     };
 
@@ -981,6 +1024,336 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Check-In Responses',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import clinical assessments
+    try {
+      if (data.containsKey('clinical_assessments') && data['clinical_assessments'] != null) {
+        final assessmentsJson = json.decode(data['clinical_assessments'] as String) as List;
+        final assessments = assessmentsJson.map((json) => AssessmentResult.fromJson(json)).toList();
+        await _storage.saveAssessments(assessments);
+        await _debug.info('BackupService', 'Imported ${assessments.length} clinical assessments');
+        results.add(ImportItemResult(
+          dataType: 'Clinical Assessments',
+          success: true,
+          count: assessments.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Clinical Assessments',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import clinical assessments: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Clinical Assessments',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import intervention attempts
+    try {
+      if (data.containsKey('intervention_attempts') && data['intervention_attempts'] != null) {
+        final attemptsJson = json.decode(data['intervention_attempts'] as String) as List;
+        final attempts = attemptsJson.map((json) => InterventionAttempt.fromJson(json)).toList();
+        await _storage.saveInterventionAttempts(attempts);
+        await _debug.info('BackupService', 'Imported ${attempts.length} intervention attempts');
+        results.add(ImportItemResult(
+          dataType: 'Intervention Attempts',
+          success: true,
+          count: attempts.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Intervention Attempts',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import intervention attempts: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Intervention Attempts',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import activities
+    try {
+      if (data.containsKey('activities') && data['activities'] != null) {
+        final activitiesJson = json.decode(data['activities'] as String) as List;
+        final activities = activitiesJson.map((json) => Activity.fromJson(json)).toList();
+        await _storage.saveActivities(activities);
+        await _debug.info('BackupService', 'Imported ${activities.length} activities');
+        results.add(ImportItemResult(
+          dataType: 'Activities',
+          success: true,
+          count: activities.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Activities',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import activities: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Activities',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import scheduled activities
+    try {
+      if (data.containsKey('scheduled_activities') && data['scheduled_activities'] != null) {
+        final scheduledJson = json.decode(data['scheduled_activities'] as String) as List;
+        final scheduled = scheduledJson.map((json) => ScheduledActivity.fromJson(json)).toList();
+        await _storage.saveScheduledActivities(scheduled);
+        await _debug.info('BackupService', 'Imported ${scheduled.length} scheduled activities');
+        results.add(ImportItemResult(
+          dataType: 'Scheduled Activities',
+          success: true,
+          count: scheduled.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Scheduled Activities',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import scheduled activities: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Scheduled Activities',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import gratitude entries
+    try {
+      if (data.containsKey('gratitude_entries') && data['gratitude_entries'] != null) {
+        final entriesJson = json.decode(data['gratitude_entries'] as String) as List;
+        final entries = entriesJson.map((json) => GratitudeEntry.fromJson(json)).toList();
+        await _storage.saveGratitudeEntries(entries);
+        await _debug.info('BackupService', 'Imported ${entries.length} gratitude entries');
+        results.add(ImportItemResult(
+          dataType: 'Gratitude Entries',
+          success: true,
+          count: entries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Gratitude Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import gratitude entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Gratitude Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import worries
+    try {
+      if (data.containsKey('worries') && data['worries'] != null) {
+        final worriesJson = json.decode(data['worries'] as String) as List;
+        final worries = worriesJson.map((json) => Worry.fromJson(json)).toList();
+        await _storage.saveWorries(worries);
+        await _debug.info('BackupService', 'Imported ${worries.length} worries');
+        results.add(ImportItemResult(
+          dataType: 'Worries',
+          success: true,
+          count: worries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Worries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import worries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Worries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import worry sessions
+    try {
+      if (data.containsKey('worry_sessions') && data['worry_sessions'] != null) {
+        final sessionsJson = json.decode(data['worry_sessions'] as String) as List;
+        final sessions = sessionsJson.map((json) => WorrySession.fromJson(json)).toList();
+        await _storage.saveWorrySessions(sessions);
+        await _debug.info('BackupService', 'Imported ${sessions.length} worry sessions');
+        results.add(ImportItemResult(
+          dataType: 'Worry Sessions',
+          success: true,
+          count: sessions.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Worry Sessions',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import worry sessions: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Worry Sessions',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import self-compassion entries
+    try {
+      if (data.containsKey('self_compassion_entries') && data['self_compassion_entries'] != null) {
+        final entriesJson = json.decode(data['self_compassion_entries'] as String) as List;
+        final entries = entriesJson.map((json) => SelfCompassionEntry.fromJson(json)).toList();
+        await _storage.saveSelfCompassionEntries(entries);
+        await _debug.info('BackupService', 'Imported ${entries.length} self-compassion entries');
+        results.add(ImportItemResult(
+          dataType: 'Self-Compassion Entries',
+          success: true,
+          count: entries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Self-Compassion Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import self-compassion entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Self-Compassion Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import personal values
+    try {
+      if (data.containsKey('personal_values') && data['personal_values'] != null) {
+        final valuesJson = json.decode(data['personal_values'] as String) as List;
+        final values = valuesJson.map((json) => PersonalValue.fromJson(json)).toList();
+        await _storage.savePersonalValues(values);
+        await _debug.info('BackupService', 'Imported ${values.length} personal values');
+        results.add(ImportItemResult(
+          dataType: 'Personal Values',
+          success: true,
+          count: values.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Personal Values',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import personal values: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Personal Values',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import implementation intentions
+    try {
+      if (data.containsKey('implementation_intentions') && data['implementation_intentions'] != null) {
+        final intentionsJson = json.decode(data['implementation_intentions'] as String) as List;
+        final intentions = intentionsJson.map((json) => ImplementationIntention.fromJson(json)).toList();
+        await _storage.saveImplementationIntentions(intentions);
+        await _debug.info('BackupService', 'Imported ${intentions.length} implementation intentions');
+        results.add(ImportItemResult(
+          dataType: 'Implementation Intentions',
+          success: true,
+          count: intentions.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Implementation Intentions',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import implementation intentions: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Implementation Intentions',
         success: false,
         count: 0,
         errorMessage: e.toString(),

@@ -11,6 +11,7 @@ import '../providers/checkin_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../providers/pulse_type_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 import 'onboarding_screen.dart';
@@ -275,6 +276,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: const Text(AppStrings.scheduleCheckInReminders),
               trailing: const Icon(Icons.chevron_right),
               onTap: _manageReminders,
+            ),
+          ),
+
+          AppSpacing.gapLg,
+
+          // Mental Health Tools Toggle
+          Card(
+            child: Consumer<SettingsProvider>(
+              builder: (context, settingsProvider, child) {
+                return SwitchListTile(
+                  secondary: Icon(
+                    Icons.healing,
+                    color: settingsProvider.enableClinicalFeatures
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: const Text('Mental Health Tools'),
+                  subtitle: Text(
+                    settingsProvider.enableClinicalFeatures
+                        ? 'Clinical interventions enabled'
+                        : 'Enable evidence-based clinical interventions',
+                  ),
+                  value: settingsProvider.enableClinicalFeatures,
+                  onChanged: (value) async {
+                    await settingsProvider.setEnableClinicalFeatures(value);
+                    if (value && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Mental health tools enabled. These are evidence-based but not a substitute for professional care.',
+                          ),
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
             ),
           ),
 
