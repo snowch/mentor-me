@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/goal.dart';
+import '../models/values_and_smart_goals.dart';
 import '../providers/goal_provider.dart';
+import '../providers/values_provider.dart';
 import '../widgets/add_goal_dialog.dart';
 import '../widgets/goal_detail_sheet.dart';
 import '../constants/app_strings.dart';
@@ -392,6 +394,60 @@ class GoalsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                        // Value tags (if goal has linked values)
+                        if (goal.linkedValueIds != null && goal.linkedValueIds!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Builder(
+                            builder: (context) {
+                              final valuesProvider = context.watch<ValuesProvider>();
+                              final linkedValues = goal.linkedValueIds!
+                                  .map((valueId) {
+                                    try {
+                                      return valuesProvider.values.firstWhere((v) => v.id == valueId);
+                                    } catch (e) {
+                                      return null;
+                                    }
+                                  })
+                                  .where((v) => v != null)
+                                  .toList();
+
+                              if (linkedValues.isEmpty) return const SizedBox.shrink();
+
+                              return Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: linkedValues.map((value) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.5),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          value!.domain.emoji,
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          value.statement,
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            fontSize: 11,
+                                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          ),
+                        ],
                       ],
                     ),
                   ),

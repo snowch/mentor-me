@@ -4,7 +4,9 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:mentor_me/constants/app_strings.dart';
 import '../models/goal.dart';
 import '../models/milestone.dart';
+import '../models/values_and_smart_goals.dart';
 import '../providers/goal_provider.dart';
+import '../providers/values_provider.dart';
 import '../services/goal_decomposition_service.dart';
 import '../services/ai_service.dart';
 
@@ -40,6 +42,7 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
   bool _isLoadingSuggestions = false;
   String? _suggestionError;
   bool _showMilestones = false;
+  final Set<String> _selectedValueIds = {}; // Selected values for this goal
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +219,92 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
                     ],
                   ),
                 ),
-                
+
+                const SizedBox(height: 16),
+
+                // Values Alignment Section
+                Builder(
+                  builder: (context) {
+                    final valuesProvider = context.watch<ValuesProvider>();
+                    final userValues = valuesProvider.values;
+
+                    if (userValues.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Values this goal serves',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Tooltip(
+                              message: 'Select which of your values this goal aligns with',
+                              child: Icon(
+                                Icons.info_outline,
+                                size: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: userValues.map((value) {
+                            final isSelected = _selectedValueIds.contains(value.id);
+                            return FilterChip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(value.domain.emoji),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      value.statement,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              selected: isSelected,
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedValueIds.add(value.id);
+                                  } else {
+                                    _selectedValueIds.remove(value.id);
+                                  }
+                                });
+                              },
+                              selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                              checkmarkColor: Theme.of(context).colorScheme.primary,
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_selectedValueIds.isEmpty)
+                          Text(
+                            'Tip: Connecting goals to values increases motivation and clarity',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+
                 // AI Milestone Suggestions Section
                 if (_aiService.hasApiKey()) ...[
                   const Divider(height: 32),
@@ -460,6 +548,7 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
         targetDate: _targetDate,
         milestonesDetailed: _suggestedMilestones ?? [],
         status: atLimit ? GoalStatus.backlog : _selectedStatus,
+        linkedValueIds: _selectedValueIds.isNotEmpty ? _selectedValueIds.toList() : null,
       );
 
       await goalProvider.addGoal(goal);

@@ -33,6 +33,7 @@ class Goal {
   final bool isActive;  // Deprecated: Use status instead
   final GoalStatus status;
   final int sortOrder; // For drag-and-drop reordering
+  final List<String>? linkedValueIds; // Values this goal serves (optional)
   
   Goal({
     String? id,
@@ -47,6 +48,7 @@ class Goal {
     bool? isActive,  // Deprecated - auto-syncs with status if not provided
     this.status = GoalStatus.active,
     this.sortOrder = 0,
+    this.linkedValueIds,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         milestones = milestones ?? [],
@@ -67,6 +69,7 @@ class Goal {
       'isActive': isActive,
       'status': status.toString(),
       'sortOrder': sortOrder,
+      'linkedValueIds': linkedValueIds,
     };
   }
 
@@ -99,6 +102,9 @@ class Goal {
       isActive: json['isActive'] ?? true,
       status: parsedStatus,
       sortOrder: json['sortOrder'] ?? 0, // Default 0 for backwards compatibility
+      linkedValueIds: json['linkedValueIds'] != null
+          ? List<String>.from(json['linkedValueIds'])
+          : null,
     );
   }
 
@@ -113,6 +119,7 @@ class Goal {
     bool? isActive,
     GoalStatus? status,
     int? sortOrder,
+    List<String>? linkedValueIds,
   }) {
     // Auto-sync isActive with status if status is provided but isActive is not
     final newStatus = status ?? this.status;
@@ -132,6 +139,7 @@ class Goal {
       isActive: newIsActive,
       status: newStatus,
       sortOrder: sortOrder ?? this.sortOrder,
+      linkedValueIds: linkedValueIds ?? this.linkedValueIds,
     );
   }
 }

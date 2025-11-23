@@ -66,8 +66,9 @@ jobs:
         run: flutter pub get
 
       - name: Run Flutter analyzer
-        run: flutter analyze
-        continue-on-error: true  # Don't fail build on analyzer warnings
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib/
+        continue-on-error: false  # FAIL on compilation errors (not warnings/info)
+        # Note: Only analyzing lib/ to focus on production code, not test files
 
       - name: Run Flutter tests
         run: flutter test

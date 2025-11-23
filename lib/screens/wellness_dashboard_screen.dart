@@ -10,6 +10,9 @@ import 'values_clarification_screen.dart';
 import 'implementation_intentions_screen.dart';
 import 'behavioral_activation_screen.dart';
 import 'assessment_dashboard_screen.dart';
+import 'analytics_screen.dart';
+import 'safety_plan_screen.dart';
+import 'crisis_resources_screen.dart';
 
 class WellnessDashboardScreen extends StatelessWidget {
   const WellnessDashboardScreen({super.key});
@@ -37,6 +40,47 @@ class WellnessDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
 
+          // Crisis Support Section
+          Text(
+            'Crisis Support',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Crisis Resources
+          _buildFeatureCard(
+            context,
+            icon: Icons.sos,
+            title: 'Get Help Now',
+            description: 'Emergency contacts and crisis support hotlines',
+            color: Colors.red,
+            onTap: () => _navigate(context, const CrisisResourcesScreen()),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Safety Plan
+          _buildFeatureCard(
+            context,
+            icon: Icons.shield_outlined,
+            title: 'Safety Plan',
+            description: 'Create your personal crisis management plan',
+            color: Colors.orange,
+            onTap: () => _navigate(context, const SafetyPlanScreen()),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Clinical Tools Section
+          Text(
+            'Clinical Tools',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
           // Assessment
           _buildFeatureCard(
             context,
@@ -46,7 +90,16 @@ class WellnessDashboardScreen extends StatelessWidget {
             color: Colors.teal,
             onTap: () => _navigate(context, const AssessmentDashboardScreen()),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Wellness Practices Section
+          Text(
+            'Wellness Practices',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
 
           // Behavioral Activation
           _buildFeatureCard(
@@ -112,6 +165,27 @@ class WellnessDashboardScreen extends StatelessWidget {
             color: Colors.orange,
             onTap: () => _navigate(context, const ImplementationIntentionsScreen()),
           ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Analytics Section
+          Text(
+            'Insights & Progress',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Analytics Link
+          _buildFeatureCard(
+            context,
+            icon: Icons.analytics_outlined,
+            title: 'Analytics & Trends',
+            description: 'View your progress, patterns, and wellness insights',
+            color: Colors.blue,
+            onTap: () => _navigate(context, const AnalyticsScreen()),
+          ),
+          const SizedBox(height: AppSpacing.lg),
         ],
       ),
     );

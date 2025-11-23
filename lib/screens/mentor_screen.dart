@@ -327,7 +327,337 @@ class _MentorScreenState extends State<MentorScreen> {
 
         // Quick HALT Widget
         const QuickHaltWidget(),
+        AppSpacing.gapLg,
+
+        // Glanceable Goals Section
+        _buildGlanceableGoals(context, goalProvider),
+        AppSpacing.gapLg,
+
+        // Today's Habits Section
+        _buildTodaysHabits(context, habitProvider),
       ],
+    );
+  }
+
+  /// Build glanceable goals section with progress bars
+  Widget _buildGlanceableGoals(BuildContext context, GoalProvider goalProvider) {
+    // Get active goals only (max 5)
+    final activeGoals = goalProvider.goals
+        .where((g) => g.status == GoalStatus.active)
+        .take(5)
+        .toList();
+
+    if (activeGoals.isEmpty) {
+      return Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Padding(
+          padding: AppSpacing.cardPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.flag_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Current Goals',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No active goals yet',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => widget.onNavigateToTab(3), // Navigate to Goals tab
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create your first goal'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: AppSpacing.cardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with count
+            Row(
+              children: [
+                Icon(
+                  Icons.flag,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Current Goals (${activeGoals.length}/${goalProvider.goals.length})',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => widget.onNavigateToTab(3), // Navigate to Goals tab
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Goal progress bars
+            ...activeGoals.map((goal) {
+              final progress = goal.currentProgress / 100.0;
+              final progressPercent = goal.currentProgress;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () => widget.onNavigateToTab(3), // Navigate to Goals tab
+                  borderRadius: BorderRadius.circular(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              goal.title,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$progressPercent%',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Theme.of(context).colorScheme.primary,
+                          ),
+                          minHeight: 8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build today's habits section
+  Widget _buildTodaysHabits(BuildContext context, HabitProvider habitProvider) {
+    // Get active habits only
+    final activeHabits = habitProvider.habits
+        .where((h) => h.status == HabitStatus.active)
+        .toList();
+
+    if (activeHabits.isEmpty) {
+      return Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: Padding(
+          padding: AppSpacing.cardPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Today's Habits",
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No habits to track yet',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => widget.onNavigateToTab(2), // Navigate to Habits tab
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Create your first habit'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Check completion status for today
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+
+    final habitsWithStatus = activeHabits.map((habit) {
+      final completedToday = habit.completionDates.any((date) {
+        final completionDate = DateTime(date.year, date.month, date.day);
+        return completionDate == todayDate;
+      });
+      return {'habit': habit, 'completed': completedToday};
+    }).toList();
+
+    final completedCount = habitsWithStatus.where((h) => h['completed'] as bool).length;
+
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: AppSpacing.cardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with completion count
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Today's Habits ($completedCount/${activeHabits.length})",
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => widget.onNavigateToTab(2), // Navigate to Habits tab
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Habit list with quick toggle
+            ...habitsWithStatus.map((habitData) {
+              final habit = habitData['habit'] as Habit;
+              final completed = habitData['completed'] as bool;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () async {
+                    // Quick toggle from home screen
+                    if (completed) {
+                      await habitProvider.uncompleteHabit(habit.id, DateTime.now());
+                    } else {
+                      await habitProvider.completeHabit(habit.id, DateTime.now());
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          completed ? Icons.check_circle : Icons.circle_outlined,
+                          color: completed
+                              ? Colors.green
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            habit.title,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  decoration: completed ? TextDecoration.lineThrough : null,
+                                  color: completed
+                                      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
+                                      : null,
+                                ),
+                          ),
+                        ),
+                        if (habit.currentStreak > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.local_fire_department,
+                                  size: 14,
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${habit.currentStreak}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 

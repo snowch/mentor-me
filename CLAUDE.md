@@ -112,27 +112,61 @@ flutter pub run build_runner build --delete-conflicting-outputs
 
 **What it does:**
 1. Generates `build_info.dart` (same as CI/CD)
-2. Runs `flutter analyze`
+2. Runs `flutter analyze --no-fatal-infos --no-fatal-warnings` (FAILS on compilation errors)
 3. Runs all tests with coverage
 4. Runs critical tests (schema validation, provider tests)
 5. Builds debug and release APKs (unless `--skip-build`)
+
+**Error Detection Hierarchy (Fail Fast):**
+
+| Layer | Tool | When | Speed | What It Catches |
+|-------|------|------|-------|-----------------|
+| **1. Pre-commit hook** | `flutter analyze` | Before commit | ~10-30s | Compilation errors (auto-installed) |
+| **2. Local CI script** | `./scripts/local-ci-build.sh` | Before push | ~1-2min | Errors + test failures |
+| **3. GitHub Actions** | CI/CD pipeline | After push | ~30s-6min | Same as local CI |
+
+**Pre-Commit Hook (Automatic):**
+
+The SessionStart hook automatically installs a pre-commit hook that runs `flutter analyze` before every commit. This catches compilation errors **before you commit**, preventing broken code from entering the repository.
+
+```bash
+# To bypass (NOT recommended):
+git commit --no-verify
+
+# The hook runs automatically on every commit:
+git commit -m "Your changes"  # Hook runs first
+```
 
 **Recommended workflow:**
 ```bash
 # 1. Make your code changes
 vim lib/some_file.dart
 
-# 2. Run quick validation (1-2 minutes)
+# 2. Try to commit - pre-commit hook runs automatically
+git add .
+git commit -m "Your changes"  # Hook validates code automatically
+
+# If hook fails:
+# - Fix the compilation errors shown
+# - Try commit again
+
+# 3. Before push, run full validation (optional but recommended)
 ./scripts/local-ci-build.sh --skip-build
 
-# 3. If passes, commit and push
-git add .
-git commit -m "Your changes"
+# 4. Push with confidence
 git push
 
 # Before creating PR, run full build (5-10 minutes)
 ./scripts/local-ci-build.sh
 ```
+
+**Why This Matters:**
+
+Before these improvements, compilation errors were caught 6+ minutes into the CI/CD build (during APK compilation). Now they're caught in **10-30 seconds** via:
+
+1. ✅ Pre-commit hook (automatic, immediate feedback)
+2. ✅ CI/CD analyzer step fails fast (30s instead of 6min)
+3. ✅ Local CI script fails on errors (prevents push of broken code)
 
 **See `scripts/README.md` for detailed documentation.**
 
@@ -156,6 +190,8 @@ npm start
 ---
 
 ## Working with Flutter in Claude Code Web
+
+> **💡 KEY INSIGHT:** Claude Code sessions are NOT limited to static code editing. You have powerful tools to run apps, monitor output, test features interactively, and debug in real-time. **Leverage these capabilities to deliver higher-quality code faster.**
 
 ### SessionStart Hook
 
@@ -200,25 +236,182 @@ Target of URI doesn't exist: '../config/build_info.dart'
 - **~11 warnings** (unused imports, variables)
 - **~1,764 info messages** (code style suggestions, deprecated API usage)
 
-**2. Development Workflow**
+**2. Interactive Development with LLM Tools**
 
-Since Flutter web requires the proxy server, the typical development flow is:
+**IMPORTANT:** Claude Code sessions have powerful capabilities for interactive development. Leverage these tools to test features, debug issues, and verify changes in real-time.
+
+### Running the App During Development
+
+**Web Development (Recommended for Quick Testing):**
 
 ```bash
-# Terminal 1: Start proxy server (required for AI features)
-cd proxy && npm start
+# Start proxy server in background (required for AI features)
+cd proxy && npm start &
 
-# Terminal 2: Run Flutter app (in Claude Code, use Bash tool)
-flutter run -d chrome --web-port=8080
+# Run Flutter web app in background
+flutter run -d chrome --web-port=8080 &
+
+# The app will open in your browser
+# You can interact with it while monitoring output with BashOutput tool
 ```
 
-**Note:** In Claude Code web sessions, you typically cannot run the full Flutter web app interactively. Instead, use:
-- `flutter test` - Run automated tests
-- `flutter analyze` - Check code quality
-- `flutter build web` - Build production assets
-- CI/CD pipeline for full app testing
+**Why This Works:**
+- LLM can start processes in background (`&` flag or `run_in_background: true`)
+- LLM can monitor running processes with `BashOutput` tool
+- LLM can read error logs and suggest fixes
+- User can manually test features while LLM observes
 
-**3. Project Structure Quick Reference**
+**Example Interactive Workflow:**
+
+```
+1. LLM: Runs app in background
+   → flutter run -d chrome --web-port=8080 --run_in_background
+
+2. User: Opens browser, tests new onboarding flow
+   → "The needs assessment page isn't showing my selections"
+
+3. LLM: Checks running app output
+   → Uses BashOutput to see Flutter console logs
+   → Identifies: "setState not called after _selectedNeeds.add()"
+
+4. LLM: Fixes the bug, hot-reloads
+   → Edits file, Flutter detects change, auto-reloads
+
+5. User: Tests again
+   → "Perfect! Now it works"
+```
+
+### Monitoring Running Apps
+
+**Check App Output:**
+```bash
+# Get shell ID from running flutter process
+# Use BashOutput tool to read logs
+
+# Filter for errors only
+BashOutput(bash_id="<id>", filter="error|exception|failed")
+
+# See all output
+BashOutput(bash_id="<id>")
+```
+
+**Common Patterns:**
+- **Compilation errors** → LLM reads error, identifies file/line, fixes code
+- **Runtime exceptions** → LLM sees stack trace, debugs issue
+- **Widget not rendering** → LLM checks Flutter DevTools output, inspects widget tree
+- **State not updating** → LLM verifies notifyListeners() calls, checks provider setup
+
+### Quick Testing Without Full App Run
+
+For faster iteration when app run isn't needed:
+- `flutter test` - Run automated tests (instant feedback)
+- `flutter analyze` - Static analysis (catches most issues)
+- `flutter build web` - Verify build succeeds (production validation)
+
+### Best Practices for LLM-Assisted Development
+
+**DO:**
+- ✅ Run app in background while making changes
+- ✅ Monitor output with BashOutput to catch errors
+- ✅ Use hot reload (Flutter auto-detects file changes)
+- ✅ Test user flows interactively (LLM observes, user tests)
+- ✅ Check logs immediately after user reports issue
+- ✅ Iterate quickly: code → run → test → fix → repeat
+
+**DON'T:**
+- ❌ Assume code works without testing
+- ❌ Make multiple changes before testing
+- ❌ Ignore Flutter console warnings (they become errors)
+- ❌ Skip testing user-facing changes
+
+### Development Flow Example
+
+**Scenario:** User asks to add validation to onboarding
+
+```
+LLM Actions:
+1. Read current onboarding code
+2. Add validation logic with setState
+3. Start app in background: flutter run -d chrome &
+4. Wait 30 seconds for compilation
+5. Check output: BashOutput to verify app started
+6. Tell user: "App is running - please test the onboarding flow"
+
+User Tests:
+- Clicks through onboarding
+- Reports: "Submit button should be disabled until selection made"
+
+LLM Response:
+1. Check current code
+2. See missing: onPressed: _selectedNeeds.isEmpty ? null : _nextPage
+3. Fix the code (Edit tool)
+4. Flutter hot-reloads automatically
+5. Tell user: "Fixed - button should now disable. Please test again."
+
+User:
+- Tests again
+- Confirms: "Perfect! Works great."
+
+LLM:
+- Commits the working change
+```
+
+### When to Run vs When to Test
+
+| Scenario | Approach | Why |
+|----------|----------|-----|
+| **UI changes** | Run app, test interactively | Need to see visual changes |
+| **State management** | Run app, check logs | Need to verify notifyListeners, state flow |
+| **Logic/calculations** | Run tests | Faster, automated verification |
+| **Bug fixes** | Run app + tests | Confirm fix works, prevent regression |
+| **Refactoring** | Run tests, then app | Tests catch breaks, app confirms UX intact |
+| **Performance** | Run app with profiling | Need real metrics |
+
+### Advanced: Using Flutter DevTools
+
+```bash
+# Run with DevTools enabled
+flutter run -d chrome --web-port=8080 --devtools-server-address=http://127.0.0.1:9100
+
+# DevTools will open in browser
+# LLM can read DevTools output for:
+# - Widget inspector (layout issues)
+# - Performance profiler (lag, jank)
+# - Network inspector (API calls)
+# - Memory profiler (leaks)
+```
+
+**3. Testing Strategy for LLM Sessions**
+
+When developing features in Claude Code sessions, follow this testing hierarchy:
+
+**Level 1: Immediate Feedback (During Development)**
+```bash
+flutter analyze  # Catch syntax errors, type issues (2 seconds)
+flutter test     # Run unit tests (10-30 seconds)
+```
+
+**Level 2: Interactive Testing (User-Facing Changes)**
+```bash
+# Run app in background, user tests manually
+flutter run -d chrome --web-port=8080 &
+
+# LLM monitors output for errors
+BashOutput(bash_id="<id>")
+```
+
+**Level 3: Comprehensive Validation (Before Commit)**
+```bash
+./scripts/local-ci-build.sh --skip-build  # Full CI/CD check (1-2 min)
+```
+
+**Testing Philosophy:**
+- **Fast feedback loops** → Iterate quickly with analyze + test
+- **Human-in-the-loop** → User tests UX while LLM debugs
+- **Automation catches regressions** → Automated tests prevent breaks
+- **CI/CD validates quality** → Local CI before pushing
+
+**4. Project Structure Quick Reference**
 
 ```
 mentor-me-fork/
@@ -236,7 +429,7 @@ mentor-me-fork/
 └── CLAUDE.md             # This file (project documentation)
 ```
 
-**4. Common Tasks**
+**5. Common Tasks**
 
 | Task | Command | Notes |
 |------|---------|-------|
@@ -247,7 +440,7 @@ mentor-me-fork/
 | **Clean build** | `flutter clean` | Clear cache/build artifacts |
 | **Build web** | `flutter build web` | Production build (output in `build/web/`) |
 
-**5. Testing Strategy**
+**6. Testing Strategy**
 
 The project uses Flutter's testing framework:
 
@@ -264,7 +457,7 @@ flutter test --coverage
 
 See `TESTING.md` for comprehensive testing guidelines.
 
-**6. Code Quality Notes**
+**7. Code Quality Notes**
 
 - **Deprecated APIs**: The codebase uses some deprecated Flutter APIs:
   - `.withOpacity()` → Migrate to `.withValues()`
@@ -1071,6 +1264,729 @@ This enables the AI to:
 - **Never exceed context window limits** (critical for local AI)
 - **Generate complete responses** without truncation
 
+### LLM Function Calling / Tool Use in Reflection Sessions
+
+**CRITICAL CAPABILITY:** The MentorMe app uses **Claude API function calling** (tool use) to enable the AI mentor to take **direct actions** in the app during reflection sessions. This goes beyond conversational AI - the mentor can create goals, update habits, schedule reminders, and more.
+
+**Why This Matters:**
+- Transforms AI from passive advisor to active assistant
+- Reduces user friction (AI can "just do it" instead of "you should do X")
+- Enables agentic behavior in coaching conversations
+- Makes reflection sessions immediately actionable
+
+**Where It's Used:**
+- **Reflection Sessions** (`ReflectionSessionScreen`) - Full tool use enabled
+- **Regular Chat** (`ChatScreen`) - Currently NOT enabled (future enhancement opportunity)
+
+---
+
+#### Available Tools (18 Total)
+
+**File:** `lib/services/reflection_function_schemas.dart`
+
+The app defines 18 tools across 5 categories:
+
+**1. Goal Tools (7 operations):**
+- `create_goal` - Create new goal with optional milestones
+- `update_goal` - Modify existing goal (title, description, category, target date)
+- `delete_goal` - Remove a goal
+- `move_goal_to_active` - Move goal from backlog to active
+- `move_goal_to_backlog` - Move goal to backlog (deprioritize)
+- `complete_goal` - Mark goal as completed
+- `abandon_goal` - Mark goal as abandoned
+
+**2. Milestone Tools (5 operations):**
+- `create_milestone` - Add milestone to a goal
+- `update_milestone` - Modify milestone details
+- `delete_milestone` - Remove a milestone
+- `complete_milestone` - Mark milestone as completed
+- `uncomplete_milestone` - Revert milestone completion
+
+**3. Habit Tools (7 operations):**
+- `create_habit` - Create new habit
+- `update_habit` - Modify habit details
+- `delete_habit` - Remove a habit
+- `pause_habit` - Pause habit tracking
+- `activate_habit` - Resume paused habit
+- `archive_habit` - Archive completed/abandoned habit
+- `mark_habit_complete` - Mark habit as done for a specific date
+
+**4. Check-in Template Tools (2 operations):**
+- `create_checkin_template` - Create custom check-in with prompts
+- `schedule_checkin_reminder` - Set reminder for check-in
+
+**5. Session Tools (2 operations):**
+- `save_session_as_journal` - Save reflection transcript as journal entry
+- `schedule_followup` - Schedule follow-up reflection session
+
+---
+
+#### Tool Schema Example
+
+Each tool is defined with a JSON schema describing its purpose, parameters, and constraints:
+
+```dart
+// From lib/services/reflection_function_schemas.dart
+
+static const Map<String, dynamic> createGoalTool = {
+  'name': 'create_goal',
+  'description': 'Creates a new goal for the user with optional milestones. '
+      'Use this when the user expresses a desire to achieve something specific. '
+      'You can include milestone suggestions based on the conversation.',
+  'input_schema': {
+    'type': 'object',
+    'properties': {
+      'title': {
+        'type': 'string',
+        'description': 'The goal title (e.g., "Launch my website", "Run a marathon")',
+      },
+      'description': {
+        'type': 'string',
+        'description': 'Optional detailed description of the goal and why it matters',
+      },
+      'category': {
+        'type': 'string',
+        'enum': ['health', 'career', 'personal', 'financial', 'learning', 'relationships'],
+        'description': 'The category this goal belongs to',
+      },
+      'target_date': {
+        'type': 'string',
+        'description': 'Optional target completion date (ISO 8601 format: YYYY-MM-DD)',
+      },
+      'milestones': {
+        'type': 'array',
+        'description': 'Optional array of milestone objects to break down the goal',
+        'items': {
+          'type': 'object',
+          'properties': {
+            'title': {
+              'type': 'string',
+              'description': 'Milestone title (e.g., "Complete wireframes")',
+            },
+            'description': {
+              'type': 'string',
+              'description': 'Optional milestone description',
+            },
+            'target_date': {
+              'type': 'string',
+              'description': 'Optional target date for this milestone (ISO 8601)',
+            },
+          },
+          'required': ['title'],
+        },
+      },
+    },
+    'required': ['title', 'category'],
+  },
+};
+```
+
+**Key Design Choices:**
+- **Rich descriptions** - Help Claude understand when and how to use tools
+- **Optional parameters** - Flexible tool use (e.g., goal can have milestones OR not)
+- **Enums for constrained values** - Prevents invalid categories
+- **ISO 8601 dates** - Standard, parseable format
+
+---
+
+#### Tool Execution Flow
+
+**1. User has reflection session conversation:**
+```
+User: "I really want to get healthier. I've been thinking about running a 5K."
+AI: "That's a great goal! Running is excellent for both physical and mental health.
+     Should I create a goal for you to work toward a 5K, with some milestone steps?"
+User: "Yes, that would be helpful."
+```
+
+**2. Claude API returns tool_use block:**
+```json
+{
+  "type": "tool_use",
+  "id": "toolu_01A8...",
+  "name": "create_goal",
+  "input": {
+    "title": "Run a 5K race",
+    "description": "Build up running fitness to complete a 5-kilometer race",
+    "category": "health",
+    "target_date": "2025-06-01",
+    "milestones": [
+      {
+        "title": "Run 1 mile without stopping",
+        "target_date": "2025-02-15"
+      },
+      {
+        "title": "Run 2 miles comfortably",
+        "target_date": "2025-03-15"
+      },
+      {
+        "title": "Complete first 5K run (practice)",
+        "target_date": "2025-05-01"
+      }
+    ]
+  }
+}
+```
+
+**3. ReflectionActionService executes the tool:**
+
+**File:** `lib/services/reflection_action_service.dart`
+
+```dart
+Future<ActionResult> createGoal({
+  required String title,
+  String? description,
+  required String category,
+  DateTime? targetDate,
+  List<Map<String, dynamic>>? milestones,
+}) async {
+  try {
+    // Parse category enum
+    final goalCategory = GoalCategory.values.firstWhere(
+      (c) => c.name.toLowerCase() == category.toLowerCase(),
+      orElse: () => GoalCategory.personal,
+    );
+
+    // Parse milestones if provided
+    final parsedMilestones = <Milestone>[];
+    if (milestones != null) {
+      for (final m in milestones) {
+        parsedMilestones.add(Milestone(
+          id: _uuid.v4(),
+          title: m['title'] as String,
+          description: m['description'] as String?,
+          targetDate: m['target_date'] != null
+              ? DateTime.parse(m['target_date'] as String)
+              : null,
+          completed: false,
+        ));
+      }
+    }
+
+    // Create goal object
+    final goal = Goal(
+      id: _uuid.v4(),
+      title: title,
+      description: description ?? '',
+      category: goalCategory,
+      targetDate: targetDate,
+      milestonesDetailed: parsedMilestones,
+      status: GoalStatus.active,
+      createdAt: DateTime.now(),
+    );
+
+    // Add via GoalProvider (triggers persistence + UI update)
+    await goalProvider.addGoal(goal);
+
+    // Log success
+    await debugService.info(
+      'ReflectionActionService',
+      'Created goal via tool use: ${goal.title}',
+      metadata: {'goalId': goal.id, 'milestonesCount': parsedMilestones.length},
+    );
+
+    return ActionResult.success(
+      'Created goal: $title with ${parsedMilestones.length} milestones',
+      resultId: goal.id,
+      data: goal,
+    );
+  } catch (e, stackTrace) {
+    await debugService.error(
+      'ReflectionActionService',
+      'Failed to create goal via tool use',
+      error: e,
+      stackTrace: stackTrace,
+    );
+    return ActionResult.failure('Failed to create goal: $e');
+  }
+}
+```
+
+**4. Result returned to Claude API:**
+```json
+{
+  "type": "tool_result",
+  "tool_use_id": "toolu_01A8...",
+  "content": "Created goal: Run a 5K race with 3 milestones"
+}
+```
+
+**5. Claude continues conversation with confirmation:**
+```
+AI: "Perfect! I've created your 5K goal with three milestones to help you build up gradually:
+
+1. Run 1 mile without stopping (by mid-February)
+2. Run 2 miles comfortably (by mid-March)
+3. Complete a practice 5K (by early May)
+
+This gives you a structured path toward your race in June. How does this plan feel to you?"
+```
+
+**Result:** Goal now exists in app, visible in Goals screen, tracked by providers, persisted to storage.
+
+---
+
+#### System Prompt Guidance
+
+**File:** `lib/services/reflection_session_service.dart`
+
+The reflection session system prompt explicitly instructs Claude on tool use philosophy:
+
+```dart
+static const String _reflectionSystemPrompt = '''You are a compassionate, skilled mentor conducting a deep reflection session with the ability to take actions to help the user.
+
+AVAILABLE ACTIONS:
+You have access to tools that let you help the user directly:
+- Create/update/manage goals and milestones
+- Create/update/manage habits
+- Create custom check-in templates for tracking progress
+- Save important insights as journal entries
+- Schedule follow-up reminders
+
+USE TOOLS THOUGHTFULLY:
+- Only suggest actions when they genuinely serve the user
+- Always explain WHY you're suggesting an action before using a tool
+- Get implicit or explicit consent ("Should I create a goal for that?")
+- Don't overwhelm with too many actions at once (1-2 per conversation turn max)
+- Prioritize listening and understanding over action-taking
+- Tools are a means to support reflection, not replace it
+
+WORKFLOW:
+1. Listen deeply and ask clarifying questions
+2. Help user explore their thoughts and feelings
+3. When patterns emerge, suggest relevant interventions
+4. If user agrees, use tools to implement (create goal, habit, etc.)
+5. Confirm action was taken and continue reflection
+
+Remember: You're a mentor first, tool-user second. The reflection is more important than the actions.
+''';
+```
+
+**Key Principles:**
+- **Consent first** - Always ask before taking action
+- **Explain rationale** - User should understand why action is helpful
+- **Limit actions per turn** - Avoid overwhelming user with multiple tool uses
+- **Reflection > Action** - Tools support conversation, don't replace it
+- **Thoughtful use** - Only use tools when they genuinely serve the user
+
+---
+
+#### Orchestration in ReflectionSessionService
+
+**File:** `lib/services/reflection_session_service.dart`
+
+The service coordinates the full tool use flow:
+
+```dart
+Future<String> continueReflection(
+  ReflectionSession session,
+  String userMessage,
+) async {
+  // Add user message to session
+  session.addMessage(ChatMessage(
+    id: _uuid.v4(),
+    content: userMessage,
+    sender: MessageSender.user,
+    timestamp: DateTime.now(),
+  ));
+
+  // Build conversation history for API
+  final messages = session.messages.map((m) => {
+    'role': m.sender == MessageSender.user ? 'user' : 'assistant',
+    'content': m.content,
+  }).toList();
+
+  // Call Claude API with tool schemas
+  final response = await _ai.getCoachingResponseWithTools(
+    prompt: userMessage,
+    tools: ReflectionFunctionSchemas.allTools, // All 18 tool schemas
+    conversationHistory: messages,
+  );
+
+  // Check if Claude wants to use tools
+  if (response['tool_uses'] != null && response['tool_uses'].isNotEmpty) {
+    final toolResults = <Map<String, dynamic>>[];
+
+    // Execute each tool use
+    for (final toolUse in response['tool_uses']) {
+      final toolName = toolUse['name'] as String;
+      final toolInput = toolUse['input'] as Map<String, dynamic>;
+
+      // Route to appropriate action service method
+      final result = await _executeToolUse(toolName, toolInput);
+
+      toolResults.add({
+        'tool_use_id': toolUse['id'],
+        'result': result.success ? result.message : 'Error: ${result.message}',
+      });
+
+      // Track successful actions
+      if (result.success) {
+        session.addAction(toolName, toolInput, result);
+      }
+    }
+
+    // Send tool results back to Claude for final response
+    final finalResponse = await _ai.continueWithToolResults(
+      messages: messages,
+      toolResults: toolResults,
+    );
+
+    session.addMessage(ChatMessage(
+      id: _uuid.v4(),
+      content: finalResponse,
+      sender: MessageSender.ai,
+      timestamp: DateTime.now(),
+    ));
+
+    return finalResponse;
+  }
+
+  // No tool use - just add AI response
+  session.addMessage(ChatMessage(
+    id: _uuid.v4(),
+    content: response['text'],
+    sender: MessageSender.ai,
+    timestamp: DateTime.now(),
+  ));
+
+  return response['text'];
+}
+```
+
+**Flow Summary:**
+1. User sends message → Added to session
+2. API called with full tool schema
+3. If Claude returns `tool_use` blocks → Execute via `ReflectionActionService`
+4. Send `tool_result` blocks back to API
+5. Claude generates final response incorporating tool results
+6. Response shown to user with confirmation of actions taken
+
+---
+
+#### API Integration Details
+
+**File:** `lib/services/ai_service.dart`
+
+The `getCoachingResponseWithTools()` method handles tool-enabled API requests:
+
+```dart
+Future<Map<String, dynamic>> getCoachingResponseWithTools({
+  required String prompt,
+  required List<Map<String, dynamic>> tools,
+  List<Map<String, dynamic>>? conversationHistory,
+}) async {
+  try {
+    // Build messages array
+    final messages = [
+      if (conversationHistory != null) ...conversationHistory,
+      {'role': 'user', 'content': prompt},
+    ];
+
+    // API request body with tools
+    final body = json.encode({
+      'model': currentModel.apiName,
+      'max_tokens': 4096,
+      'system': _reflectionSystemPrompt, // From ReflectionSessionService
+      'messages': messages,
+      'tools': tools, // 18 tool schemas
+    });
+
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': _apiKey!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: body,
+    ).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode != 200) {
+      throw Exception('API error: ${response.statusCode} ${response.body}');
+    }
+
+    final data = json.decode(response.body);
+    final content = data['content'] as List;
+
+    // Parse response - may contain text AND tool_use blocks
+    String textResponse = '';
+    final toolUses = <Map<String, dynamic>>[];
+
+    for (final block in content) {
+      if (block['type'] == 'text') {
+        textResponse += block['text'] as String;
+      } else if (block['type'] == 'tool_use') {
+        toolUses.add({
+          'id': block['id'],
+          'name': block['name'],
+          'input': block['input'],
+        });
+      }
+    }
+
+    return {
+      'text': textResponse,
+      'tool_uses': toolUses,
+      'stop_reason': data['stop_reason'],
+    };
+  } catch (e) {
+    await _debug.error('AIService', 'Tool-enabled API call failed', error: e);
+    rethrow;
+  }
+}
+```
+
+**Key Points:**
+- Tool schemas passed in `tools` array
+- Response can contain both `text` and `tool_use` blocks
+- `tool_use` blocks extracted and returned separately
+- Service doesn't execute tools - that's `ReflectionActionService`'s job
+
+---
+
+#### Example Conversation with Multiple Tools
+
+**User:** "I want to focus on my health this year. I need to exercise more and eat better."
+
+**AI (text only, no tools yet):** "Those are important goals! Let's break this down. What specifically would 'exercise more' look like for you? And what aspects of eating better matter most?"
+
+**User:** "I want to work out 3 times a week and stop eating junk food."
+
+**AI (uses 2 tools):**
+
+*Tool 1: create_goal*
+```json
+{
+  "title": "Exercise 3x per week",
+  "category": "health",
+  "milestones": [
+    {"title": "Complete first week of 3 workouts"},
+    {"title": "Maintain for 1 month consistently"}
+  ]
+}
+```
+
+*Tool 2: create_habit*
+```json
+{
+  "title": "No junk food",
+  "description": "Avoid processed snacks and fast food"
+}
+```
+
+**AI (final response after tools execute):** "Great! I've set up two things to support your health focus:
+
+1. **Goal: Exercise 3x per week** with milestones for your first week and first month
+2. **Habit: No junk food** to track daily
+
+You'll see these in your Goals and Habits screens now. How does it feel to have these committed?"
+
+**Result:** User now has actionable tracking in place from a single conversation.
+
+---
+
+#### Expanding Tool Use Beyond Reflection Sessions
+
+**Current State:**
+- ✅ Reflection sessions: Full tool use enabled
+- ❌ Regular chat: Tool use NOT enabled
+- ❌ Mentor intelligence: No tool use (pattern detection only)
+
+**Why Not Enabled Everywhere:**
+- Reflection sessions are high-intent (user explicitly seeking deep coaching)
+- Regular chat is more exploratory (enabling tools might feel too aggressive)
+- Design decision to keep tools in high-value context
+
+**Future Enhancement Opportunity:**
+
+To enable tool use in regular chat (`ChatScreen`), modify:
+
+**1. Update ChatProvider** (`lib/providers/chat_provider.dart`):
+```dart
+// In generateContextualResponse()
+final response = await _ai.getCoachingResponseWithTools(
+  prompt: userMessage,
+  tools: ReflectionFunctionSchemas.allTools, // Add this
+  conversationHistory: _currentConversation?.messages.map(...).toList(),
+);
+
+// Handle tool_uses in response
+if (response['tool_uses'] != null) {
+  final actionService = ReflectionActionService();
+  // Execute tools and get results
+  // Send tool results back to API for final response
+}
+```
+
+**2. Update System Prompt:**
+- Add tool use guidance to chat system prompt
+- Emphasize even more conservative tool use than reflection sessions
+- Require explicit user consent for any action
+
+**Considerations:**
+- May increase API costs (larger requests with tool schemas)
+- Risk of AI being too proactive (annoying vs helpful)
+- Need very clear consent mechanisms in UI
+- Consider limiting tools in chat (e.g., only create_goal, create_habit, not delete operations)
+
+---
+
+#### Monitoring and Debugging Tool Use
+
+**Debug Logging:**
+
+All tool executions are logged via `DebugService`:
+
+```dart
+await debugService.info(
+  'ReflectionActionService',
+  'Created goal via tool use: ${goal.title}',
+  metadata: {
+    'goalId': goal.id,
+    'toolName': 'create_goal',
+    'milestonesCount': parsedMilestones.length,
+  },
+);
+```
+
+**Check Debug Console:**
+1. Settings → Debug Settings → Debug Console
+2. Filter for "ReflectionActionService"
+3. View all tool executions with metadata
+
+**Common Issues:**
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Tool not executing | API key doesn't support tool use | Upgrade to Sonnet 4.5 or Opus 4 |
+| Invalid category error | Claude returns category not in enum | Update enum or add fallback |
+| Milestone parsing fails | Date format mismatch | Validate ISO 8601 format |
+| Goal created but not visible | Provider not notifying listeners | Check `notifyListeners()` calls |
+| Tool result not sent back | Missing tool_result API call | Verify `continueWithToolResults()` |
+
+**Testing Tool Use:**
+
+```bash
+# 1. Start reflection session in app
+# 2. Say something like: "I want to learn Spanish"
+# 3. AI should suggest creating a goal
+# 4. Check Debug Console for tool execution logs
+
+# Expected log:
+# [INFO] ReflectionActionService: Created goal via tool use: Learn Spanish
+# [INFO] GoalProvider: Goal added: Learn Spanish (id: abc-123)
+```
+
+---
+
+#### Benefits of This Architecture
+
+**For Users:**
+- ✅ Frictionless action-taking (AI "just does it")
+- ✅ Reduces cognitive load (don't need to remember to create goal)
+- ✅ Maintains momentum in conversation
+- ✅ More natural interaction (like talking to a real coach)
+
+**For Developers:**
+- ✅ Centralized tool definitions (`reflection_function_schemas.dart`)
+- ✅ Clear separation of concerns (schemas → execution → orchestration)
+- ✅ Easy to add new tools (just add schema + action method)
+- ✅ Comprehensive error handling and logging
+- ✅ Type-safe execution via Dart models
+
+**For AI:**
+- ✅ Well-defined capabilities (knows exactly what it can do)
+- ✅ Structured parameters (reduces hallucination risk)
+- ✅ Clear success/failure feedback (learns from tool results)
+
+---
+
+#### Adding New Tools
+
+**To add a new tool (example: `create_wellness_plan`):**
+
+**1. Define schema** (`lib/services/reflection_function_schemas.dart`):
+```dart
+static const Map<String, dynamic> createWellnessPlanTool = {
+  'name': 'create_wellness_plan',
+  'description': 'Creates a personalized wellness plan with recommended interventions',
+  'input_schema': {
+    'type': 'object',
+    'properties': {
+      'focus_areas': {
+        'type': 'array',
+        'items': {'type': 'string'},
+        'description': 'Areas to focus on (e.g., ["anxiety", "sleep", "exercise"])',
+      },
+      'duration_weeks': {
+        'type': 'integer',
+        'description': 'Plan duration in weeks',
+      },
+    },
+    'required': ['focus_areas'],
+  },
+};
+
+// Add to allTools list
+static List<Map<String, dynamic>> get allTools => [
+  createGoalTool,
+  // ... existing tools
+  createWellnessPlanTool, // ADD HERE
+];
+```
+
+**2. Implement execution** (`lib/services/reflection_action_service.dart`):
+```dart
+Future<ActionResult> createWellnessPlan({
+  required List<String> focusAreas,
+  int durationWeeks = 4,
+}) async {
+  try {
+    // Implementation logic
+    // - Create WellnessPlan model
+    // - Add recommended interventions
+    // - Set up tracking schedule
+    // - Persist via provider
+
+    return ActionResult.success(
+      'Created $durationWeeks-week wellness plan focusing on: ${focusAreas.join(", ")}',
+      resultId: plan.id,
+      data: plan,
+    );
+  } catch (e) {
+    return ActionResult.failure('Failed to create wellness plan: $e');
+  }
+}
+```
+
+**3. Route in orchestration** (`lib/services/reflection_session_service.dart`):
+```dart
+Future<ActionResult> _executeToolUse(
+  String toolName,
+  Map<String, dynamic> input,
+) async {
+  switch (toolName) {
+    case 'create_goal':
+      return await _actionService.createGoal(/* ... */);
+    // ... existing cases
+    case 'create_wellness_plan': // ADD HERE
+      return await _actionService.createWellnessPlan(
+        focusAreas: (input['focus_areas'] as List).cast<String>(),
+        durationWeeks: input['duration_weeks'] as int? ?? 4,
+      );
+    default:
+      return ActionResult.failure('Unknown tool: $toolName');
+  }
+}
+```
+
+**4. Test the tool:**
+- Start reflection session
+- Mention wellness goals
+- AI should suggest creating a plan
+- Verify plan is created and persisted
+
 ---
 
 ## Key Features
@@ -1444,6 +2360,219 @@ When working on this codebase, adhere to Flutter best practices including:
   - Use `async`/`await` properly
   - Handle errors with try-catch blocks
   - Show loading states during async operations
+
+### UI Layout Best Practices
+
+**CRITICAL:** Screens frequently get obscured by the bottom navigation bar or keyboard. **ALWAYS** follow these guidelines when creating new screens:
+
+#### 1. Use SafeArea for System UI
+
+Wrap screen content in `SafeArea` to avoid system UI overlays (status bar, notches, etc.):
+
+```dart
+// ✅ CORRECT
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text('My Screen')),
+    body: SafeArea(
+      child: ListView(
+        padding: EdgeInsets.all(16),
+        children: [
+          // Your content here
+        ],
+      ),
+    ),
+  );
+}
+
+// ❌ WRONG - Content may be obscured
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text('My Screen')),
+    body: ListView(
+      children: [
+        // Content may be hidden behind system UI
+      ],
+    ),
+  );
+}
+```
+
+#### 2. Account for Bottom Navigation Bar
+
+When the app has a bottom navigation bar, content MUST have adequate padding:
+
+```dart
+// ✅ CORRECT - Adequate bottom padding
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: Text('Crisis Resources')),
+    body: SafeArea(
+      child: ListView(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: 100, // CRITICAL: Extra padding for bottom nav (80px) + spacing
+        ),
+        children: [
+          // Your content here
+        ],
+      ),
+    ),
+  );
+}
+
+// ❌ WRONG - Content will be hidden behind bottom nav
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: ListView(
+      padding: EdgeInsets.all(16), // Only 16px padding - NOT ENOUGH
+      children: [
+        // Last items will be obscured by bottom nav
+      ],
+    ),
+  );
+}
+```
+
+#### 3. Handle Keyboard Overlays
+
+For screens with input fields, ensure content resizes when keyboard appears:
+
+```dart
+// ✅ CORRECT
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    resizeToAvoidBottomInset: true, // DEFAULT but be explicit
+    appBar: AppBar(title: Text('Edit Goal')),
+    body: SafeArea(
+      child: SingleChildScrollView( // CRITICAL: Allows scrolling when keyboard appears
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 100, // Keyboard + nav bar
+        ),
+        child: Column(
+          children: [
+            TextField(/* ... */),
+            // More fields
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// ❌ WRONG - Fields obscured by keyboard
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Column(
+      children: [
+        TextField(/* ... */),
+        // Will be hidden behind keyboard
+      ],
+    ),
+  );
+}
+```
+
+#### 4. Bottom Padding Constants
+
+Use these constants for consistent bottom padding:
+
+```dart
+// Recommended padding values
+const double bottomNavHeight = 80.0;
+const double safeBottomPadding = 100.0; // bottomNavHeight + 20px spacing
+const double bottomPaddingWithKeyboard = 16.0; // Minimal when keyboard visible
+
+// Usage
+ListView(
+  padding: EdgeInsets.only(
+    left: 16,
+    right: 16,
+    top: 16,
+    bottom: safeBottomPadding, // Use constant
+  ),
+  children: [/* ... */],
+)
+```
+
+#### 5. Testing Checklist
+
+When creating or modifying screens, **ALWAYS** test:
+
+- [ ] Scroll to bottom of screen - last item should be fully visible above bottom nav
+- [ ] Open keyboard (if input fields present) - fields should scroll into view
+- [ ] Test on different screen sizes (use Flutter DevTools for device emulation)
+- [ ] Test with bottom navigation bar visible (most screens in this app)
+- [ ] Verify `SafeArea` is present if system UI could overlap content
+
+#### 6. Common Screen Types
+
+**Full-screen lists (e.g., Crisis Resources, Goal List):**
+```dart
+Scaffold(
+  appBar: AppBar(/* ... */),
+  body: SafeArea(
+    child: ListView(
+      padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 100),
+      children: [/* ... */],
+    ),
+  ),
+)
+```
+
+**Forms with input (e.g., Add Goal Dialog):**
+```dart
+Scaffold(
+  appBar: AppBar(/* ... */),
+  resizeToAvoidBottomInset: true,
+  body: SafeArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 100,
+      ),
+      child: Form(/* ... */),
+    ),
+  ),
+)
+```
+
+**Modal bottom sheets:**
+```dart
+showModalBottomSheet(
+  context: context,
+  isScrollControlled: true, // CRITICAL for tall sheets
+  builder: (context) => Padding(
+    padding: EdgeInsets.only(
+      bottom: MediaQuery.of(context).viewInsets.bottom, // Keyboard padding
+    ),
+    child: SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(/* ... */),
+    ),
+  ),
+)
+```
+
+#### 7. Known Issues to Avoid
+
+**Crisis Resources Screen Example:**
+- Screen content was sitting under bottom nav bar
+- Fix: Add `bottom: 100` padding to ListView
+- Always verify after implementation!
 
 ### Testing & Regression Prevention
 

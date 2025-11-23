@@ -4,6 +4,10 @@ import '../models/clinical_assessment.dart';
 import '../providers/assessment_provider.dart';
 import '../services/assessment_service.dart';
 import '../theme/app_spacing.dart';
+import 'behavioral_activation_screen.dart';
+import 'worry_time_screen.dart';
+import 'gratitude_journal_screen.dart';
+import 'self_compassion_screen.dart';
 
 /// Unified screen for clinical assessments (PHQ-9, GAD-7, PSS-10)
 ///
@@ -680,6 +684,57 @@ class AssessmentResultScreen extends StatelessWidget {
 
           const SizedBox(height: AppSpacing.md),
 
+          // Recommended Interventions
+          if (result.severity != SeverityLevel.none) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.spa,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'Recommended Actions',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Based on your assessment, these evidence-based interventions can help:',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    ..._getRecommendedInterventions(context, result.type, result.severity).map(
+                      (intervention) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: _buildInterventionCard(
+                          context,
+                          icon: intervention['icon'] as IconData,
+                          title: intervention['title'] as String,
+                          description: intervention['description'] as String,
+                          color: intervention['color'] as Color,
+                          onTap: intervention['onTap'] as VoidCallback,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+
           // Crisis warning if triggered
           if (result.triggeredCrisisProtocol) ...[
             Card(
@@ -787,6 +842,285 @@ class AssessmentResultScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _getRecommendedInterventions(
+    BuildContext context,
+    AssessmentType type,
+    SeverityLevel severity,
+  ) {
+    final interventions = <Map<String, dynamic>>[];
+
+    // Depression interventions (PHQ-9)
+    if (type == AssessmentType.phq9) {
+      if (severity == SeverityLevel.minimal || severity == SeverityLevel.mild) {
+        interventions.add({
+          'icon': Icons.favorite,
+          'title': 'Gratitude Practice',
+          'description': 'Write 3 good things daily to shift focus toward positives',
+          'color': Colors.pink,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const GratitudeJournalScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.directions_run,
+          'title': 'Behavioral Activation',
+          'description': 'Schedule pleasant activities to improve mood',
+          'color': Colors.green,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BehavioralActivationScreen()),
+          ),
+        });
+      } else if (severity == SeverityLevel.moderate ||
+          severity == SeverityLevel.moderatelySevere) {
+        interventions.add({
+          'icon': Icons.directions_run,
+          'title': 'Behavioral Activation (Recommended)',
+          'description': 'Proven effective for moderate depression - schedule activities that bring meaning',
+          'color': Colors.green,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BehavioralActivationScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.self_improvement,
+          'title': 'Self-Compassion Exercises',
+          'description': 'Treat yourself with kindness instead of harsh self-criticism',
+          'color': Colors.purple,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SelfCompassionScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.phone,
+          'title': 'Talk to Your GP',
+          'description': 'Your score suggests professional support could help. Consider booking an appointment.',
+          'color': Colors.blue,
+          'onTap': () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Contact your GP surgery to book an appointment for mental health support'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          },
+        });
+      } else if (severity == SeverityLevel.severe) {
+        interventions.add({
+          'icon': Icons.emergency,
+          'title': 'Seek Professional Help Urgently',
+          'description': 'Contact your GP urgently or call NHS 111 for mental health support',
+          'color': Colors.red,
+          'onTap': () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please contact your GP, NHS 111, or Samaritans (116 123) for immediate support'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          },
+        });
+      }
+    }
+
+    // Anxiety interventions (GAD-7)
+    if (type == AssessmentType.gad7) {
+      if (severity == SeverityLevel.minimal || severity == SeverityLevel.mild) {
+        interventions.add({
+          'icon': Icons.schedule,
+          'title': 'Worry Time',
+          'description': 'Contain anxiety with 15-minute designated worry practice',
+          'color': Colors.deepPurple,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const WorryTimeScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.self_improvement,
+          'title': 'Self-Compassion',
+          'description': 'Reduce self-criticism that fuels anxiety',
+          'color': Colors.purple,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SelfCompassionScreen()),
+          ),
+        });
+      } else if (severity == SeverityLevel.moderate) {
+        interventions.add({
+          'icon': Icons.schedule,
+          'title': 'Worry Time (Recommended)',
+          'description': 'Evidence-based for GAD - schedule daily worry time to contain anxious thoughts',
+          'color': Colors.deepPurple,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const WorryTimeScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.directions_run,
+          'title': 'Physical Activity',
+          'description': 'Exercise reduces anxiety - try behavioral activation to schedule activities',
+          'color': Colors.green,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BehavioralActivationScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.phone,
+          'title': 'Consider Professional Support',
+          'description': 'CBT for anxiety is very effective. Talk to your GP about referral options.',
+          'color': Colors.blue,
+          'onTap': () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('CBT (Cognitive Behavioral Therapy) is highly effective for anxiety disorders'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          },
+        });
+      } else if (severity == SeverityLevel.severe) {
+        interventions.add({
+          'icon': Icons.emergency,
+          'title': 'Seek Professional Help',
+          'description': 'Your anxiety is severe. Please contact your GP or NHS 111',
+          'color': Colors.red,
+          'onTap': () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please contact your GP or NHS 111 for anxiety support'),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          },
+        });
+      }
+    }
+
+    // Stress interventions (PSS-10)
+    if (type == AssessmentType.pss10) {
+      if (severity == SeverityLevel.mild || severity == SeverityLevel.moderate) {
+        interventions.add({
+          'icon': Icons.self_improvement,
+          'title': 'Self-Compassion Breaks',
+          'description': 'Practice self-kindness when feeling overwhelmed',
+          'color': Colors.purple,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SelfCompassionScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.directions_run,
+          'title': 'Pleasant Activities',
+          'description': 'Schedule activities that help you recharge and decompress',
+          'color': Colors.green,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BehavioralActivationScreen()),
+          ),
+        });
+        interventions.add({
+          'icon': Icons.favorite,
+          'title': 'Gratitude Practice',
+          'description': 'Shift perspective by noting what\'s going well',
+          'color': Colors.pink,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const GratitudeJournalScreen()),
+          ),
+        });
+      } else if (severity == SeverityLevel.severe) {
+        interventions.add({
+          'icon': Icons.phone,
+          'title': 'Talk to Someone',
+          'description': 'High stress can lead to burnout. Consider talking to your GP or a counselor.',
+          'color': Colors.orange,
+          'onTap': () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Chronic high stress benefits from professional support. Contact your GP.'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          },
+        });
+        interventions.add({
+          'icon': Icons.self_improvement,
+          'title': 'Self-Compassion Practice',
+          'description': 'Be kind to yourself during this difficult time',
+          'color': Colors.purple,
+          'onTap': () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SelfCompassionScreen()),
+          ),
+        });
+      }
+    }
+
+    return interventions;
+  }
+
+  Widget _buildInterventionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 0,
+      color: color.withValues(alpha: 0.1),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios, size: 16, color: color),
+            ],
+          ),
+        ),
       ),
     );
   }

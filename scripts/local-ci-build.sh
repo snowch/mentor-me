@@ -107,21 +107,31 @@ flutter pub get > /dev/null
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 echo ""
 
-# Step 4: Run Flutter analyzer
-echo -e "${YELLOW}[4/9] Running Flutter analyzer...${NC}"
-if flutter analyze --no-fatal-infos 2>&1 | tee /tmp/flutter-analyze.log; then
-  echo -e "${GREEN}✓ Analyzer passed${NC}"
+# Step 4: Run Flutter analyzer (production code only)
+echo -e "${YELLOW}[4/9] Running Flutter analyzer (lib/ only)...${NC}"
+if flutter analyze --no-fatal-infos --no-fatal-warnings lib/ 2>&1 | tee /tmp/flutter-analyze.log; then
+  echo -e "${GREEN}✓ Analyzer passed (no compilation errors)${NC}"
+
+  # Count warnings/info for informational purposes
+  WARNING_COUNT=$(grep -c "warning •" /tmp/flutter-analyze.log || echo "0")
+  INFO_COUNT=$(grep -c "info •" /tmp/flutter-analyze.log || echo "0")
+
+  if [ "$WARNING_COUNT" -gt "0" ] || [ "$INFO_COUNT" -gt "0" ]; then
+    echo -e "${BLUE}  Note: Found $WARNING_COUNT warnings, $INFO_COUNT info messages (non-blocking)${NC}"
+  fi
 else
   ERROR_COUNT=$(grep -c "error •" /tmp/flutter-analyze.log || echo "0")
   WARNING_COUNT=$(grep -c "warning •" /tmp/flutter-analyze.log || echo "0")
   INFO_COUNT=$(grep -c "info •" /tmp/flutter-analyze.log || echo "0")
 
-  echo -e "${YELLOW}⚠ Analyzer found issues:${NC}"
+  echo -e "${RED}✗ Analyzer found COMPILATION ERRORS:${NC}"
   echo "  - Errors: $ERROR_COUNT"
-  echo "  - Warnings: $WARNING_COUNT"
-  echo "  - Info: $INFO_COUNT"
+  echo "  - Warnings: $WARNING_COUNT (non-blocking)"
+  echo "  - Info: $INFO_COUNT (non-blocking)"
   echo ""
-  echo -e "${BLUE}Note: CI/CD continues on analyzer warnings (continue-on-error: true)${NC}"
+  echo -e "${RED}This would FAIL the CI/CD build!${NC}"
+  echo -e "${RED}Fix compilation errors before committing.${NC}"
+  exit 1
 fi
 echo ""
 

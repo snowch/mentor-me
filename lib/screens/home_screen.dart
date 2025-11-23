@@ -20,6 +20,8 @@ import 'settings_screen.dart' as settings;
 import 'mentor_screen.dart';
 import 'ai_settings_screen.dart';
 import 'analytics_screen.dart';
+import 'wellness_dashboard_screen.dart';
+import 'crisis_resources_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -366,6 +368,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
         actions: [
+          // Crisis Resources - Always accessible
+          Tooltip(
+            message: 'Get urgent support',
+            child: IconButton(
+              icon: Icon(
+                Icons.sos,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CrisisResourcesScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
           // Auto-Backup Status Icon (Optional) - Shows when backup is running
           Consumer<SettingsProvider>(
             builder: (context, settingsProvider, child) {
@@ -481,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           const JournalScreen(),
           const HabitsScreen(),
           const GoalsScreen(),
-          const AnalyticsScreen(),
+          const WellnessDashboardScreen(),
           const settings.SettingsScreen(),
         ],
       ),
@@ -510,9 +530,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: AppStrings.featureGoals,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.analytics_outlined),
-            selectedIcon: const Icon(Icons.analytics),
-            label: 'Analytics',
+            icon: const Icon(Icons.spa_outlined),
+            selectedIcon: const Icon(Icons.spa),
+            label: 'Wellness',
           ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),
