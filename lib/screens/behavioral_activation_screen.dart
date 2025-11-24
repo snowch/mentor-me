@@ -23,7 +23,7 @@ class _BehavioralActivationScreenState
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -49,6 +49,7 @@ class _BehavioralActivationScreenState
           tabs: const [
             Tab(text: 'Activity Library', icon: Icon(Icons.library_books)),
             Tab(text: 'Schedule', icon: Icon(Icons.calendar_today)),
+            Tab(text: 'Insights', icon: Icon(Icons.analytics)),
           ],
         ),
       ),
@@ -88,6 +89,7 @@ class _BehavioralActivationScreenState
               children: [
                 _ActivityLibraryTab(),
                 _ScheduledActivitiesTab(),
+                _InsightsTab(),
               ],
             ),
           ),
@@ -538,6 +540,321 @@ class _ScheduledActivitiesTab extends StatelessWidget {
           divisions: 4,
           label: ['😢', '😕', '😐', '🙂', '😊'][value != null ? value - 1 : 2],
           onChanged: (v) => onChanged(v.toInt()),
+        ),
+      ],
+    );
+  }
+}
+
+class _InsightsTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BehavioralActivationProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final completedActivities = provider.completedActivities;
+        final avgMoodImprovement = provider.averageMoodImprovement;
+        final effectiveCategories = provider.getMostEffectiveCategories();
+
+        if (completedActivities.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.analytics,
+                    size: 100,
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'No Insights Yet',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  const Text(
+                    'Complete activities to see mood tracking insights',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
+            // Average mood improvement card
+            if (avgMoodImprovement != null) ...[
+              Card(
+                color: avgMoodImprovement > 0
+                    ? Colors.green.shade50
+                    : avgMoodImprovement < 0
+                        ? Colors.orange.shade50
+                        : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            avgMoodImprovement > 0
+                                ? Icons.trending_up
+                                : avgMoodImprovement < 0
+                                    ? Icons.trending_down
+                                    : Icons.trending_flat,
+                            size: 48,
+                            color: avgMoodImprovement > 0
+                                ? Colors.green
+                                : avgMoodImprovement < 0
+                                    ? Colors.orange
+                                    : Colors.grey,
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Average Mood Change',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              Text(
+                                '${avgMoodImprovement > 0 ? '+' : ''}${avgMoodImprovement.toStringAsFixed(1)} points',
+                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  color: avgMoodImprovement > 0
+                                      ? Colors.green.shade700
+                                      : avgMoodImprovement < 0
+                                          ? Colors.orange.shade700
+                                          : Colors.grey.shade700,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        avgMoodImprovement > 0
+                            ? 'Activities are improving your mood!'
+                            : avgMoodImprovement < 0
+                                ? 'Consider adjusting your activity choices'
+                                : 'Keep tracking to see trends',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: avgMoodImprovement > 0
+                              ? Colors.green.shade700
+                              : avgMoodImprovement < 0
+                                  ? Colors.orange.shade700
+                                  : Colors.grey.shade700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
+            // Most effective activity categories
+            if (effectiveCategories.isNotEmpty) ...[
+              Text(
+                'Activities That Boost Your Mood',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Categories ranked by mood improvement',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ...effectiveCategories.take(5).map((entry) {
+                final category = entry.key;
+                final avgChange = entry.value;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: ListTile(
+                    leading: Text(category.emoji, style: const TextStyle(fontSize: 32)),
+                    title: Text(category.displayName),
+                    subtitle: Text(
+                      '${avgChange > 0 ? '+' : ''}${avgChange.toStringAsFixed(1)} average mood change',
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: avgChange > 0
+                            ? Colors.green.shade100
+                            : avgChange < 0
+                                ? Colors.orange.shade100
+                                : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        avgChange > 0 ? '↑' : avgChange < 0 ? '↓' : '→',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: avgChange > 0
+                              ? Colors.green.shade700
+                              : avgChange < 0
+                                  ? Colors.orange.shade700
+                                  : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
+            // Recent completed activities
+            Text(
+              'Recent Activities',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Last ${completedActivities.take(10).length} completed',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ...completedActivities.take(10).map((scheduled) {
+              final activity = provider.activities.firstWhere(
+                (a) => a.id == scheduled.activityId,
+                orElse: () => Activity(
+                  name: scheduled.activityName,
+                  category: ActivityCategory.other,
+                ),
+              );
+
+              final moodChange = scheduled.moodChange;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(activity.category.emoji, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              activity.name,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          if (moodChange != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.sm,
+                                vertical: AppSpacing.xs,
+                              ),
+                              decoration: BoxDecoration(
+                                color: moodChange > 0
+                                    ? Colors.green.shade100
+                                    : moodChange < 0
+                                        ? Colors.orange.shade100
+                                        : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${moodChange > 0 ? '+' : ''}$moodChange',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: moodChange > 0
+                                      ? Colors.green.shade700
+                                      : moodChange < 0
+                                          ? Colors.orange.shade700
+                                          : Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            'Completed ${DateFormat('MMM d, h:mm a').format(scheduled.completedAt!)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      if (scheduled.moodBefore != null && scheduled.moodAfter != null) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            _buildMoodIndicator(
+                              context,
+                              'Before',
+                              scheduled.moodBefore!,
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            const Icon(Icons.arrow_forward, size: 16),
+                            const SizedBox(width: AppSpacing.md),
+                            _buildMoodIndicator(
+                              context,
+                              'After',
+                              scheduled.moodAfter!,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMoodIndicator(BuildContext context, String label, int mood) {
+    final emojis = ['😢', '😕', '😐', '🙂', '😊'];
+
+    return Row(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          emojis[mood - 1],
+          style: const TextStyle(fontSize: 20),
         ),
       ],
     );

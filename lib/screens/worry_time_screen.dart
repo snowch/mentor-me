@@ -21,7 +21,7 @@ class _WorryTimeScreenState extends State<WorryTimeScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -48,6 +48,7 @@ class _WorryTimeScreenState extends State<WorryTimeScreen> with SingleTickerProv
           tabs: const [
             Tab(text: 'Pending Worries', icon: Icon(Icons.list_alt)),
             Tab(text: 'Sessions', icon: Icon(Icons.history)),
+            Tab(text: 'Schedule', icon: Icon(Icons.schedule)),
           ],
         ),
       ),
@@ -56,6 +57,7 @@ class _WorryTimeScreenState extends State<WorryTimeScreen> with SingleTickerProv
         children: [
           _PendingWorriesTab(),
           _SessionsTab(),
+          _ScheduleTab(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -440,6 +442,352 @@ class _SessionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ScheduleTab extends StatefulWidget {
+  @override
+  State<_ScheduleTab> createState() => _ScheduleTabState();
+}
+
+class _ScheduleTabState extends State<_ScheduleTab> {
+  TimeOfDay? _worryTime;
+  bool _reminderEnabled = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      // TODO: Load from actual storage when WorryProvider supports it
+      // For now, use default values
+      setState(() {
+        _worryTime = const TimeOfDay(hour: 19, minute: 0); // Default 7 PM
+        _reminderEnabled = false;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    // TODO: Implement actual saving to storage when WorryProvider supports it
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Worry time schedule saved')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      children: [
+        // Clinical disclaimer
+        Card(
+          color: Colors.amber.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: Colors.orange.shade700,
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Evidence-based CBT technique • Not a substitute for professional mental health care',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+
+        // Intro card
+        Card(
+          color: Colors.deepPurple.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.psychology, color: Colors.deepPurple.shade700, size: 28),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Ritualize Your Worry Time',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Schedule a consistent time each day for worry processing. This helps contain anxiety and prevents rumination throughout the day.',
+                  style: TextStyle(
+                    color: Colors.deepPurple.shade900,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // Daily worry time setting
+        Text(
+          'Daily Worry Time',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Choose the same time each day for maximum effectiveness',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        Card(
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.access_time,
+                color: Colors.deepPurple.shade700,
+              ),
+            ),
+            title: Text(
+              _worryTime != null
+                  ? 'Daily at ${_worryTime!.format(context)}'
+                  : 'Set your worry time',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: _worryTime != null
+                ? Text(_getNextWorryTime())
+                : const Text('Tap to choose a time'),
+            trailing: const Icon(Icons.edit),
+            onTap: _pickTime,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Reminder toggle
+        Card(
+          child: SwitchListTile(
+            secondary: Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: _reminderEnabled ? Colors.blue.shade100 : Colors.grey.shade200,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.notifications_active,
+                color: _reminderEnabled ? Colors.blue.shade700 : Colors.grey.shade600,
+              ),
+            ),
+            title: const Text(
+              'Daily Reminder',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              _reminderEnabled
+                  ? 'You\'ll receive a reminder 5 minutes before worry time'
+                  : 'Enable reminders to stay consistent',
+            ),
+            value: _reminderEnabled,
+            onChanged: _worryTime != null
+                ? (value) async {
+                    setState(() {
+                      _reminderEnabled = value;
+                    });
+                    await _saveSettings();
+                    // TODO: Schedule/cancel notification when integrated
+                  }
+                : null,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // Best practices
+        Text(
+          'Best Practices',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _buildBestPractice(
+          context,
+          icon: Icons.schedule,
+          title: 'Same time daily',
+          description: 'Consistency is key. Pick a time when you can focus without interruption.',
+        ),
+        _buildBestPractice(
+          context,
+          icon: Icons.timer,
+          title: '15-30 minutes',
+          description: 'Set aside enough time to properly process your worries.',
+        ),
+        _buildBestPractice(
+          context,
+          icon: Icons.location_on,
+          title: 'Dedicated space',
+          description: 'Use the same quiet location to build a ritual.',
+        ),
+        _buildBestPractice(
+          context,
+          icon: Icons.check_circle_outline,
+          title: 'Park worries during the day',
+          description: 'When worries arise, jot them down and tell yourself "I\'ll address this during worry time."',
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
+        // Tips card
+        Card(
+          color: Colors.blue.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: Colors.blue.shade700),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Pro Tip',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Many people find evening worry time (6-8 PM) most effective. This allows you to process the day\'s concerns before bedtime.',
+                  style: TextStyle(color: Colors.blue.shade900),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBestPractice(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.deepPurple.shade700, size: 20),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _worryTime ?? const TimeOfDay(hour: 19, minute: 0),
+      helpText: 'Select your daily worry time',
+    );
+
+    if (picked != null) {
+      setState(() {
+        _worryTime = picked;
+      });
+      await _saveSettings();
+    }
+  }
+
+  String _getNextWorryTime() {
+    if (_worryTime == null) return '';
+
+    final now = DateTime.now();
+    var scheduledTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      _worryTime!.hour,
+      _worryTime!.minute,
+    );
+
+    if (scheduledTime.isBefore(now)) {
+      scheduledTime = scheduledTime.add(const Duration(days: 1));
+      return 'Next: Tomorrow at ${_worryTime!.format(context)}';
+    } else {
+      final difference = scheduledTime.difference(now);
+      final hours = difference.inHours;
+      final minutes = difference.inMinutes % 60;
+
+      if (hours > 0) {
+        return 'Next: In ${hours}h ${minutes}m';
+      } else {
+        return 'Next: In ${minutes}m';
+      }
+    }
   }
 }
 

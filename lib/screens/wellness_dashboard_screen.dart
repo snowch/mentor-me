@@ -25,7 +25,12 @@ class WellnessDashboardScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.only(
+          left: AppSpacing.md,
+          right: AppSpacing.md,
+          top: AppSpacing.md,
+          bottom: 100, // Extra padding for bottom nav (80px) + spacing (20px)
+        ),
         children: [
           Text(
             'Evidence-Based Interventions',

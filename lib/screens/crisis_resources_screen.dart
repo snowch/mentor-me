@@ -29,7 +29,12 @@ class CrisisResourcesScreen extends StatelessWidget {
         foregroundColor: theme.colorScheme.onErrorContainer,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.only(
+          left: AppSpacing.lg,
+          right: AppSpacing.lg,
+          top: AppSpacing.lg,
+          bottom: 100, // Extra padding for bottom nav (80px) + spacing (20px)
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
