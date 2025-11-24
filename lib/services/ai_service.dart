@@ -365,23 +365,45 @@ User: $prompt
 
 CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for simple questions, 4-5 for complex ones. Use markdown: **bold**, *italic*, bullets. Get to the point fast.''';
 
-    await _debug.info('AIService', 'Local AI inference requested', metadata: {
-      'promptLength': prompt.length,
-      'contextTokens': contextResult.estimatedTokens,
-      'itemCounts': contextResult.itemCounts,
-    });
+    // Log full LLM request
+    await _debug.logLLMRequest(
+      provider: 'local',
+      model: 'gemma-3-1b',
+      prompt: fullPrompt,
+      estimatedTokens: contextResult.estimatedTokens + _contextService.estimateTokens(prompt),
+      contextItemCounts: contextResult.itemCounts,
+      hasTools: false,
+    );
+
+    final startTime = DateTime.now();
 
     try {
       // Run inference with local model
       final response = await localAI.runInference(fullPrompt);
+      final duration = DateTime.now().difference(startTime);
 
-      await _debug.info('AIService', 'Local AI response received', metadata: {
-        'responseLength': response.length,
-        'estimatedResponseTokens': _contextService.estimateTokens(response),
-      });
+      // Log full LLM response
+      await _debug.logLLMResponse(
+        provider: 'local',
+        model: 'gemma-3-1b',
+        response: response,
+        estimatedTokens: _contextService.estimateTokens(response),
+        duration: duration,
+      );
 
       return response;
     } catch (e, stackTrace) {
+      final duration = DateTime.now().difference(startTime);
+
+      // Log error response
+      await _debug.logLLMResponse(
+        provider: 'local',
+        model: 'gemma-3-1b',
+        response: '',
+        duration: duration,
+        error: e.toString(),
+      );
+
       await _debug.error(
         'AIService',
         'Local AI error: ${e.toString()}',
@@ -425,13 +447,15 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
       debugPrint('Making request to: $url');
       debugPrint('Using model: $_selectedModel');
 
-      // Log the API request
-      await _debug.info('AIService', 'Cloud AI request', metadata: {
-        'model': _selectedModel,
-        'promptLength': prompt.length,
-        'contextTokens': contextResult.estimatedTokens,
-        'itemCounts': contextResult.itemCounts,
-      });
+      // Log full LLM request
+      await _debug.logLLMRequest(
+        provider: 'cloud',
+        model: _selectedModel,
+        prompt: fullPrompt,
+        estimatedTokens: contextResult.estimatedTokens + _contextService.estimateTokens(prompt),
+        contextItemCounts: contextResult.itemCounts,
+        hasTools: false,
+      );
 
       final startTime = DateTime.now();
 
@@ -469,13 +493,14 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
         _lastCloudError = null;
         _lastCloudErrorTime = null;
 
-        // Log successful response
-        await _debug.info('AIService', 'Cloud AI response received', metadata: {
-          'responseLength': responseText.length,
-          'estimatedResponseTokens': _contextService.estimateTokens(responseText),
-          'model': _selectedModel,
-          'duration': '${duration.inMilliseconds}ms',
-        });
+        // Log full LLM response
+        await _debug.logLLMResponse(
+          provider: 'cloud',
+          model: _selectedModel,
+          response: responseText,
+          estimatedTokens: _contextService.estimateTokens(responseText),
+          duration: duration,
+        );
 
         debugPrint('✓ AI response received');
         return responseText;
@@ -483,11 +508,14 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
         debugPrint('API Error: ${response.statusCode} - ${response.body}');
 
         // Log error response
-        await _debug.error('AIService', 'Cloud AI error response', metadata: {
-          'statusCode': response.statusCode,
-          'error': response.body.substring(0, response.body.length > 500 ? 500 : response.body.length),
-          'duration': '${duration.inMilliseconds}ms',
-        });
+        final errorMessage = response.body.substring(0, response.body.length > 500 ? 500 : response.body.length);
+        await _debug.logLLMResponse(
+          provider: 'cloud',
+          model: _selectedModel,
+          response: '',
+          duration: duration,
+          error: 'HTTP ${response.statusCode}: $errorMessage',
+        );
 
         // Track error state with categorization
         _lastCloudErrorTime = DateTime.now();
@@ -523,7 +551,14 @@ Provide supportive, actionable guidance. Be warm but concise. Focus on specific 
       // Track error state
       _lastCloudErrorTime = DateTime.now();
 
-      // Log the error
+      // Log error
+      await _debug.logLLMResponse(
+        provider: 'cloud',
+        model: _selectedModel,
+        response: '',
+        error: e.toString(),
+      );
+
       await _debug.error(
         'AIService',
         'API request failed: ${e.toString()}',
@@ -676,12 +711,15 @@ Provide supportive, thoughtful guidance. Use tools judiciously to help the user 
       // Use proxy for web, direct API for mobile
       final url = kIsWeb ? _proxyUrl : _apiUrl;
 
-      await _debug.info('AIService', 'Cloud AI request with tools', metadata: {
-        'model': _selectedModel,
-        'promptLength': prompt.length,
-        'contextTokens': contextResult.estimatedTokens,
-        'toolCount': tools.length,
-      });
+      // Log full LLM request with tools
+      await _debug.logLLMRequest(
+        provider: 'cloud',
+        model: _selectedModel,
+        prompt: fullPrompt,
+        estimatedTokens: contextResult.estimatedTokens + _contextService.estimateTokens(prompt),
+        contextItemCounts: contextResult.itemCounts,
+        hasTools: true,
+      );
 
       final startTime = DateTime.now();
 
@@ -736,24 +774,30 @@ Provide supportive, thoughtful guidance. Use tools judiciously to help the user 
         _lastCloudError = null;
         _lastCloudErrorTime = null;
 
-        await _debug.info('AIService', 'Cloud AI response with tools received', metadata: {
-          'responseLength': messageContent.length,
-          'toolUsesCount': toolUses.length,
-          'toolNames': toolUses.map((t) => t['name']).toList(),
-          'model': _selectedModel,
-          'duration': '${duration.inMilliseconds}ms',
-        });
+        // Log full LLM response with tools
+        await _debug.logLLMResponse(
+          provider: 'cloud',
+          model: _selectedModel,
+          response: messageContent.trim(),
+          estimatedTokens: _contextService.estimateTokens(messageContent),
+          duration: duration,
+          toolsUsed: toolUses.map((t) => t['name'] as String).toList(),
+        );
 
         return {
           'message': messageContent.trim(),
           'tool_uses': toolUses,
         };
       } else {
-        // Same error handling as regular response
-        await _debug.error('AIService', 'Cloud AI error response', metadata: {
-          'statusCode': response.statusCode,
-          'error': response.body.substring(0, response.body.length > 500 ? 500 : response.body.length),
-        });
+        // Log error response
+        final errorMessage = response.body.substring(0, response.body.length > 500 ? 500 : response.body.length);
+        await _debug.logLLMResponse(
+          provider: 'cloud',
+          model: _selectedModel,
+          response: '',
+          duration: duration,
+          error: 'HTTP ${response.statusCode}: $errorMessage',
+        );
 
         _lastCloudErrorTime = DateTime.now();
 
@@ -772,6 +816,14 @@ Provide supportive, thoughtful guidance. Use tools judiciously to help the user 
         }
       }
     } catch (e, stackTrace) {
+      // Log error
+      await _debug.logLLMResponse(
+        provider: 'cloud',
+        model: _selectedModel,
+        response: '',
+        error: e.toString(),
+      );
+
       await _debug.error(
         'AIService',
         'API request with tools failed: ${e.toString()}',

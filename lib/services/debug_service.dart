@@ -229,6 +229,63 @@ class DebugService {
     );
   }
 
+  // LLM-specific logging for debugging AI interactions
+  Future<void> logLLMRequest({
+    required String provider,
+    required String model,
+    required String prompt,
+    int? estimatedTokens,
+    Map<String, int>? contextItemCounts,
+    bool? hasTools,
+  }) {
+    return log(
+      level: LogLevel.info,
+      category: 'LLM_REQUEST',
+      message: '[$provider] Request to $model (${estimatedTokens ?? "?"} tokens)',
+      metadata: {
+        'provider': provider,
+        'model': model,
+        'prompt': prompt,
+        'promptLength': prompt.length,
+        'estimatedTokens': estimatedTokens,
+        'contextItemCounts': contextItemCounts,
+        'hasTools': hasTools,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  Future<void> logLLMResponse({
+    required String provider,
+    required String model,
+    required String response,
+    int? estimatedTokens,
+    Duration? duration,
+    List<String>? toolsUsed,
+    String? error,
+  }) {
+    final level = error != null ? LogLevel.error : LogLevel.info;
+
+    return log(
+      level: level,
+      category: 'LLM_RESPONSE',
+      message: error != null
+          ? '[$provider] Error from $model: $error'
+          : '[$provider] Response from $model (${response.length} chars, ${duration?.inMilliseconds ?? "?"}ms)',
+      metadata: {
+        'provider': provider,
+        'model': model,
+        'response': response,
+        'responseLength': response.length,
+        'estimatedTokens': estimatedTokens,
+        'duration_ms': duration?.inMilliseconds,
+        'toolsUsed': toolsUsed,
+        'error': error,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
   Future<void> logApiResponse({
     required String endpoint,
     required int statusCode,
@@ -280,6 +337,13 @@ class DebugService {
   List<LogEntry> getApiLogs() {
     return _logs.where((log) =>
       log.category == 'API_REQUEST' || log.category == 'API_RESPONSE'
+    ).toList();
+  }
+
+  // Get LLM-specific logs (for debugging AI interactions)
+  List<LogEntry> getLLMLogs() {
+    return _logs.where((log) =>
+      log.category == 'LLM_REQUEST' || log.category == 'LLM_RESPONSE'
     ).toList();
   }
 
