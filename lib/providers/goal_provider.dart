@@ -284,6 +284,18 @@ class GoalProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Convenience method to move a goal to backlog status
+  /// Places the goal at the top of the backlog list
+  Future<void> moveToBacklog(String goalId) async {
+    await moveGoalToStatus(goalId, GoalStatus.backlog, 0);
+  }
+
+  /// Convenience method to move a goal to active status
+  /// Places the goal at the top of the active list
+  Future<void> moveToActive(String goalId) async {
+    await moveGoalToStatus(goalId, GoalStatus.active, 0);
+  }
+
   /// Get goals by status, sorted by sortOrder
   List<Goal> getGoalsByStatus(GoalStatus status) {
     return _goals

@@ -1144,6 +1144,9 @@ class MentorIntelligenceService {
       case mentor.UserStateType.streakAtRisk:
         return _generateStreakProtectionCard(userState.context!);
 
+      case mentor.UserStateType.unstartedGoal:
+        return _generateUnstartedGoalCard(userState.context!);
+
       case mentor.UserStateType.stalledGoal:
         return _generateStalledGoalCard(userState.context!);
 
@@ -1331,12 +1334,18 @@ class MentorIntelligenceService {
       }
     }
 
-    // 4. Check for stalled goal (medium-high priority)
+    // 4. Check for unstarted or stalled goal (medium-high priority)
+    // Differentiate between goals that were never started (0%) vs goals that started but stalled (>0%)
     for (final goal in activeGoals) {
       final daysSinceCreation = now.difference(goal.createdAt).inDays;
       if (daysSinceCreation >= STALLED_GOAL_MIN_DAYS && goal.currentProgress < STALLED_GOAL_MAX_PROGRESS) {
+        // 0% progress = never started (offer to move to backlog)
+        // >0% progress = started but stalled (encourage to continue)
+        final stateType = goal.currentProgress == 0
+            ? mentor.UserStateType.unstartedGoal
+            : mentor.UserStateType.stalledGoal;
         return mentor.UserState(
-          type: mentor.UserStateType.stalledGoal,
+          type: stateType,
           context: {'goal': goal, 'days': daysSinceCreation},
         );
       }
@@ -1714,6 +1723,7 @@ class MentorIntelligenceService {
         return mentor.CardUrgency.urgent;
 
       // ATTENTION (Yellow) - Needs attention soon
+      case mentor.UserStateType.unstartedGoal:
       case mentor.UserStateType.stalledGoal:
       case mentor.UserStateType.valuesDrift:
       case mentor.UserStateType.needsHaltCheck:
@@ -1810,6 +1820,27 @@ class MentorIntelligenceService {
     );
   }
 
+  /// Generate card for unstarted goals (0% progress) - offers option to move to backlog
+  mentor.MentorCoachingCard _generateUnstartedGoalCard(Map<String, dynamic> context) {
+    final goal = context['goal'] as Goal;
+    final days = context['days'] as int;
+
+    return mentor.MentorCoachingCard(
+      message: "🤔 Is \"${goal.title}\" still a priority?\n\n"
+          "You created this goal $days days ago but haven't started yet. That's okay - sometimes we add goals we're not quite ready for.\n\n"
+          "Would you like to take action on it now, or save it for later?",
+      primaryAction: mentor.MentorAction.navigate(
+        label: "Take Action",
+        destination: "Goals",
+      ),
+      secondaryAction: mentor.MentorAction.quickAction(
+        label: "Save for Later",
+        context: {'action': 'moveToBacklog', 'goalId': goal.id},
+      ),
+      urgency: _getUrgencyForState(mentor.UserStateType.unstartedGoal),
+    );
+  }
+
   mentor.MentorCoachingCard _generateStalledGoalCard(Map<String, dynamic> context) {
     final goal = context['goal'] as Goal;
     final days = context['days'] as int;
@@ -1826,7 +1857,7 @@ class MentorIntelligenceService {
         label: "Get Unstuck",
         chatPreFill: "I want to make progress on ${goal.title}. Can you help me figure out my next step?",
       ),
-          urgency: _getUrgencyForState(mentor.UserStateType.stalledGoal),
+      urgency: _getUrgencyForState(mentor.UserStateType.stalledGoal),
     );
   }
 

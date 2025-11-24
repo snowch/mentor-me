@@ -90,7 +90,8 @@ class MentorCoachingCard {
 enum UserStateType {
   newUser,              // No data entered yet
   urgentDeadline,       // Goal deadline within 24 hours
-  stalledGoal,          // Goal with no progress for 3+ days
+  unstartedGoal,        // Goal with 0% progress for 3+ days (never started)
+  stalledGoal,          // Goal with >0% but <10% progress for 3+ days (started but stalled)
   streakAtRisk,         // Habit streak 7+ days, not done today
   miniWin,              // User stuck in planning mode, needs encouragement
   onlyJournals,         // Has journals but no goals/habits

@@ -393,11 +393,97 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         _handleChatAction(context, action);
         break;
       case mentor.MentorActionType.quickAction:
-        // Quick actions can be extended as needed
-        // For now, treat as navigation
-        _handleNavigationAction(context, action);
+        _handleQuickAction(context, action);
         break;
     }
+  }
+
+  /// Handle quick actions (move to backlog, complete habit, etc.)
+  void _handleQuickAction(BuildContext context, mentor.MentorAction action) {
+    final actionContext = action.context;
+    if (actionContext == null) return;
+
+    final actionType = actionContext['action'] as String?;
+    if (actionType == null) return;
+
+    switch (actionType) {
+      case 'moveToBacklog':
+        _handleMoveToBacklog(context, actionContext);
+        break;
+      case 'completeHabit':
+        _handleCompleteHabit(context, actionContext);
+        break;
+      default:
+        // Unknown action type - fallback to navigation if destination exists
+        if (action.destination != null) {
+          _handleNavigationAction(context, action);
+        }
+        break;
+    }
+  }
+
+  /// Handle moving a goal to backlog
+  void _handleMoveToBacklog(BuildContext context, Map<String, dynamic> actionContext) {
+    final goalId = actionContext['goalId'] as String?;
+    if (goalId == null) return;
+
+    final goalProvider = context.read<GoalProvider>();
+    final goal = goalProvider.goals.firstWhere(
+      (g) => g.id == goalId,
+      orElse: () => throw StateError('Goal not found'),
+    );
+
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Move to Backlog?'),
+        content: Text(
+          'Move "${goal.title}" to your backlog? You can reactivate it anytime from the Goals screen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await goalProvider.moveToBacklog(goal.id);
+
+              // Refresh the mentor card to show next priority
+              refreshMentorCard();
+
+              // Show success snackbar
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('"${goal.title}" moved to backlog'),
+                    action: SnackBarAction(
+                      label: 'View Goals',
+                      onPressed: () => widget.onNavigateToTab(3),
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('Move to Backlog'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Handle completing a habit from quick action
+  void _handleCompleteHabit(BuildContext context, Map<String, dynamic> actionContext) {
+    final habitId = actionContext['habitId'] as String?;
+    if (habitId == null) return;
+
+    final habitProvider = context.read<HabitProvider>();
+    habitProvider.completeHabit(habitId, DateTime.now());
+
+    // Refresh the mentor card
+    refreshMentorCard();
   }
 
   /// Handle navigation actions (tab navigation or screen push)
