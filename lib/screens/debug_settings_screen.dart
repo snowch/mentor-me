@@ -8,6 +8,7 @@ import '../config/build_info.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 import 'debug_console_screen.dart';
+import 'domain_model_debug_screen.dart';
 
 class DebugSettingsScreen extends StatefulWidget {
   const DebugSettingsScreen({super.key});
@@ -237,6 +238,21 @@ class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const DebugConsoleScreen(),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.data_object),
+                  title: const Text('Domain Model Debug'),
+                  subtitle: const Text('View activity timeline & LLM context'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DomainModelDebugScreen(),
                       ),
                     );
                   },
