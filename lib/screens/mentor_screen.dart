@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/goal_provider.dart';
 import '../providers/journal_provider.dart';
 import '../providers/habit_provider.dart';
@@ -18,6 +19,7 @@ import '../models/goal.dart';
 import '../models/habit.dart';
 import '../models/journal_entry.dart';
 import 'chat_screen.dart';
+import 'guided_journaling_screen.dart';
 import 'mentor_reminders_screen.dart';
 import 'reflection_session_screen.dart';
 import '../widgets/quick_halt_widget.dart';
@@ -413,6 +415,9 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
       case 'completeHabit':
         _handleCompleteHabit(context, actionContext);
         break;
+      case 'dismissCard':
+        _handleDismissCard(context, actionContext);
+        break;
       default:
         // Unknown action type - fallback to navigation if destination exists
         if (action.destination != null) {
@@ -486,6 +491,35 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
     refreshMentorCard();
   }
 
+  /// Handle dismissing a mentor card (skip for now)
+  /// Stores the dismissed card type with timestamp for 24-hour cooldown
+  Future<void> _handleDismissCard(BuildContext context, Map<String, dynamic> actionContext) async {
+    final cardType = actionContext['cardType'] as String?;
+    if (cardType == null) return;
+
+    // Store dismissed card type with timestamp
+    final prefs = await SharedPreferences.getInstance();
+    final dismissedCards = prefs.getStringList('dismissed_mentor_cards') ?? [];
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    // Store as "cardType:timestamp" format
+    dismissedCards.add('$cardType:$timestamp');
+    await prefs.setStringList('dismissed_mentor_cards', dismissedCards);
+
+    // Show feedback
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Got it! Showing you something else.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+
+    // Refresh the mentor card to show next priority
+    refreshMentorCard();
+  }
+
   /// Handle navigation actions (tab navigation or screen push)
   void _handleNavigationAction(BuildContext context, mentor.MentorAction action) {
     if (action.destination == null) return;
@@ -524,6 +558,19 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
             context,
             MaterialPageRoute(
               builder: (context) => const ReflectionSessionScreen(),
+            ),
+          );
+        } else if (destination == 'GuidedJournalingScreen') {
+          // Handle HALT check and regular check-in navigation
+          final isHaltCheck = action.context?['isHaltCheck'] == true;
+          final isCheckIn = action.context?['isCheckIn'] == true;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GuidedJournalingScreen(
+                isHaltCheck: isHaltCheck,
+                isCheckIn: isCheckIn,
+              ),
             ),
           );
         }

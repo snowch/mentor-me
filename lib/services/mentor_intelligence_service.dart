@@ -1384,7 +1384,7 @@ class MentorIntelligenceService {
     // - No journaling in 3+ days (isolation signal)
     // - Recent journal mentions stress/overwhelm keywords
     // - No HALT check in last 7 days
-    final haltCheckNeeded = _shouldSuggestHaltCheck(journals);
+    final haltCheckNeeded = await _shouldSuggestHaltCheck(journals);
     if (haltCheckNeeded['needed'] as bool) {
       return mentor.UserState(
         type: mentor.UserStateType.needsHaltCheck,
@@ -2020,10 +2020,9 @@ class MentorIntelligenceService {
         destination: "GuidedJournalingScreen",
         context: {'isHaltCheck': true},
       ),
-      secondaryAction: mentor.MentorAction.navigate(
-        label: "Regular Check-In",
-        destination: "GuidedJournalingScreen",
-        context: {'isCheckIn': true},
+      secondaryAction: mentor.MentorAction.quickAction(
+        label: "Skip for now",
+        context: {'action': 'dismissCard', 'cardType': 'needsHaltCheck'},
       ),
           urgency: _getUrgencyForState(mentor.UserStateType.onlyJournals),
     );
@@ -2470,8 +2469,89 @@ class MentorIntelligenceService {
   /// - Recent journals contain stress/overwhelm keywords
   /// - No journaling in 3+ days (isolation signal)
   /// - No HALT check in last 7 days
-  Map<String, dynamic> _shouldSuggestHaltCheck(List<JournalEntry> journals) {
+  Future<Map<String, dynamic>> _shouldSuggestHaltCheck(List<JournalEntry> journals) async {
     final now = DateTime.now();
+
+    // FIRST: Check if user dismissed this card type recently (24-hour skip cooldown)
+    final prefs = await SharedPreferences.getInstance();
+    final dismissedCards = prefs.getStringList('dismissed_mentor_cards') ?? [];
+
+    // Check for recent dismissal of needsHaltCheck
+    for (final entry in dismissedCards) {
+      final parts = entry.split(':');
+      if (parts.length == 2 && parts[0] == 'needsHaltCheck') {
+        final dismissedTimestamp = int.tryParse(parts[1]);
+        if (dismissedTimestamp != null) {
+          final dismissedTime = DateTime.fromMillisecondsSinceEpoch(dismissedTimestamp);
+          final hoursSinceDismissed = now.difference(dismissedTime).inHours;
+          if (hoursSinceDismissed < 24) {
+            return {'needed': false, 'reason': 'dismissed_cooldown'};
+          }
+        }
+      }
+    }
+
+    // Clean up old dismissed cards (older than 24 hours)
+    final updatedDismissedCards = dismissedCards.where((entry) {
+      final parts = entry.split(':');
+      if (parts.length == 2) {
+        final timestamp = int.tryParse(parts[1]);
+        if (timestamp != null) {
+          final time = DateTime.fromMillisecondsSinceEpoch(timestamp);
+          return now.difference(time).inHours < 24;
+        }
+      }
+      return false;
+    }).toList();
+
+    if (updatedDismissedCards.length != dismissedCards.length) {
+      await prefs.setStringList('dismissed_mentor_cards', updatedDismissedCards);
+    }
+
+    // SECOND: Check for recent HALT checks - implement cooldown period
+    // Don't suggest another HALT check if one was done in the last 24 hours
+    final haltJournals = journals.where((j) {
+      // Check if journal is a HALT check (reflectionType: 'halt' in metadata)
+      if (j.type == JournalEntryType.guidedJournal && j.qaPairs != null) {
+        final guidedData = j.toJson()['guidedJournalData'];
+        if (guidedData != null && guidedData is Map) {
+          final reflectionType = guidedData['reflectionType'];
+          return reflectionType == 'halt';
+        }
+      }
+      return false;
+    }).toList();
+
+    if (haltJournals.isNotEmpty) {
+      final lastHaltDate = haltJournals
+          .reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
+          .createdAt;
+      final hoursSinceLastHalt = now.difference(lastHaltDate).inHours;
+      final daysSinceLastHalt = now.difference(lastHaltDate).inDays;
+
+      // COOLDOWN: If HALT check done in last 24 hours, don't suggest another
+      if (hoursSinceLastHalt < 24) {
+        return {'needed': false, 'reason': 'recent_halt_cooldown'};
+      }
+
+      // If it's been 7+ days since last HALT check, suggest one
+      if (daysSinceLastHalt >= 7) {
+        return {
+          'needed': true,
+          'reason': 'periodic_check',
+          'daysSinceLastHalt': daysSinceLastHalt,
+        };
+      }
+    } else {
+      // No HALT checks ever done, suggest one if they have 5+ journals
+      if (journals.length >= 5) {
+        return {
+          'needed': true,
+          'reason': 'first_halt',
+          'daysSinceLastHalt': null,
+        };
+      }
+    }
 
     // Keywords that suggest stress or unmet basic needs
     const stressKeywords = [
@@ -2481,9 +2561,20 @@ class MentorIntelligenceService {
     ];
 
     // Check last 7 days of journals for stress keywords
+    // But exclude HALT check journals themselves from this check
     final recentJournals = journals.where((j) {
       final daysAgo = now.difference(j.createdAt).inDays;
-      return daysAgo <= 7;
+      if (daysAgo > 7) return false;
+
+      // Exclude HALT check journals from stress keyword search
+      // (they often contain stress keywords by design)
+      if (j.type == JournalEntryType.guidedJournal && j.qaPairs != null) {
+        final guidedData = j.toJson()['guidedJournalData'];
+        if (guidedData != null && guidedData is Map) {
+          if (guidedData['reflectionType'] == 'halt') return false;
+        }
+      }
+      return true;
     }).toList();
 
     // Check for stress keywords in recent journals
@@ -2512,43 +2603,6 @@ class MentorIntelligenceService {
           'needed': true,
           'reason': 'no_journaling',
           'daysSinceLastJournal': daysSinceLastJournal,
-        };
-      }
-    }
-
-    // Check for no HALT check in last 7 days
-    final haltJournals = journals.where((j) {
-      // Check if journal is a HALT check (reflectionType: 'halt' in metadata)
-      if (j.type == JournalEntryType.guidedJournal && j.qaPairs != null) {
-        final guidedData = j.toJson()['guidedJournalData'];
-        if (guidedData != null && guidedData is Map) {
-          final reflectionType = guidedData['reflectionType'];
-          return reflectionType == 'halt';
-        }
-      }
-      return false;
-    }).toList();
-
-    if (haltJournals.isNotEmpty) {
-      final lastHaltDate = haltJournals
-          .reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b)
-          .createdAt;
-      final daysSinceLastHalt = now.difference(lastHaltDate).inDays;
-
-      if (daysSinceLastHalt >= 7) {
-        return {
-          'needed': true,
-          'reason': 'periodic_check',
-          'daysSinceLastHalt': daysSinceLastHalt,
-        };
-      }
-    } else {
-      // No HALT checks ever done, suggest one if they have 5+ journals
-      if (journals.length >= 5) {
-        return {
-          'needed': true,
-          'reason': 'first_halt',
-          'daysSinceLastHalt': null,
         };
       }
     }
