@@ -55,6 +55,9 @@ class ContextManagementService {
       return entry.qaPairs!
           .map((pair) => '${pair.question}\n${pair.answer}')
           .join('\n\n');
+    } else if (entry.type == JournalEntryType.structuredJournal) {
+      // Structured journal entries have a content field with conversation summary
+      return entry.content ?? '';
     }
     return '';
   }
