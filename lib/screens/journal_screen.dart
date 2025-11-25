@@ -17,8 +17,10 @@ import '../constants/app_strings.dart';
 import '../utils/icon_mapper.dart';
 import 'guided_journaling_screen.dart';
 import 'structured_journaling_screen.dart';
+import 'reflection_session_screen.dart';
 import '../widgets/add_journal_dialog.dart';
 import '../widgets/add_pulse_dialog.dart';
+import '../services/ai_service.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -305,6 +307,100 @@ class _JournalScreenState extends State<JournalScreen> {
                     ),
               ),
               AppSpacing.gapXl,
+
+              // Deep Dive Session - AI-powered reflection with pattern detection
+              Card(
+                color: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Check if cloud AI is available
+                    if (!AIService().hasApiKey()) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(AppStrings.cloudAiRequired),
+                          action: SnackBarAction(
+                            label: AppStrings.settings,
+                            onPressed: () {
+                              // Navigate to AI settings would go here
+                            },
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ReflectionSessionScreen(),
+                      ),
+                    );
+                  },
+                  borderRadius: AppRadius.radiusLg,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm + AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.tertiary,
+                            borderRadius: AppRadius.radiusLg,
+                          ),
+                          child: const Icon(
+                            Icons.psychology_alt,
+                            color: Colors.white,
+                          ),
+                        ),
+                        AppSpacing.gapHorizontalLg,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    AppStrings.deepDiveSession,
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.tertiary,
+                                      borderRadius: AppRadius.radiusLg,
+                                    ),
+                                    child: const Text(
+                                      'DEEP',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                AppStrings.deepDiveSessionDescription,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              AppSpacing.gapMd,
 
               // Daily Reflection - matches the default habit name - RECOMMENDED
               Card(

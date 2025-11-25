@@ -21,6 +21,8 @@ class AppStrings {
   static const String reflectionNoun = 'Reflection';
   static const String writeVerb = 'Write';
   static const String deepDiveSession = 'Deep Dive Session'; // Mentor screen reflection button
+  static const String deepDiveSessionDescription = 'AI-guided reflection with pattern detection and personalized insights';
+  static const String cloudAiRequired = 'Deep Dive requires Cloud AI. Please configure your API key in Settings.';
   static const String structuredReflection = 'Structured Reflection'; // Journal menu option
   static const String dailyReflection = 'Daily Reflection'; // Main guided reflection option - matches habit name
   static const String dailyReflectionDescription = 'Reflect on your goals and habits with AI-guided prompts';
