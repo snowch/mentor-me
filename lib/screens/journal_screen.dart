@@ -29,7 +29,7 @@ class JournalScreen extends StatefulWidget {
 
 class _JournalScreenState extends State<JournalScreen> {
   String _searchQuery = '';
-  String _selectedFilter = AppStrings.all; // All, Journal, Pulse
+  String _selectedFilter = AppStrings.all; // All, Reflections, Pulse
   bool _isCompactView = false;
   final TextEditingController _searchController = TextEditingController();
 
@@ -53,7 +53,7 @@ class _JournalScreenState extends State<JournalScreen> {
     // Apply filter by type
     if (_selectedFilter == AppStrings.journalNoun) {
       timelineEntries = timelineEntries.where((e) => e.type == TimelineEntryType.journal).toList();
-    } else if (_selectedFilter == AppStrings.pulseCheck) {
+    } else if (_selectedFilter == AppStrings.pulse) {
       timelineEntries = timelineEntries.where((e) => e.type == TimelineEntryType.pulse).toList();
     }
 
@@ -206,7 +206,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       const SizedBox(width: 8),
                       _buildFilterChip(AppStrings.journalNoun),
                       const SizedBox(width: 8),
-                      _buildFilterChip(AppStrings.pulseCheck),
+                      _buildFilterChip(AppStrings.pulse),
                     ],
                   ),
                 ),
@@ -306,7 +306,7 @@ class _JournalScreenState extends State<JournalScreen> {
               ),
               AppSpacing.gapXl,
 
-              // Goals & Habits Journal (formerly Guided Reflection) - RECOMMENDED
+              // Daily Reflection - matches the default habit name - RECOMMENDED
               Card(
                 color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                 child: InkWell(
@@ -343,7 +343,7 @@ class _JournalScreenState extends State<JournalScreen> {
                               Row(
                                 children: [
                                   Text(
-                                    'Goals & Habits Journal',
+                                    AppStrings.dailyReflection,
                                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -368,7 +368,7 @@ class _JournalScreenState extends State<JournalScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Reflect on your goals and habits with AI-guided prompts',
+                                AppStrings.dailyReflectionDescription,
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                     ),

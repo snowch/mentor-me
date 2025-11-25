@@ -8,27 +8,29 @@ class AppStrings {
 
   // Core Feature Names
   static const String featureMentor = 'Mentor';
-  static const String featureJournal = 'Journal';
+  static const String featureJournal = 'Reflect'; // Bottom nav - matches "Daily Reflection" terminology
   static const String featureHabits = 'Habits';
   static const String featureGoals = 'Goals';
   static const String featureSettings = 'Settings';
 
-  // Journal/Reflection Terminology
-  static const String journalNoun = 'Journal';
-  static const String journalVerb = 'Journal';
+  // Reflection Terminology
+  static const String journalNoun = 'Reflections'; // Filter chip on Reflect screen
+  static const String journalVerb = 'Reflect';
   static const String reflectVerb = 'Reflect';
   static const String newEntry = 'New Entry'; // Journal FAB button
   static const String reflectionNoun = 'Reflection';
   static const String writeVerb = 'Write';
   static const String deepDiveSession = 'Deep Dive Session'; // Mentor screen reflection button
   static const String structuredReflection = 'Structured Reflection'; // Journal menu option
+  static const String dailyReflection = 'Daily Reflection'; // Main guided reflection option - matches habit name
+  static const String dailyReflectionDescription = 'Reflect on your goals and habits with AI-guided prompts';
 
-  static const String journalEntry = 'journal entry';
+  static const String journalEntry = 'entry'; // Used in save buttons, etc.
   static const String journalEntries = 'entries';
   static const String guidedReflection = 'Guided Reflection';
   static const String quickEntry = 'Quick Entry';
 
-  // Journal Screen Strings
+  // Reflect Screen Strings
   static const String entriesThisMonth = 'entries this month';
   static const String entryThisMonth = 'entry this month';
   static const String thisWeek = 'this week';
@@ -37,14 +39,15 @@ class AppStrings {
   static const String searchEntries = 'Search entries...';
   static const String tipUseAiChat = 'Tip: Use AI Chat for deeper insights and pattern analysis';
   static const String all = 'All';
-  static const String pulseCheck = 'Pulse Check';
+  static const String pulse = 'Pulse'; // Filter chip on Reflect screen
+  static const String pulseCheck = 'Pulse Check'; // Journal entry option
   static const String justLogHowYouFeel = 'Just log how you feel (10 sec)';
   static const String fastSimpleNote = 'Fast, simple note (30 sec)';
   static const String stepByStepPrompts = 'Step-by-step prompts (3-5 min)';
   static const String recommended = 'Recommended';
-  static const String guidedJournalCannotBeEdited = 'Guided journal entries cannot be edited';
+  static const String guidedJournalCannotBeEdited = 'Guided reflections cannot be edited';
 
-  // Guided Journaling Strings
+  // Guided Reflection Strings
   static const String processing = 'Processing';
   static const String thereAreNoWrongAnswers = 'There are no wrong answers. Write freely.';
   static const String finish = 'Finish';
@@ -335,13 +338,13 @@ class AppStrings {
 
   // Confirmation Messages
   static const String thisActionCannotBeUndone = 'This action cannot be undone.';
-  static const String permanentlyDeleteJournalEntry = 'This will permanently delete this journal entry. This action cannot be undone.';
+  static const String permanentlyDeleteJournalEntry = 'This will permanently delete this reflection. This action cannot be undone.';
   static const String permanentlyDeletePulseEntry = 'This will permanently delete this pulse entry. This action cannot be undone.';
   static const String areYouSureDeleteGoal = 'Are you sure you want to delete this goal? This action cannot be undone.';
   static const String permanentlyDeleteDebugLogs = 'This will permanently delete all debug logs. This action cannot be undone.';
   static const String thisWillPermanentlyDelete = 'This will permanently delete:';
   static const String allGoalsAndMilestones = 'All goals and milestones';
-  static const String allJournalEntries = 'All journal entries';
+  static const String allJournalEntries = 'All reflections';
   static const String allHabitsAndCheckIns = 'All habits and check-ins';
   static const String allPulseEntries = 'All pulse entries';
   static const String allChatConversations = 'All chat conversations';
@@ -513,7 +516,7 @@ class AppStrings {
   static const String createHabitForPractice = 'Create a habit for this practice';
   static const String howToPractice = 'How to practice';
   static const String sessionComplete = 'Session Complete';
-  static const String reflectionSaved = 'Your reflection has been saved to your journal';
+  static const String reflectionSaved = 'Your reflection has been saved';
   static const String scheduleFollowUp = 'Schedule Follow-up';
   static const String wouldYouLikeToSchedule = 'Would you like to schedule a follow-up reflection session?';
   static const String notRightNow = 'Not right now';
@@ -538,7 +541,7 @@ class AppStrings {
   static const String goalMovedToBacklog = 'Goal moved to backlog';
   static const String goalActivated = 'Goal activated!';
   static const String goalMarkedComplete = 'Goal marked as complete!';
-  static const String sessionSavedToJournal = 'Session saved to journal';
+  static const String sessionSavedToJournal = 'Session saved';
   static const String followUpReminderScheduled = 'Follow-up reminder scheduled';
   static const String actionCompletedSuccessfully = 'Action completed successfully';
 
