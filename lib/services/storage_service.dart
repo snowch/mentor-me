@@ -10,6 +10,7 @@ import '../models/checkin.dart';
 import '../models/habit.dart';
 import '../models/pulse_entry.dart';
 import '../models/pulse_type.dart';
+import '../models/hydration_entry.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -48,6 +49,8 @@ class StorageService {
   static const String _implementationIntentionsKey = 'implementation_intentions';
   static const String _meditationSessionsKey = 'meditation_sessions';
   static const String _urgeSurfingSessionsKey = 'urge_surfing_sessions';
+  static const String _hydrationEntriesKey = 'hydration_entries';
+  static const String _hydrationGoalKey = 'hydration_goal';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -235,6 +238,41 @@ class StorageService {
     }
   }
 
+  // Save/Load Hydration Entries
+  Future<void> saveHydrationEntries(List<HydrationEntry> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = entries.map((entry) => entry.toJson()).toList();
+    await prefs.setString(_hydrationEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('hydration_entries');
+  }
+
+  Future<List<HydrationEntry>> loadHydrationEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_hydrationEntriesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((json) => HydrationEntry.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted hydration entries data, returning empty list. Error: $e');
+      await prefs.remove(_hydrationEntriesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Hydration Goal
+  Future<void> saveHydrationGoal(int goal) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_hydrationGoalKey, goal);
+    await _notifyPersistence('hydration_goal');
+  }
+
+  Future<int> loadHydrationGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_hydrationGoalKey) ?? 8; // Default: 8 glasses
+  }
+
   // Save/Load Settings
   Future<void> saveSettings(Map<String, dynamic> settings) async {
     final prefs = await SharedPreferences.getInstance();
@@ -330,6 +368,8 @@ class StorageService {
       'habits': await loadHabits(),
       'pulseEntries': await loadPulseEntries(),
       'pulseTypes': await loadPulseTypes(),
+      'hydrationEntries': await loadHydrationEntries(),
+      'hydrationGoal': await loadHydrationGoal(),
       'settings': await loadSettings(),
       'exportDate': DateTime.now().toIso8601String(),
     };
@@ -377,6 +417,17 @@ class StorageService {
           .map((json) => PulseType.fromJson(json))
           .toList();
       await savePulseTypes(pulseTypes);
+    }
+
+    if (data['hydrationEntries'] != null) {
+      final hydrationEntries = (data['hydrationEntries'] as List)
+          .map((json) => HydrationEntry.fromJson(json))
+          .toList();
+      await saveHydrationEntries(hydrationEntries);
+    }
+
+    if (data['hydrationGoal'] != null) {
+      await saveHydrationGoal(data['hydrationGoal'] as int);
     }
 
     if (data['settings'] != null) {

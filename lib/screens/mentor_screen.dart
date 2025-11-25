@@ -23,6 +23,7 @@ import 'guided_journaling_screen.dart';
 import 'mentor_reminders_screen.dart';
 import 'reflection_session_screen.dart';
 import '../widgets/quick_halt_widget.dart';
+import '../widgets/hydration_widget.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -666,6 +667,10 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
 
         // Quick HALT Widget
         const QuickHaltWidget(),
+        AppSpacing.gapMd,
+
+        // Hydration Tracking Widget
+        const HydrationWidget(),
         AppSpacing.gapLg,
 
         // Glanceable Goals Section
