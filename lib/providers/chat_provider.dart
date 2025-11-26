@@ -34,6 +34,9 @@ class ChatProvider extends ChangeNotifier {
   String? get loadingMessage => _loadingMessage;
   List<ChatMessage> get messages => _currentConversation?.messages ?? [];
 
+  /// Returns the current AI provider (cloud or local)
+  AIProvider get currentAiProvider => _ai.getProvider();
+
   ChatProvider() {
     _loadConversations();
   }

@@ -722,6 +722,46 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
                 backgroundColor: colorScheme.surfaceContainerHighest,
               ),
 
+            // Cloud AI Privacy Notice (Reflection sessions always use cloud AI)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.xs,
+                horizontal: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.tertiaryContainer.withValues(alpha: 0.3),
+                border: Border(
+                  bottom: BorderSide(
+                    color: colorScheme.tertiary.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.cloud_outlined,
+                    size: 14,
+                    color: colorScheme.tertiary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    AppStrings.usingCloudAi,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.tertiary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.privacy_tip_outlined,
+                    size: 12,
+                    color: colorScheme.tertiary.withValues(alpha: 0.7),
+                  ),
+                ],
+              ),
+            ),
+
             // Main content
             Expanded(
               child: _buildContent(theme, colorScheme),

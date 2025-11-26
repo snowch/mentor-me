@@ -19,9 +19,9 @@ extension AIProviderExtension on AIProvider {
   String get description {
     switch (this) {
       case AIProvider.local:
-        return 'Run AI on your device (private, offline, faster for simple tasks)';
+        return 'Run AI on your device - completely private, no data leaves your phone';
       case AIProvider.cloud:
-        return 'Use Claude API (more powerful, requires internet)';
+        return 'Use Claude API - your data is sent to Anthropic for processing';
     }
   }
 
