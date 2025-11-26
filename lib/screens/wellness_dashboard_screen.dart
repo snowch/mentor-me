@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/wellness_recommendation_dialog.dart';
 import 'gratitude_journal_screen.dart';
 import 'worry_time_screen.dart';
 import 'self_compassion_screen.dart';
@@ -18,6 +19,8 @@ import 'urge_surfing_screen.dart';
 import 'digital_wellness_screen.dart';
 import 'cognitive_reframing_screen.dart';
 import 'grounding_exercise_screen.dart';
+import 'worry_decision_tree_screen.dart';
+import 'exposure_ladder_screen.dart';
 
 class WellnessDashboardScreen extends StatelessWidget {
   const WellnessDashboardScreen({super.key});
@@ -48,7 +51,62 @@ class WellnessDashboardScreen extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
+
+          // Help me choose button
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: InkWell(
+              onTap: () => WellnessRecommendationDialog.show(context),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      child: Icon(
+                        Icons.help_outline,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Not sure where to start?',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                          Text(
+                            'Tap here and I\'ll help you choose',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
 
           // Crisis Support Section
           Text(
@@ -132,6 +190,30 @@ class WellnessDashboardScreen extends StatelessWidget {
             color: Colors.teal,
             onTap: () => _navigate(context, const GroundingExerciseScreen()),
             evidenceBase: 'DBT, Mindfulness',
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Worry Decision Tree
+          _buildFeatureCard(
+            context,
+            icon: Icons.account_tree,
+            title: 'Worry Decision Tree',
+            description: 'Work through worries with a guided decision process',
+            color: Colors.blue,
+            onTap: () => _navigate(context, const WorryDecisionTreeScreen()),
+            evidenceBase: 'CBT (Cognitive Behavioral Therapy)',
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Exposure Ladder
+          _buildFeatureCard(
+            context,
+            icon: Icons.stairs,
+            title: 'Exposure Ladder',
+            description: 'Gradually face fears step by step',
+            color: Colors.orange,
+            onTap: () => _navigate(context, const ExposureLadderScreen()),
+            evidenceBase: 'Exposure Therapy, CBT',
           ),
           const SizedBox(height: AppSpacing.xl),
 
