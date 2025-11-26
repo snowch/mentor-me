@@ -15,6 +15,8 @@ import 'safety_plan_screen.dart';
 import 'crisis_resources_screen.dart';
 import 'meditation_screen.dart';
 import 'urge_surfing_screen.dart';
+import 'cognitive_reframing_screen.dart';
+import 'grounding_exercise_screen.dart';
 
 class WellnessDashboardScreen extends StatelessWidget {
   const WellnessDashboardScreen({super.key});
@@ -96,6 +98,39 @@ class WellnessDashboardScreen extends StatelessWidget {
             description: 'Track depression, anxiety, and stress with validated tools',
             color: Colors.teal,
             onTap: () => _navigate(context, const AssessmentDashboardScreen()),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Cognitive Techniques Section
+          Text(
+            'Cognitive Techniques',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Cognitive Reframing
+          _buildFeatureCard(
+            context,
+            icon: Icons.psychology,
+            title: 'Cognitive Reframing',
+            description: 'Challenge and reframe unhelpful thoughts',
+            color: Colors.indigo,
+            onTap: () => _navigate(context, const CognitiveReframingScreen()),
+            evidenceBase: 'CBT (Cognitive Behavioral Therapy)',
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // 5-4-3-2-1 Grounding
+          _buildFeatureCard(
+            context,
+            icon: Icons.spa,
+            title: '5-4-3-2-1 Grounding',
+            description: 'Sensory awareness technique for anxiety and overwhelm',
+            color: Colors.teal,
+            onTap: () => _navigate(context, const GroundingExerciseScreen()),
+            evidenceBase: 'DBT, Mindfulness',
           ),
           const SizedBox(height: AppSpacing.xl),
 
@@ -227,6 +262,7 @@ class WellnessDashboardScreen extends StatelessWidget {
     required String description,
     required Color color,
     required VoidCallback onTap,
+    String? evidenceBase,
   }) {
     return Card(
       child: InkWell(
@@ -250,11 +286,29 @@ class WellnessDashboardScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (evidenceBase != null)
+                          Tooltip(
+                            message: 'Based on $evidenceBase',
+                            child: Icon(
+                              Icons.science_outlined,
+                              size: 16,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
