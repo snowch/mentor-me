@@ -15,6 +15,7 @@ import 'safety_plan_screen.dart';
 import 'crisis_resources_screen.dart';
 import 'meditation_screen.dart';
 import 'urge_surfing_screen.dart';
+import 'digital_wellness_screen.dart';
 
 class WellnessDashboardScreen extends StatelessWidget {
   const WellnessDashboardScreen({super.key});
@@ -160,6 +161,17 @@ class WellnessDashboardScreen extends StatelessWidget {
             description: 'Manage cravings and impulses with mindfulness techniques',
             color: Colors.cyan,
             onTap: () => _navigate(context, const UrgeSurfingScreen()),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Digital Wellness
+          _buildFeatureCard(
+            context,
+            icon: Icons.phone_android,
+            title: 'Digital Wellness',
+            description: 'Mindful technology use with intentional unplugging',
+            color: Colors.indigo,
+            onTap: () => _navigate(context, const DigitalWellnessScreen()),
           ),
           const SizedBox(height: AppSpacing.md),
 

@@ -51,6 +51,8 @@ class StorageService {
   static const String _urgeSurfingSessionsKey = 'urge_surfing_sessions';
   static const String _hydrationEntriesKey = 'hydration_entries';
   static const String _hydrationGoalKey = 'hydration_goal';
+  static const String _unplugSessionsKey = 'unplug_sessions';
+  static const String _deviceBoundariesKey = 'device_boundaries';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -844,6 +846,32 @@ class StorageService {
   Future<List<dynamic>?> getUrgeSurfingSessions() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(_urgeSurfingSessionsKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Digital Wellness - Unplug Sessions
+  Future<void> saveUnplugSessions(List<dynamic> sessions) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_unplugSessionsKey, json.encode(sessions));
+    await _notifyPersistence('unplug_sessions');
+  }
+
+  Future<List<dynamic>?> getUnplugSessions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_unplugSessionsKey);
+    return data != null ? json.decode(data) : null;
+  }
+
+  // Digital Wellness - Device Boundaries
+  Future<void> saveDeviceBoundaries(List<dynamic> boundaries) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_deviceBoundariesKey, json.encode(boundaries));
+    await _notifyPersistence('device_boundaries');
+  }
+
+  Future<List<dynamic>?> getDeviceBoundaries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_deviceBoundariesKey);
     return data != null ? json.decode(data) : null;
   }
 }
