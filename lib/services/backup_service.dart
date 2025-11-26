@@ -41,6 +41,7 @@ import '../models/values_and_smart_goals.dart';
 import '../models/implementation_intention.dart';
 import '../models/meditation.dart';
 import '../models/urge_surfing.dart';
+import '../models/hydration_entry.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -88,6 +89,8 @@ class BackupService {
     final implementationIntentions = await _storage.getImplementationIntentions() ?? [];
     final meditationSessions = await _storage.getMeditationSessions() ?? [];
     final urgeSurfingSessions = await _storage.getUrgeSurfingSessions() ?? [];
+    final hydrationEntries = await _storage.loadHydrationEntries();
+    final hydrationGoal = await _storage.loadHydrationGoal();
 
     // Remove sensitive data (API key, HF token) from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -140,6 +143,8 @@ class BackupService {
       'implementation_intentions': json.encode(implementationIntentions.map((i) => i.toJson()).toList()),
       'meditation_sessions': json.encode(meditationSessions),
       'urge_surfing_sessions': json.encode(urgeSurfingSessions),
+      'hydration_entries': json.encode(hydrationEntries.map((e) => e.toJson()).toList()),
+      'hydration_goal': hydrationGoal,
 
       // Statistics for UI display
       'statistics': {
@@ -165,6 +170,8 @@ class BackupService {
         'totalImplementationIntentions': implementationIntentions.length,
         'totalMeditationSessions': meditationSessions.length,
         'totalUrgeSurfingSessions': urgeSurfingSessions.length,
+        'totalHydrationEntries': hydrationEntries.length,
+        'hydrationGoal': hydrationGoal,
       },
     };
 
@@ -1428,6 +1435,71 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Urge Surfing Sessions',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import hydration entries
+    try {
+      if (data.containsKey('hydration_entries') && data['hydration_entries'] != null) {
+        final entriesJson = json.decode(data['hydration_entries'] as String) as List;
+        final entries = entriesJson.map((json) => HydrationEntry.fromJson(json)).toList();
+        await _storage.saveHydrationEntries(entries);
+        await _debug.info('BackupService', 'Imported ${entries.length} hydration entries');
+        results.add(ImportItemResult(
+          dataType: 'Hydration Entries',
+          success: true,
+          count: entries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Hydration Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import hydration entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Hydration Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import hydration goal
+    try {
+      if (data.containsKey('hydration_goal') && data['hydration_goal'] != null) {
+        final goal = data['hydration_goal'] as int;
+        await _storage.saveHydrationGoal(goal);
+        await _debug.info('BackupService', 'Imported hydration goal: $goal');
+        results.add(ImportItemResult(
+          dataType: 'Hydration Goal',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Hydration Goal',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import hydration goal: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Hydration Goal',
         success: false,
         count: 0,
         errorMessage: e.toString(),

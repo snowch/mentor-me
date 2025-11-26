@@ -13,6 +13,7 @@ import 'package:mentor_me/models/checkin.dart';
 import 'package:mentor_me/models/habit.dart';
 import 'package:mentor_me/models/pulse_entry.dart';
 import 'package:mentor_me/models/pulse_type.dart';
+import 'package:mentor_me/models/hydration_entry.dart';
 
 /// Extension for BackupService to support testing
 /// Provides importBackupFromJson which accepts JSON string directly
@@ -617,6 +618,71 @@ extension BackupServiceTestExtension on BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Urge Surfing Sessions',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import hydration entries
+    try {
+      if (data.containsKey('hydration_entries') && data['hydration_entries'] != null) {
+        final entriesJson = json.decode(data['hydration_entries'] as String) as List;
+        final entries = entriesJson.map((json) => HydrationEntry.fromJson(json)).toList();
+        await storage.saveHydrationEntries(entries);
+        await debug.info('BackupService', 'Imported ${entries.length} hydration entries');
+        results.add(ImportItemResult(
+          dataType: 'Hydration Entries',
+          success: true,
+          count: entries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Hydration Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await debug.error(
+        'BackupService',
+        'Failed to import hydration entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Hydration Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import hydration goal
+    try {
+      if (data.containsKey('hydration_goal') && data['hydration_goal'] != null) {
+        final goal = data['hydration_goal'] as int;
+        await storage.saveHydrationGoal(goal);
+        await debug.info('BackupService', 'Imported hydration goal: $goal');
+        results.add(ImportItemResult(
+          dataType: 'Hydration Goal',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Hydration Goal',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await debug.error(
+        'BackupService',
+        'Failed to import hydration goal: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Hydration Goal',
         success: false,
         count: 0,
         errorMessage: e.toString(),
