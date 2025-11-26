@@ -13,6 +13,7 @@ import '../providers/pulse_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
+import '../models/ai_provider.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 import '../services/feature_discovery_service.dart';
@@ -173,6 +174,62 @@ class _ChatScreenState extends State<ChatScreen> {
                             color: Theme.of(context).colorScheme.onPrimaryContainer,
                           ),
                     ),
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // AI Provider Privacy Indicator
+          Consumer<ChatProvider>(
+            builder: (context, chatProvider, child) {
+              final isCloudAi = chatProvider.currentAiProvider == AIProvider.cloud;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.xs,
+                  horizontal: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: isCloudAi
+                      ? Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.3)
+                      : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: (isCloudAi
+                              ? Theme.of(context).colorScheme.tertiary
+                              : Theme.of(context).colorScheme.primary)
+                          .withValues(alpha: 0.2),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isCloudAi ? Icons.cloud_outlined : Icons.phone_android,
+                      size: 14,
+                      color: isCloudAi
+                          ? Theme.of(context).colorScheme.tertiary
+                          : Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isCloudAi ? AppStrings.usingCloudAi : AppStrings.usingLocalAi,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: isCloudAi
+                                ? Theme.of(context).colorScheme.tertiary
+                                : Theme.of(context).colorScheme.primary,
+                          ),
+                    ),
+                    if (isCloudAi) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.privacy_tip_outlined,
+                        size: 12,
+                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.7),
+                      ),
+                    ],
                   ],
                 ),
               );

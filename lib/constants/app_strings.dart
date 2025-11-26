@@ -406,6 +406,21 @@ class AppStrings {
   static const String createNewApiKey = 'Create a new API key';
   static const String copyAndPasteHere = 'Copy and paste it here';
   static const String apiKeyStoredSecurely = 'Your API key is stored securely on your device and used only for Claude AI requests.';
+
+  // Cloud AI Privacy Warnings
+  static const String cloudAiPrivacyWarning = 'When using Cloud AI, your data is sent to Anthropic\'s servers for processing.';
+  static const String cloudAiDataShared = 'Data shared includes: goals, habits, journal excerpts, wellness check-ins, and chat messages.';
+  static const String cloudAiPrivacyNote = 'For complete privacy, use Local AI instead - all processing stays on your device.';
+  static const String cloudAiPrivacyTitle = 'Privacy Notice';
+  static const String cloudAiInUse = 'Cloud AI';
+  static const String cloudAiDataNotice = 'Your messages are processed by Anthropic\'s Claude AI.';
+  static const String localAiInUse = 'Local AI';
+  static const String localAiDataNotice = 'All processing happens on your device. Your data never leaves your phone.';
+  static const String learnMorePrivacy = 'Learn more about privacy';
+  static const String dataSentToCloud = 'Data sent to cloud';
+  static const String usingCloudAi = 'Using Cloud AI';
+  static const String usingLocalAi = 'Using Local AI (Private)';
+
   static const String huggingFaceToken = 'HuggingFace Token';
   static const String enterHuggingFaceToken = 'Enter your HuggingFace token';
   static const String requiredForGemmaModels = 'Required for downloading Gemma models';

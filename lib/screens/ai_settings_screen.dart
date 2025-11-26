@@ -591,6 +591,60 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                   ),
+                  AppSpacing.gapMd,
+
+                  // Privacy Warning Banner
+                  Container(
+                    padding: AppSpacing.paddingMd,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                      borderRadius: AppRadius.radiusMd,
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.privacy_tip_outlined,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.tertiary,
+                            ),
+                            AppSpacing.gapHorizontalSm,
+                            Text(
+                              AppStrings.cloudAiPrivacyTitle,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.tertiary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        AppSpacing.gapSm,
+                        Text(
+                          AppStrings.cloudAiPrivacyWarning,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        AppSpacing.gapXs,
+                        Text(
+                          AppStrings.cloudAiDataShared,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
+                        AppSpacing.gapSm,
+                        Text(
+                          AppStrings.cloudAiPrivacyNote,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
                   AppSpacing.gapLg,
 
                   // Claude API Key field
