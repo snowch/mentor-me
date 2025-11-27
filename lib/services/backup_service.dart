@@ -364,6 +364,25 @@ class BackupService {
     }
   }
 
+  /// Import data from a JSON string (for Google Drive restore)
+  Future<ImportResult> importBackupFromJson(String jsonString) async {
+    try {
+      await _debug.info('BackupService', 'Starting import from JSON string');
+      return await _processImport(jsonString);
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Import from JSON failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+
+      return ImportResult(
+        success: false,
+        message: 'Error restoring backup: ${e.toString()}',
+      );
+    }
+  }
+
   /// Import data from a backup file (using file picker)
   Future<ImportResult> importBackup() async {
     try {

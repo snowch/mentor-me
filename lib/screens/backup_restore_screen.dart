@@ -1,9 +1,13 @@
 // lib/screens/backup_restore_screen.dart
 // Screen for managing data backup and restore operations
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/backup_location.dart';
 import '../services/storage_service.dart';
 import '../services/backup_service.dart';
@@ -33,14 +37,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final _autoBackupService = AutoBackupService();
   final _storage = StorageService();
   final _safService = SAFService();
-  bool _isExporting = false;
   bool _isImporting = false;
   bool _autoBackupEnabled = false;
   DateTime? _lastAutoBackupTime;
-  String? _lastAutoBackupFilename;
   BackupLocation _backupLocation = BackupLocation.internal;
-  String? _currentBackupPath;
   Map<String, dynamic>? _currentDataCounts;
+
+  // Share backup state
+  bool _isSharing = false;
 
   @override
   void initState() {
@@ -68,6 +72,68 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
   }
 
+  /// Share backup file using native share sheet
+  /// Works with any app: Google Drive, Dropbox, Email, WhatsApp, etc.
+  Future<void> _shareBackup() async {
+    if (kIsWeb) {
+      // On web, just use the regular export
+      _exportBackup();
+      return;
+    }
+
+    setState(() => _isSharing = true);
+
+    try {
+      // Create backup JSON
+      final backupJson = await _backupService.createBackupJson();
+      final timestamp = DateFormat('yyyy-MM-dd_HH-mm-ss').format(DateTime.now());
+      final fileName = 'mentorme_backup_$timestamp.json';
+
+      // Write to temp file
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$fileName');
+      await tempFile.writeAsString(backupJson);
+
+      // Share the file
+      final result = await Share.shareXFiles(
+        [XFile(tempFile.path)],
+        subject: 'MentorMe Backup - $timestamp',
+        text: 'MentorMe app backup file. Import this in Settings → Backup & Restore to restore your data.',
+      );
+
+      if (mounted) {
+        if (result.status == ShareResultStatus.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Backup shared successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else if (result.status == ShareResultStatus.dismissed) {
+          // User cancelled - no message needed
+        }
+      }
+
+      // Clean up temp file
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share backup: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSharing = false);
+      }
+    }
+  }
+
   Future<void> _loadCurrentDataCounts() async {
     if (!mounted) return;
 
@@ -88,8 +154,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   Future<void> _loadAutoBackupSettings() async {
     final settings = await _storage.loadSettings();
     final lastBackupTime = await _autoBackupService.getLastAutoBackupTime();
-    final lastBackupFilename = await _autoBackupService.getLastAutoBackupFilename();
-    final currentPath = await _autoBackupService.getCurrentBackupPath();
 
     // Load backup location settings
     final locationString = settings['autoBackupLocation'] as String? ?? BackupLocation.internal.name;
@@ -99,9 +163,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       setState(() {
         _autoBackupEnabled = settings['autoBackupEnabled'] as bool? ?? false;
         _lastAutoBackupTime = lastBackupTime;
-        _lastAutoBackupFilename = lastBackupFilename;
         _backupLocation = location;
-        _currentBackupPath = currentPath;
       });
     }
   }
@@ -129,76 +191,21 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
   }
 
+  /// Export backup - used as web fallback in _shareBackup()
   Future<void> _exportBackup() async {
-    setState(() => _isExporting = true);
-
     try {
       final result = await _backupService.exportBackup();
 
       if (!mounted) return;
 
       if (result.success) {
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
           ),
         );
-
-        // If we have a file path (Android/mobile), show it in a dialog
-        if (result.filePath != null) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green),
-                  SizedBox(width: 12),
-                  Text(AppStrings.backupSaved),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(AppStrings.yourBackupSavedTo),
-                  AppSpacing.gapMd,
-                  Container(
-                    padding: AppSpacing.paddingMd,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      borderRadius: AppRadius.radiusMd,
-                    ),
-                    child: SelectableText(
-                      result.filePath!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  if (result.statistics != null) ...[
-                    AppSpacing.gapMd,
-                    const Divider(),
-                    AppSpacing.gapMd,
-                    _buildStatisticsSummary(result.statistics!),
-                  ],
-                ],
-              ),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(AppStrings.ok),
-                ),
-              ],
-            ),
-          );
-        }
       } else {
-        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${AppStrings.exportFailed}: ${result.message}'),
@@ -206,9 +213,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           ),
         );
       }
-    } finally {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isExporting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -517,142 +529,96 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   Widget _buildAutoBackupCard() {
     return Card(
-      color: _autoBackupEnabled
-          ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
-          : null,
       child: Padding(
         padding: AppSpacing.paddingLg,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header with toggle
             Row(
               children: [
                 Icon(
-                  Icons.backup,
-                  color: Theme.of(context).colorScheme.primary,
+                  Icons.sync,
+                  color: _autoBackupEnabled ? Colors.green : Theme.of(context).colorScheme.outline,
                   size: 20,
                 ),
                 AppSpacing.gapHorizontalSm,
-                Text(
-                  'Automatic Backup',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Auto-Backup',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
+                      if (_lastAutoBackupTime != null)
+                        Text(
+                          'Last: ${_formatBackupTime(_lastAutoBackupTime!)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.green,
+                              ),
+                        ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 Switch(
                   value: _autoBackupEnabled,
                   onChanged: _toggleAutoBackup,
                 ),
               ],
             ),
-            AppSpacing.gapSm,
-            Text(
-              'Automatically create backups after data changes (30s delay)',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+
+            // Advanced settings (expandable)
+            if (_autoBackupEnabled) ...[
+              AppSpacing.gapMd,
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  'Settings',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                children: [
+                  // Location options
+                  _buildLocationOption(
+                    BackupLocation.internal,
+                    'Internal Storage',
+                    'Private app storage',
+                    Icons.lock,
                   ),
-            ),
-            if (_lastAutoBackupTime != null) ...[
-              AppSpacing.gapMd,
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 16,
-                        ),
-                        AppSpacing.gapHorizontalSm,
-                        Expanded(
-                          child: Text(
-                            'Last backup: ${_formatBackupTime(_lastAutoBackupTime!)}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_lastAutoBackupFilename != null) ...[
-                      AppSpacing.gapXs,
-                      Padding(
-                        padding: const EdgeInsets.only(left: 24),
-                        child: Text(
-                          _lastAutoBackupFilename!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-            // Backup location settings
-            if (_autoBackupEnabled && !kIsWeb) ...[
-              AppSpacing.gapLg,
-              const Divider(),
-              AppSpacing.gapMd,
-              _buildBackupLocationSettings(),
-            ],
-            // Add diagnostics button for debugging
-            if (_autoBackupEnabled && !kIsWeb) ...[
-              AppSpacing.gapMd,
-              OutlinedButton.icon(
-                onPressed: _showDiagnostics,
-                icon: const Icon(Icons.bug_report, size: 16),
-                label: const Text('Show Diagnostics'),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ],
-            // Show backup icon in header (optional)
-            if (_autoBackupEnabled && !kIsWeb) ...[
-              AppSpacing.gapMd,
-              Consumer<SettingsProvider>(
-                builder: (context, settingsProvider, child) {
-                  return Row(
-                    children: [
-                      Icon(
-                        Icons.visibility,
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
-                        size: 18,
-                      ),
-                      AppSpacing.gapHorizontalSm,
-                      Expanded(
-                        child: Text(
-                          'Show backup icon in header',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                      Switch(
+                  _buildLocationOption(
+                    BackupLocation.downloads,
+                    'External Folder',
+                    'Accessible via file manager',
+                    Icons.folder_open,
+                  ),
+                  AppSpacing.gapMd,
+                  // Show icon toggle
+                  Consumer<SettingsProvider>(
+                    builder: (context, settingsProvider, child) {
+                      return SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Show status icon'),
+                        subtitle: const Text('Display icon in header during backup'),
                         value: settingsProvider.showAutoBackupIcon,
                         onChanged: (value) async {
                           await settingsProvider.setShowAutoBackupIcon(value);
                         },
-                      ),
-                    ],
-                  );
-                },
-              ),
-              Text(
-                'Display a status icon when backup is running',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      );
+                    },
+                  ),
+                  // Diagnostics link
+                  TextButton.icon(
+                    onPressed: _showDiagnostics,
+                    icon: const Icon(Icons.bug_report, size: 16),
+                    label: const Text('Diagnostics'),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      alignment: Alignment.centerLeft,
                     ),
+                  ),
+                ],
               ),
             ],
           ],
@@ -661,111 +627,67 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     );
   }
 
-  Widget _buildBackupLocationSettings() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildLocationOption(BackupLocation location, String title, String subtitle, IconData icon) {
+    return RadioListTile<BackupLocation>(
+      value: location,
+      groupValue: _backupLocation,
+      onChanged: (value) => _updateBackupLocation(value!),
+      title: Text(title, style: Theme.of(context).textTheme.bodyMedium),
+      subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+      secondary: Icon(icon, size: 20),
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+    );
+  }
+
+  Widget _buildDataSummary() {
+    if (_currentDataCounts == null) {
+      return const SizedBox.shrink();
+    }
+
+    final total = (_currentDataCounts!['totalGoals'] ?? 0) +
+        (_currentDataCounts!['totalJournalEntries'] ?? 0) +
+        (_currentDataCounts!['totalHabits'] ?? 0) +
+        (_currentDataCounts!['totalPulseEntries'] ?? 0) +
+        (_currentDataCounts!['totalConversations'] ?? 0);
+
+    return ExpansionTile(
+      leading: Icon(Icons.storage, color: Theme.of(context).colorScheme.primary),
+      title: const Text('Your Data'),
+      subtitle: Text('$total items'),
       children: [
-        Row(
-          children: [
-            Icon(
-              Icons.folder_outlined,
-              color: Theme.of(context).colorScheme.primary,
-              size: 18,
-            ),
-            AppSpacing.gapHorizontalSm,
-            Text(
-              AppStrings.autoBackupLocation,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
-        ),
-        AppSpacing.gapSm,
-        Text(
-          AppStrings.chooseBackupLocation,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-        ),
-        AppSpacing.gapMd,
-        // Internal storage option
-        RadioListTile<BackupLocation>(
-          value: BackupLocation.internal,
-          groupValue: _backupLocation,
-          onChanged: (value) => _updateBackupLocation(value!),
-          title: Row(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(
             children: [
-              const Icon(Icons.lock, size: 16),
-              AppSpacing.gapHorizontalSm,
-              const Text(AppStrings.internalStorage),
+              _buildDataRow('Goals', _currentDataCounts!['totalGoals'] ?? 0),
+              _buildDataRow('Journal Entries', _currentDataCounts!['totalJournalEntries'] ?? 0),
+              _buildDataRow('Habits', _currentDataCounts!['totalHabits'] ?? 0),
+              _buildDataRow('Wellness Entries', _currentDataCounts!['totalPulseEntries'] ?? 0),
+              _buildDataRow('Conversations', _currentDataCounts!['totalConversations'] ?? 0),
             ],
           ),
-          subtitle: const Text(AppStrings.internalStorageDescription),
-          contentPadding: EdgeInsets.zero,
-          dense: true,
         ),
-        // External storage option (SAF)
-        RadioListTile<BackupLocation>(
-          value: BackupLocation.downloads,
-          groupValue: _backupLocation,
-          onChanged: (value) => _updateBackupLocation(value!),
-          title: Row(
-            children: [
-              const Icon(Icons.folder_open, size: 16),
-              AppSpacing.gapHorizontalSm,
-              const Text(AppStrings.downloadsFolder),
-            ],
-          ),
-          subtitle: const Text(AppStrings.downloadsFolderDescription),
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-        ),
-        // Current backup path
-        if (_currentBackupPath != null) ...[
-          AppSpacing.gapMd,
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    AppSpacing.gapHorizontalSm,
-                    Text(
-                      AppStrings.currentBackupPath,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                    ),
-                  ],
+      ],
+    );
+  }
+
+  Widget _buildDataRow(String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            count.toString(),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-                AppSpacing.gapXs,
-                SelectableText(
-                  _currentBackupPath!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                      ),
-                ),
-              ],
-            ),
           ),
         ],
-      ],
+      ),
     );
   }
 
@@ -956,41 +878,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     }
   }
 
-  Widget _buildCurrentDataCounts() {
-    if (_currentDataCounts == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      child: Padding(
-        padding: AppSpacing.paddingLg,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.storage,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 20,
-                ),
-                AppSpacing.gapHorizontalSm,
-                Text(
-                  'Current Data',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            AppSpacing.gapMd,
-            _buildStatisticsSummary(_currentDataCounts!),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1001,148 +888,92 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         child: ListView(
           padding: AppSpacing.screenPadding,
           children: [
-          // Header info
-          Card(
-            child: Padding(
-              padding: AppSpacing.paddingLg,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  AppSpacing.gapHorizontalMd,
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppStrings.aboutBackups,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                        AppSpacing.gapSm,
-                        Text(
-                          AppStrings.backupsDescription,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+            // Main actions - Share & Restore
+            _buildMainActionsCard(),
+            AppSpacing.gapLg,
 
-          AppSpacing.gapXl,
+            // Auto-backup section (mobile only)
+            if (!kIsWeb) ...[
+              _buildAutoBackupCard(),
+              AppSpacing.gapLg,
+            ],
 
-          // Auto-backup section (mobile only)
-          if (!kIsWeb) ...[
-            _buildAutoBackupCard(),
-            AppSpacing.gapXl,
+            // Current data summary (collapsible)
+            _buildDataSummary(),
+
+            // Bottom padding for navigation bar
+            const SizedBox(height: 80),
           ],
+        ),
+      ),
+    );
+  }
 
-          // Current data counts
-          _buildCurrentDataCounts(),
-
-          AppSpacing.gapXl,
-
-          // Export Section
-          Text(
-            AppStrings.exportData,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          AppSpacing.gapMd,
-          Text(
-            AppStrings.saveCopyOfData,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+  Widget _buildMainActionsCard() {
+    return Card(
+      child: Padding(
+        padding: AppSpacing.paddingLg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Share Backup button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isSharing || _isImporting ? null : _shareBackup,
+                icon: _isSharing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.share),
+                label: Text(_isSharing ? 'Preparing...' : 'Share Backup'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-          ),
-          AppSpacing.gapLg,
-
-          FilledButton.tonalIcon(
-            onPressed: _isExporting || _isImporting ? null : _exportBackup,
-            icon: _isExporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.upload),
-            label: Text(_isExporting ? AppStrings.exporting : AppStrings.exportAllData),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              minimumSize: const Size(double.infinity, 56),
-            ),
-          ),
-
-          AppSpacing.gapXl,
-
-          const Divider(),
-
-          AppSpacing.gapXl,
-
-          // Import Section
-          Text(
-            AppStrings.importData,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          AppSpacing.gapMd,
-          Text(
-            AppStrings.restoreFromBackup,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-          ),
-          AppSpacing.gapLg,
-
-          OutlinedButton.icon(
-            onPressed: _isExporting || _isImporting ? null : _importBackup,
-            icon: _isImporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.download),
-            label: Text(_isImporting ? AppStrings.importing : AppStrings.importFromBackup),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-              minimumSize: const Size(double.infinity, 56),
-            ),
-          ),
-
-          AppSpacing.gapLg,
-
-          // Warning card
-          Card(
-            color: Colors.orange.shade50,
-            child: Padding(
-              padding: AppSpacing.paddingMd,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.warning_amber,
-                    color: Colors.orange.shade700,
-                  ),
-                  AppSpacing.gapHorizontalMd,
-                  Expanded(
-                    child: Text(
-                      AppStrings.importingBackupWarning,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.orange.shade900,
-                          ),
-                    ),
-                  ),
-                ],
               ),
             ),
-          ),
-        ],
+            AppSpacing.gapSm,
+            Text(
+              'Send to Google Drive, Dropbox, Email, or any app',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+              textAlign: TextAlign.center,
+            ),
+
+            AppSpacing.gapLg,
+            const Divider(),
+            AppSpacing.gapLg,
+
+            // Restore button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSharing || _isImporting ? null : _importBackup,
+                icon: _isImporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.folder_open),
+                label: Text(_isImporting ? 'Restoring...' : 'Restore from File'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
+            AppSpacing.gapSm,
+            Text(
+              'Import a previously saved backup file',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
