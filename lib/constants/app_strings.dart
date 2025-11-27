@@ -474,6 +474,35 @@ class AppStrings {
   static const String currentBackupPath = 'Current backup path';
   static const String notAvailable = 'Not available';
 
+  // Google Drive Backup Strings
+  static const String googleDriveBackup = 'Google Drive Backup';
+  static const String googleDriveDescription = 'Sync your backups to Google Drive for secure cloud storage and easy access across devices.';
+  static const String signInWithGoogle = 'Sign in with Google';
+  static const String signedInAs = 'Signed in as';
+  static const String signOut = 'Sign out';
+  static const String backupToDrive = 'Backup to Drive';
+  static const String restoreFromDrive = 'Restore from Drive';
+  static const String backingUpToDrive = 'Backing up...';
+  static const String loadingBackups = 'Loading backups...';
+  static const String noBackupsFound = 'No backups found';
+  static const String noBackupsFoundDescription = 'Create your first backup to get started.';
+  static const String selectBackupToRestore = 'Select a Backup to Restore';
+  static const String backupDate = 'Backup Date';
+  static const String backupSize = 'Size';
+  static const String restoreThisBackup = 'Restore';
+  static const String deleteBackup = 'Delete';
+  static const String driveBackupSuccess = 'Backup saved to Google Drive';
+  static const String driveBackupFailed = 'Failed to backup to Drive';
+  static const String driveRestoreSuccess = 'Data restored from Google Drive';
+  static const String driveRestoreFailed = 'Failed to restore from Drive';
+  static const String confirmDeleteDriveBackup = 'Delete this backup from Google Drive?';
+  static const String driveBackupDeleted = 'Backup deleted from Google Drive';
+  static const String googleDriveNotSupported = 'Google Drive backup is only available on Android';
+  static const String connectingToDrive = 'Connecting to Google Drive...';
+  static const String lastDriveBackup = 'Last Drive backup';
+  static const String driveBackupsAvailable = 'backups available';
+  static const String viewDriveBackups = 'View Drive Backups';
+
   // Reminder Strings
   static const String scheduleTimesForReminders = 'Schedule times when your mentor will send you a reminder to check in. The contextual guidance appears when you open the app.';
   static const String considerFewerReminders = 'Consider Fewer Reminders';
