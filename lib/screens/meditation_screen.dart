@@ -467,6 +467,7 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
   Timer? _timer;
   int _currentInstructionIndex = 0;
   final AudioService _audioService = AudioService();
+  final TextEditingController _reflectionController = TextEditingController();
 
   @override
   void initState() {
@@ -479,6 +480,7 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _reflectionController.dispose();
     super.dispose();
   }
 
@@ -546,6 +548,7 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
   }
 
   Future<void> _saveSession() async {
+    final reflectionText = _reflectionController.text.trim();
     final session = MeditationSession(
       type: widget.type,
       durationSeconds: _elapsedSeconds,
@@ -553,6 +556,7 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
       moodBefore: _moodBefore,
       moodAfter: _moodAfter,
       wasInterrupted: _elapsedSeconds < _selectedDuration * 0.9,
+      notes: reflectionText.isNotEmpty ? reflectionText : null,
     );
 
     await context.read<MeditationProvider>().addSession(session);
@@ -868,6 +872,30 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
             const SizedBox(height: AppSpacing.md),
             _buildMoodChangeIndicator(),
           ],
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // Optional reflection text box
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Reflection (optional)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _reflectionController,
+            maxLines: 4,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'What came up during your practice? Any insights or observations...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.all(AppSpacing.md),
+            ),
+          ),
 
           const SizedBox(height: AppSpacing.xl),
 
