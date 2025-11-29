@@ -11,6 +11,7 @@ import '../models/habit.dart';
 import '../models/pulse_entry.dart';
 import '../models/pulse_type.dart';
 import '../models/hydration_entry.dart';
+import '../models/user_context_summary.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -53,6 +54,7 @@ class StorageService {
   static const String _hydrationGoalKey = 'hydration_goal';
   static const String _unplugSessionsKey = 'unplug_sessions';
   static const String _deviceBoundariesKey = 'device_boundaries';
+  static const String _userContextSummaryKey = 'user_context_summary';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -273,6 +275,27 @@ class StorageService {
   Future<int> loadHydrationGoal() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_hydrationGoalKey) ?? 8; // Default: 8 glasses
+  }
+
+  // Save/Load User Context Summary (rolling AI-generated profile)
+  Future<void> saveUserContextSummary(UserContextSummary summary) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userContextSummaryKey, json.encode(summary.toJson()));
+    await _notifyPersistence('user_context_summary');
+  }
+
+  Future<UserContextSummary?> loadUserContextSummary() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_userContextSummaryKey);
+    if (jsonString == null) return null;
+
+    try {
+      return UserContextSummary.fromJson(json.decode(jsonString));
+    } catch (e) {
+      debugPrint('Warning: Corrupted user context summary, returning null. Error: $e');
+      await prefs.remove(_userContextSummaryKey);
+      return null;
+    }
   }
 
   // Save/Load Settings

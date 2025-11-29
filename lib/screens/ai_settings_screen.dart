@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/model_availability_service.dart';
-import '../services/model_download_service.dart';
+// import '../services/model_download_service.dart';  // Local AI - commented out
 import '../services/debug_service.dart';
 import '../models/ai_provider.dart';
 import '../providers/settings_provider.dart';
@@ -24,21 +24,22 @@ class AISettingsScreen extends StatefulWidget {
 class _AISettingsScreenState extends State<AISettingsScreen> {
   final _storage = StorageService();
   final _aiService = AIService();
-  final _modelDownloadService = ModelDownloadService();
+  // final _modelDownloadService = ModelDownloadService();  // Local AI - commented out
   final _debug = DebugService();
 
   bool _isLoading = true;
   String _selectedModel = 'claude-sonnet-4-20250514'; // Default
   AIProvider _selectedProvider = AIProvider.cloud; // Default to cloud
   List<ModelInfo> _availableModels = [];
-  bool _isModelDownloaded = false;
-  bool _isDownloading = false;
-  ModelDownloadProgress? _downloadProgress;
+  // Local AI fields - commented out while local AI UI is hidden
+  // bool _isModelDownloaded = false;
+  // bool _isDownloading = false;
+  // ModelDownloadProgress? _downloadProgress;
 
   // HuggingFace token for downloading gated models
   String _hfToken = '';
   final _hfTokenController = TextEditingController();
-  bool _hfTokenObscured = true;
+  // bool _hfTokenObscured = true;  // Local AI - commented out
 
   // Claude API key for cloud provider
   String _claudeApiKey = '';
@@ -52,11 +53,11 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   bool? _testSuccessCloud;
   int? _testLatencyMsCloud;
 
-  // Local AI test state
-  bool _isTestingLocal = false;
-  String? _testResultLocal;
-  bool? _testSuccessLocal;
-  int? _testLatencyMsLocal;
+  // Local AI test state - commented out while local AI UI is hidden
+  // bool _isTestingLocal = false;
+  // String? _testResultLocal;
+  // bool? _testSuccessLocal;
+  // int? _testLatencyMsLocal;
 
   // Timer for polling download progress when screen is recreated during active download
   Timer? _progressTimer;
@@ -107,10 +108,10 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     // Load available models list
     _availableModels = ModelAvailabilityService.allModels;
 
-    // Check if model is downloaded (if Local provider is selected)
-    if (_selectedProvider == AIProvider.local) {
-      await _checkModelDownloaded();
-    }
+    // Local AI model check - commented out while local AI UI is hidden
+    // if (_selectedProvider == AIProvider.local) {
+    //   await _checkModelDownloaded();
+    // }
 
     setState(() => _isLoading = false);
   }
@@ -133,6 +134,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     _aiService.setApiKey(_claudeApiKey);
   }
 
+  // Local AI methods - commented out while local AI UI is hidden
+  /*
   Future<void> _checkModelDownloaded() async {
     final isDownloaded = await _modelDownloadService.isModelDownloaded();
     final status = _modelDownloadService.status;
@@ -188,7 +191,10 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       }
     });
   }
+  */
 
+  // Local AI method - commented out while local AI UI is hidden
+  /*
   Future<void> _downloadModel() async {
     if (!mounted) return;
 
@@ -246,7 +252,10 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     }
     // If not success and no error message, it was cancelled by user - no message needed
   }
+  */
 
+  // Local AI method - commented out while local AI UI is hidden
+  /*
   Future<void> _deleteModel() async {
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
@@ -306,6 +315,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       );
     }
   }
+  */
 
   Future<void> _testCloudAI() async {
     setState(() {
@@ -369,6 +379,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
     }
   }
 
+  // Local AI method - commented out while local AI UI is hidden
+  /*
   Future<void> _testLocalAI() async {
     setState(() {
       _isTestingLocal = true;
@@ -449,6 +461,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       }
     }
   }
+  */
 
   String _getModelInfo(String model) {
     switch (model) {
@@ -550,7 +563,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
                         AppSpacing.gapHorizontalMd,
                         Expanded(
                           child: Text(
-                            'Configure both AI providers below. Use the toggle in the app bar to switch between them.',
+                            'Configure your Claude API key below to enable AI mentoring features.',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
@@ -858,6 +871,10 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             ),
           ),
 
+          // LOCAL AI FEATURE HIDDEN - Commented out entire section
+          // The local AI (Gemma 3-1B) has too small a context window for effective mentoring.
+          // Keeping code for potential future re-enablement when better local models are available.
+          /*
           AppSpacing.gapLg,
 
           // Local AI Configuration Section
@@ -1315,11 +1332,12 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
               ),
             ),
           ),
+          */ // END LOCAL AI FEATURE HIDDEN
 
           AppSpacing.gapLg,
 
-          // Model Selection Section - Only shown for Cloud provider
-          if (_selectedProvider == AIProvider.cloud)
+          // Model Selection Section - Always shown (Cloud AI only now)
+          // Removed: if (_selectedProvider == AIProvider.cloud)
             Card(
               child: Padding(
                 padding: AppSpacing.screenPadding,

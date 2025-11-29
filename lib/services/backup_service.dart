@@ -42,6 +42,7 @@ import '../models/implementation_intention.dart';
 import '../models/meditation.dart';
 import '../models/urge_surfing.dart';
 import '../models/hydration_entry.dart';
+import '../models/user_context_summary.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -91,6 +92,7 @@ class BackupService {
     final urgeSurfingSessions = await _storage.getUrgeSurfingSessions() ?? [];
     final hydrationEntries = await _storage.loadHydrationEntries();
     final hydrationGoal = await _storage.loadHydrationGoal();
+    final userContextSummary = await _storage.loadUserContextSummary();
 
     // Remove sensitive data (API key, HF token) from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -145,6 +147,11 @@ class BackupService {
       'urge_surfing_sessions': json.encode(urgeSurfingSessions),
       'hydration_entries': json.encode(hydrationEntries.map((e) => e.toJson()).toList()),
       'hydration_goal': hydrationGoal,
+
+      // AI context summary (rolling profile for personalized mentoring)
+      'user_context_summary': userContextSummary != null
+          ? json.encode(userContextSummary.toJson())
+          : null,
 
       // Statistics for UI display
       'statistics': {
@@ -1519,6 +1526,39 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Hydration Goal',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import user context summary (AI-generated profile)
+    try {
+      if (data.containsKey('user_context_summary') && data['user_context_summary'] != null) {
+        final summaryJson = json.decode(data['user_context_summary'] as String);
+        final summary = UserContextSummary.fromJson(summaryJson);
+        await _storage.saveUserContextSummary(summary);
+        await _debug.info('BackupService', 'Imported user context summary');
+        results.add(ImportItemResult(
+          dataType: 'Context Summary',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Context Summary',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import user context summary: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Context Summary',
         success: false,
         count: 0,
         errorMessage: e.toString(),

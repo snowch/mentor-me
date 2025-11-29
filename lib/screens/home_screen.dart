@@ -11,7 +11,7 @@ import '../services/notification_service.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
-import '../models/ai_provider.dart';
+// import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
 import 'goals_screen.dart';
 import 'journal_screen.dart';
@@ -89,6 +89,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _aiService.isAvailableAsync();
   }
 
+  // LOCAL AI FEATURE HIDDEN - Commented out provider toggle
+  // The local AI (Gemma 3-1B) has too small a context window for effective mentoring.
+  // Keeping code for potential future re-enablement when better local models are available.
+  /*
   Future<void> _toggleAIProvider() async {
     final settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
     await settingsProvider.toggleAIProvider();
@@ -118,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
   }
+  */
 
   Future<void> _checkAndShowWelcomeDialog() async {
     // Check if user just completed onboarding and hasn't seen the welcome dialog
@@ -432,21 +437,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               );
             },
           ),
-          // AI Provider Toggle - Listen to SettingsProvider
+          // AI Settings - Cloud AI only (Local AI hidden due to context window limitations)
           Consumer<SettingsProvider>(
             builder: (context, settingsProvider, child) {
-              final currentProvider = settingsProvider.currentProvider;
               final isConfigured = settingsProvider.currentProviderConfigured;
               final cloudError = settingsProvider.cloudErrorMessage;
 
               return Tooltip(
-                message: 'AI Provider: ${currentProvider.displayName}'
+                message: 'AI Settings'
                     '${cloudError != null ? "\n⚠️ $cloudError" : ""}'
-                    '${isConfigured ? "" : " (Not configured)"}'
-                    '\nTap to switch • Long press for settings',
+                    '${isConfigured ? "" : " (API key not configured)"}'
+                    '\nTap to configure',
                 child: GestureDetector(
-                  onTap: _toggleAIProvider,
-                  onLongPress: () {
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -458,16 +461,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     padding: const EdgeInsets.all(12.0),
                     child: Icon(
                       // Show error icon if there's a cloud error
-                      cloudError != null && currentProvider == AIProvider.cloud
+                      cloudError != null
                           ? Icons.error
-                          : (isConfigured
-                              ? (currentProvider == AIProvider.cloud
-                                  ? Icons.cloud
-                                  : Icons.phone_android)
-                              : (currentProvider == AIProvider.cloud
-                                  ? Icons.cloud_off
-                                  : Icons.phonelink_off)),
-                      color: cloudError != null && currentProvider == AIProvider.cloud
+                          : (isConfigured ? Icons.cloud : Icons.cloud_off),
+                      color: cloudError != null
                           ? Colors.red
                           : (isConfigured
                               ? Theme.of(context).colorScheme.primary

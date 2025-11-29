@@ -19,6 +19,7 @@ import '../models/journal_entry.dart';
 import '../models/pulse_entry.dart';
 import '../models/chat_message.dart';
 import '../models/ai_provider.dart';
+import '../models/user_context_summary.dart';
 
 /// Result of context building containing the formatted context string and metadata
 class ContextBuildResult {
@@ -94,8 +95,8 @@ class ContextManagementService {
     if (activeGoals.isNotEmpty) {
       final goalsSection = StringBuffer('\n**Active Goals:**\n');
       int goalCount = 0;
-      for (final goal in activeGoals.take(10)) {
-        // Include up to 10 goals
+      for (final goal in activeGoals.take(15)) {
+        // Include up to 15 goals for comprehensive context
         goalsSection.writeln(
           '- ${goal.title} (${goal.category.displayName}, ${goal.currentProgress}% complete)',
         );
@@ -113,8 +114,8 @@ class ContextManagementService {
     if (activeHabits.isNotEmpty) {
       final habitsSection = StringBuffer('\n**Habits:**\n');
       int habitCount = 0;
-      for (final habit in activeHabits.take(10)) {
-        // Include up to 10 habits
+      for (final habit in activeHabits.take(15)) {
+        // Include up to 15 habits for comprehensive context
         habitsSection.writeln(
           '- ${habit.title} (${habit.currentStreak} day streak)',
         );
@@ -124,17 +125,27 @@ class ContextManagementService {
       addSection(habitsSection.toString(), 'habits', habitCount);
     }
 
-    // 3. Recent Journal Entries (last 7 days worth, up to 5 entries)
-    final recentJournals = journalEntries.take(5).toList();
+    // 3. Recent Journal Entries - expanded for better context
+    // First 7 entries: FULL content (no truncation) for recent reflections
+    // Next 13 entries (8-20): Truncated to 500 chars for historical context
+    final recentJournals = journalEntries.take(20).toList();
     if (recentJournals.isNotEmpty) {
       final journalsSection = StringBuffer('\n**Recent Journal Entries:**\n');
       int journalCount = 0;
-      for (final entry in recentJournals) {
+      for (int i = 0; i < recentJournals.length; i++) {
+        final entry = recentJournals[i];
         final entryText = _extractEntryText(entry);
-        // Truncate very long entries to keep context manageable
-        final preview = entryText.length > 300
-            ? '${entryText.substring(0, 300)}...'
-            : entryText;
+        // First 7 entries get full content, rest are truncated
+        final String preview;
+        if (i < 7) {
+          // Recent entries: no truncation for full context
+          preview = entryText;
+        } else {
+          // Older entries: truncate to 500 chars
+          preview = entryText.length > 500
+              ? '${entryText.substring(0, 500)}...'
+              : entryText;
+        }
         journalsSection.writeln(
           '- ${_formatDate(entry.createdAt)}: $preview',
         );
@@ -169,8 +180,8 @@ class ContextManagementService {
       addSection(haltSection.toString(), 'halt_checks', haltCount);
     }
 
-    // 4. Recent Pulse/Wellness Entries (last 7 days)
-    final recentPulse = pulseEntries.take(7).toList();
+    // 4. Recent Pulse/Wellness Entries (last 14 days for trend visibility)
+    final recentPulse = pulseEntries.take(14).toList();
     if (recentPulse.isNotEmpty) {
       final pulseSection = StringBuffer('\n**Recent Wellness Check-ins:**\n');
       int pulseCount = 0;
@@ -185,15 +196,15 @@ class ContextManagementService {
       addSection(pulseSection.toString(), 'pulse_entries', pulseCount);
     }
 
-    // 5. Conversation History (last 10 messages)
+    // 5. Conversation History (last 20 messages for multi-turn context)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\n**Recent Conversation:**\n');
       int msgCount = 0;
-      for (final msg in conversationHistory.reversed.take(10).toList().reversed) {
+      for (final msg in conversationHistory.reversed.take(20).toList().reversed) {
         final sender = msg.isFromUser ? 'User' : 'Mentor';
-        // Truncate long messages
-        final content = msg.content.length > 200
-            ? '${msg.content.substring(0, 200)}...'
+        // Truncate very long messages to 500 chars
+        final content = msg.content.length > 500
+            ? '${msg.content.substring(0, 500)}...'
             : msg.content;
         historySection.writeln('$sender: $content');
         msgCount++;
@@ -369,6 +380,120 @@ class ContextManagementService {
         conversationHistory: conversationHistory,
       );
     }
+  }
+
+  /// Build layered context with rolling summary + recent raw data
+  ///
+  /// Structure:
+  /// - LAYER 1: Rolling Summary (historical context, AI-generated profile)
+  /// - LAYER 2: Current State (active goals/habits)
+  /// - LAYER 3: Recent Activity (entries since summary, FULL detail)
+  /// - LAYER 4: Conversation History
+  ContextBuildResult buildCloudContextWithSummary({
+    required UserContextSummary? summary,
+    required List<Goal> goals,
+    required List<Habit> habits,
+    required List<JournalEntry> journalEntries,
+    required List<PulseEntry> pulseEntries,
+    List<ChatMessage>? conversationHistory,
+  }) {
+    final buffer = StringBuffer();
+    final itemCounts = <String, int>{};
+
+    // LAYER 1: Rolling Summary (historical context)
+    if (summary != null) {
+      buffer.writeln('## About This User');
+      buffer.writeln(summary.summary);
+      buffer.writeln();
+      itemCounts['summary'] = 1;
+    }
+
+    // LAYER 2: Current State (active goals/habits)
+    final activeGoals = goals.where((g) => g.isActive).toList();
+    if (activeGoals.isNotEmpty) {
+      buffer.writeln('## Current Goals');
+      for (final goal in activeGoals.take(15)) {
+        buffer.writeln('- ${goal.title} (${goal.category.displayName}, ${goal.currentProgress}%)');
+        // Include pending milestones
+        if (goal.milestonesDetailed.isNotEmpty) {
+          final pending = goal.milestonesDetailed
+              .where((m) => !m.isCompleted)
+              .take(3);
+          for (final m in pending) {
+            buffer.writeln('  • ${m.title}');
+          }
+        }
+      }
+      buffer.writeln();
+      itemCounts['goals'] = activeGoals.take(15).length;
+    }
+
+    final activeHabits = habits.where((h) => h.isActive).toList()
+      ..sort((a, b) => b.currentStreak.compareTo(a.currentStreak));
+    if (activeHabits.isNotEmpty) {
+      buffer.writeln('## Current Habits');
+      for (final habit in activeHabits.take(15)) {
+        buffer.writeln('- ${habit.title} (${habit.currentStreak} day streak)');
+      }
+      buffer.writeln();
+      itemCounts['habits'] = activeHabits.take(15).length;
+    }
+
+    // LAYER 3: Recent Activity (since summary, FULL detail - no truncation)
+    final cutoffDate = summary?.generatedAt ?? DateTime(2000);
+
+    final recentJournals = journalEntries
+        .where((e) => e.createdAt.isAfter(cutoffDate))
+        .toList();
+
+    if (recentJournals.isNotEmpty) {
+      buffer.writeln('## Recent Journal Entries');
+      for (final entry in recentJournals.take(20)) {
+        final text = _extractEntryText(entry);
+        // NO TRUNCATION for recent entries - full context
+        buffer.writeln('- ${_formatDate(entry.createdAt)}: $text');
+        buffer.writeln();
+      }
+      itemCounts['recent_journal_entries'] = recentJournals.take(20).length;
+    }
+
+    final recentPulse = pulseEntries
+        .where((e) => e.timestamp.isAfter(cutoffDate))
+        .toList();
+
+    if (recentPulse.isNotEmpty) {
+      buffer.writeln('## Recent Wellness');
+      for (final entry in recentPulse.take(14)) {
+        final metrics = entry.customMetrics.entries
+            .map((e) => '${e.key}: ${e.value}/5')
+            .join(', ');
+        buffer.writeln('- ${_formatDate(entry.timestamp)}: $metrics');
+      }
+      buffer.writeln();
+      itemCounts['recent_pulse_entries'] = recentPulse.take(14).length;
+    }
+
+    // LAYER 4: Conversation History
+    if (conversationHistory != null && conversationHistory.isNotEmpty) {
+      buffer.writeln('## This Conversation');
+      for (final msg in conversationHistory.reversed.take(20).toList().reversed) {
+        final sender = msg.isFromUser ? 'User' : 'Mentor';
+        // Allow longer messages in conversation context
+        final content = msg.content.length > 500
+            ? '${msg.content.substring(0, 500)}...'
+            : msg.content;
+        buffer.writeln('$sender: $content');
+      }
+      buffer.writeln();
+      itemCounts['conversation_messages'] = conversationHistory.reversed.take(20).length;
+    }
+
+    final contextString = buffer.toString();
+    return ContextBuildResult(
+      context: contextString,
+      estimatedTokens: estimateTokens(contextString),
+      itemCounts: itemCounts,
+    );
   }
 
   /// Format date helper
