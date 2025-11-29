@@ -32,8 +32,24 @@ class JournalScreen extends StatefulWidget {
 class _JournalScreenState extends State<JournalScreen> {
   String _searchQuery = '';
   String _selectedFilter = AppStrings.all; // All, Reflections, Pulse
+  String? _selectedReflectionType; // null means all types
   bool _isCompactView = false;
   final TextEditingController _searchController = TextEditingController();
+
+  // Available reflection types for filtering
+  static const List<Map<String, String>> _reflectionTypes = [
+    {'value': 'general', 'label': 'General', 'emoji': '💭'},
+    {'value': 'meditation', 'label': 'Meditation', 'emoji': '🧘'},
+    {'value': 'exercise', 'label': 'Exercise', 'emoji': '🏃'},
+    {'value': 'food', 'label': 'Food', 'emoji': '🍎'},
+    {'value': 'gratitude', 'label': 'Gratitude', 'emoji': '🙏'},
+    {'value': 'work', 'label': 'Work', 'emoji': '💼'},
+    {'value': 'health', 'label': 'Health', 'emoji': '❤️'},
+    {'value': 'relationship', 'label': 'Relationship', 'emoji': '👥'},
+    {'value': 'urge', 'label': 'Urge', 'emoji': '⚡'},
+    {'value': 'halt', 'label': 'HALT', 'emoji': '🛑'},
+    {'value': 'other', 'label': 'Other', 'emoji': '📝'},
+  ];
 
   @override
   void dispose() {
@@ -57,6 +73,15 @@ class _JournalScreenState extends State<JournalScreen> {
       timelineEntries = timelineEntries.where((e) => e.type == TimelineEntryType.journal).toList();
     } else if (_selectedFilter == AppStrings.pulse) {
       timelineEntries = timelineEntries.where((e) => e.type == TimelineEntryType.pulse).toList();
+    }
+
+    // Apply reflection type filter (only for journal entries)
+    if (_selectedReflectionType != null) {
+      timelineEntries = timelineEntries.where((entry) {
+        if (entry.type != TimelineEntryType.journal) return false;
+        final reflectionType = entry.journalEntry!.reflectionType ?? 'general';
+        return reflectionType == _selectedReflectionType;
+      }).toList();
     }
 
     // Apply search filter
@@ -212,6 +237,57 @@ class _JournalScreenState extends State<JournalScreen> {
                     ],
                   ),
                 ),
+
+                // Reflection type filter (only show when not filtering by Pulse only)
+                if (_selectedFilter != AppStrings.pulse) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Text(
+                        'Type:',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              // "All Types" chip
+                              FilterChip(
+                                label: const Text('All'),
+                                selected: _selectedReflectionType == null,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedReflectionType = null;
+                                  });
+                                },
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              const SizedBox(width: 6),
+                              // Type-specific chips
+                              ..._reflectionTypes.map((type) => Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: FilterChip(
+                                  label: Text('${type['emoji']} ${type['label']}'),
+                                  selected: _selectedReflectionType == type['value'],
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _selectedReflectionType = selected ? type['value'] : null;
+                                    });
+                                  },
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              )),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -228,14 +304,14 @@ class _JournalScreenState extends State<JournalScreen> {
                             Icon(Icons.book_outlined, size: AppIconSize.hero, color: Theme.of(context).colorScheme.outline),
                             AppSpacing.gapLg,
                             Text(
-                              _searchQuery.isNotEmpty || _selectedFilter != AppStrings.all
+                              _searchQuery.isNotEmpty || _selectedFilter != AppStrings.all || _selectedReflectionType != null
                                   ? AppStrings.noMatchingEntries
                                   : AppStrings.noEntriesYet,
                               style: Theme.of(context).textTheme.headlineSmall,
                             ),
                             AppSpacing.gapSm,
                             Text(
-                              _searchQuery.isNotEmpty || _selectedFilter != AppStrings.all
+                              _searchQuery.isNotEmpty || _selectedFilter != AppStrings.all || _selectedReflectionType != null
                                   ? AppStrings.tryAdjustingSearchOrFilter
                                   : AppStrings.startJournaling,
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -274,6 +350,10 @@ class _JournalScreenState extends State<JournalScreen> {
       onSelected: (selected) {
         setState(() {
           _selectedFilter = label;
+          // Reset reflection type filter when switching to Pulse
+          if (label == AppStrings.pulse) {
+            _selectedReflectionType = null;
+          }
         });
       },
       showCheckmark: false,

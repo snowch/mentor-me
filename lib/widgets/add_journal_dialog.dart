@@ -24,6 +24,22 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
   final _contentController = TextEditingController();
   final List<String> _selectedGoalIds = [];
   DateTime _selectedDateTime = DateTime.now();
+  String _selectedReflectionType = 'general';
+
+  // Available reflection types
+  static const List<Map<String, String>> _reflectionTypes = [
+    {'value': 'general', 'label': 'General', 'emoji': '💭'},
+    {'value': 'meditation', 'label': 'Meditation', 'emoji': '🧘'},
+    {'value': 'exercise', 'label': 'Exercise', 'emoji': '🏃'},
+    {'value': 'food', 'label': 'Food', 'emoji': '🍎'},
+    {'value': 'gratitude', 'label': 'Gratitude', 'emoji': '🙏'},
+    {'value': 'work', 'label': 'Work', 'emoji': '💼'},
+    {'value': 'health', 'label': 'Health', 'emoji': '❤️'},
+    {'value': 'relationship', 'label': 'Relationship', 'emoji': '👥'},
+    {'value': 'urge', 'label': 'Urge', 'emoji': '⚡'},
+    {'value': 'halt', 'label': 'HALT', 'emoji': '🛑'},
+    {'value': 'other', 'label': 'Other', 'emoji': '📝'},
+  ];
 
   // Cognitive distortion detection
   final _distortionDetector = CognitiveDistortionDetector();
@@ -281,6 +297,30 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
                         ),
                       ],
 
+                      // Reflection type selector
+                      const SizedBox(height: 24),
+                      Text(
+                        'Reflection Type (Optional)',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _reflectionTypes.map((type) {
+                          final isSelected = _selectedReflectionType == type['value'];
+                          return FilterChip(
+                            label: Text('${type['emoji']} ${type['label']}'),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedReflectionType = type['value']!;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+
                       // Date/Time selector
                       const SizedBox(height: 24),
                       Card(
@@ -384,6 +424,7 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
         content: _contentController.text,
         goalIds: _selectedGoalIds,
         createdAt: _selectedDateTime,
+        reflectionType: _selectedReflectionType,
       );
 
       await context.read<JournalProvider>().addEntry(entry);
