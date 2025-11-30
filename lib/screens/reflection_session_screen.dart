@@ -55,7 +55,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
 
   // Analysis results
   ReflectionAnalysis? _analysis;
-  Intervention? _selectedIntervention;
+  final Set<Intervention> _selectedInterventions = {};
 
   // Agentic action tracking
   final List<ProposedAction> _proposedActions = [];
@@ -522,21 +522,25 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
 
     await journalProvider.addEntry(journalEntry);
 
-    // Create habit if intervention selected
+    // Create habits for all selected interventions
     if (!mounted) return;
-    if (_selectedIntervention?.habitSuggestion != null) {
+    if (_selectedInterventions.isNotEmpty) {
       final habitProvider = context.read<HabitProvider>();
-      final habit = Habit(
-        id: _uuid.v4(),
-        title: _selectedIntervention!.habitSuggestion!,
-        description:
-            'Practice from reflection session: ${_selectedIntervention!.name}',
-        createdAt: DateTime.now(),
-        isSystemCreated: true,
-        systemType: 'reflection_intervention',
-        linkedGoalId: widget.linkedGoalId,
-      );
-      await habitProvider.addHabit(habit);
+      for (final intervention in _selectedInterventions) {
+        if (intervention.habitSuggestion != null) {
+          final habit = Habit(
+            id: _uuid.v4(),
+            title: intervention.habitSuggestion!,
+            description:
+                'Practice from reflection session: ${intervention.name}',
+            createdAt: DateTime.now(),
+            isSystemCreated: true,
+            systemType: 'reflection_intervention',
+            linkedGoalId: widget.linkedGoalId,
+          );
+          await habitProvider.addHabit(habit);
+        }
+      }
     }
 
     setState(() => _isLoading = false);
@@ -624,7 +628,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
                 ],
 
                 // Habit creation notice
-                if (_selectedIntervention != null) ...[
+                if (_selectedInterventions.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.md),
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.sm),
@@ -632,20 +636,40 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
                       color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.check_circle,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Text(
+                              _selectedInterventions.length == 1
+                                  ? 'Habit created:'
+                                  : '${_selectedInterventions.length} Habits created:',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Habit created: "${_selectedIntervention!.habitSuggestion}"',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        ...(_selectedInterventions
+                            .where((i) => i.habitSuggestion != null)
+                            .map((i) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 24,
+                                    top: 2,
+                                  ),
+                                  child: Text(
+                                    '• ${i.habitSuggestion}',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ))),
                       ],
                     ),
                   ),
@@ -1175,22 +1199,27 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Intervention cards
+          // Intervention cards (multi-select enabled)
           for (final intervention in recommendations) ...[
             InterventionCardWidget(
               intervention: intervention,
-              isSelected: _selectedIntervention == intervention,
+              isSelected: _selectedInterventions.contains(intervention),
               onSelect: () {
                 setState(() {
-                  _selectedIntervention =
-                      _selectedIntervention == intervention
-                          ? null
-                          : intervention;
+                  if (_selectedInterventions.contains(intervention)) {
+                    _selectedInterventions.remove(intervention);
+                  } else {
+                    _selectedInterventions.add(intervention);
+                  }
                 });
               },
               onCreateHabit: intervention.habitSuggestion != null
                   ? () {
-                      setState(() => _selectedIntervention = intervention);
+                      setState(() {
+                        if (!_selectedInterventions.contains(intervention)) {
+                          _selectedInterventions.add(intervention);
+                        }
+                      });
                     }
                   : null,
             ),
@@ -1237,17 +1266,19 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(_selectedIntervention != null
-                      ? 'Complete & Create Habit'
-                      : 'Complete Session'),
+                  : Text(_selectedInterventions.isEmpty
+                      ? 'Complete Session'
+                      : _selectedInterventions.length == 1
+                          ? 'Complete & Create Habit'
+                          : 'Complete & Create ${_selectedInterventions.length} Habits'),
             ),
           ),
 
-          if (_selectedIntervention == null)
+          if (_selectedInterventions.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.sm),
               child: Text(
-                'Tip: Select a practice above to create a habit for it',
+                'Tip: Select practices above to create habits for them',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
