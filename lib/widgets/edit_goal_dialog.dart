@@ -291,7 +291,7 @@ class _EditGoalDialogState extends State<EditGoalDialog> {
         return WinCategory.fitness;
       case GoalCategory.career:
         return WinCategory.career;
-      case GoalCategory.education:
+      case GoalCategory.learning:
         return WinCategory.learning;
       case GoalCategory.relationships:
         return WinCategory.relationships;
