@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../models/win.dart';
 import '../providers/win_provider.dart';
 import '../theme/app_spacing.dart';
+import 'add_win_dialog.dart';
 
 /// A widget that displays the user's recent wins for motivation.
 /// Shows wins from the last 7 days with source icons and categories.
+/// Shows an encouraging empty state with option to record a win when empty.
 class RecentWinsWidget extends StatelessWidget {
   const RecentWinsWidget({super.key});
 
@@ -14,9 +16,9 @@ class RecentWinsWidget extends StatelessWidget {
     final winProvider = context.watch<WinProvider>();
     final recentWins = winProvider.getRecentWinsFromDays(7);
 
-    // Don't show the widget if there are no recent wins
+    // Show empty state if no recent wins
     if (recentWins.isEmpty) {
-      return const SizedBox.shrink();
+      return _buildEmptyState(context);
     }
 
     return Card(
@@ -69,6 +71,14 @@ class RecentWinsWidget extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Add win button
+                IconButton(
+                  onPressed: () => AddWinDialog.show(context),
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'Record a win',
+                  iconSize: 20,
+                  visualDensity: VisualDensity.compact,
+                ),
                 // Weekly stats badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -117,6 +127,66 @@ class RecentWinsWidget extends StatelessWidget {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build an encouraging empty state when there are no recent wins
+  Widget _buildEmptyState(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: AppSpacing.cardPadding,
+        child: Column(
+          children: [
+            // Trophy icon
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.emoji_events_outlined,
+                color: Colors.amber.shade400,
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your Wins',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Celebrate your accomplishments, big or small',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => AddWinDialog.show(context),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Record a Win'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.amber.shade600,
+                foregroundColor: Colors.white,
+              ),
+            ),
           ],
         ),
       ),
