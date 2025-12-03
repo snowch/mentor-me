@@ -340,6 +340,9 @@ enum ActionType {
   scheduleCheckInReminder,
   saveSessionAsJournal,
   scheduleFollowUp,
+
+  // Win tracking actions
+  recordWin,
 }
 
 extension ActionTypeExtension on ActionType {
@@ -393,6 +396,8 @@ extension ActionTypeExtension on ActionType {
         return 'Save as Journal';
       case ActionType.scheduleFollowUp:
         return 'Schedule Follow-Up';
+      case ActionType.recordWin:
+        return 'Record Win';
     }
   }
 
@@ -437,6 +442,8 @@ extension ActionTypeExtension on ActionType {
         return '📝';
       case ActionType.scheduleFollowUp:
         return '🔔';
+      case ActionType.recordWin:
+        return '🏆';
     }
   }
 }

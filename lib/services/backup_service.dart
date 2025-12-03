@@ -43,6 +43,7 @@ import '../models/meditation.dart';
 import '../models/urge_surfing.dart';
 import '../models/hydration_entry.dart';
 import '../models/user_context_summary.dart';
+import '../models/win.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -93,6 +94,7 @@ class BackupService {
     final hydrationEntries = await _storage.loadHydrationEntries();
     final hydrationGoal = await _storage.loadHydrationGoal();
     final userContextSummary = await _storage.loadUserContextSummary();
+    final wins = await _storage.loadWins();
 
     // Remove sensitive data (API key, HF token) from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -153,6 +155,9 @@ class BackupService {
           ? json.encode(userContextSummary.toJson())
           : null,
 
+      // Wins/accomplishments tracking
+      'wins': json.encode(wins.map((w) => w.toJson()).toList()),
+
       // Statistics for UI display
       'statistics': {
         'totalGoals': goals.length,
@@ -179,6 +184,7 @@ class BackupService {
         'totalUrgeSurfingSessions': urgeSurfingSessions.length,
         'totalHydrationEntries': hydrationEntries.length,
         'hydrationGoal': hydrationGoal,
+        'totalWins': wins.length,
       },
     };
 
@@ -1559,6 +1565,39 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Context Summary',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import wins (accomplishments tracking)
+    try {
+      if (data.containsKey('wins') && data['wins'] != null) {
+        final winsJson = json.decode(data['wins'] as String) as List;
+        final wins = winsJson.map((json) => Win.fromJson(json)).toList();
+        await _storage.saveWins(wins);
+        await _debug.info('BackupService', 'Imported ${wins.length} wins');
+        results.add(ImportItemResult(
+          dataType: 'Wins',
+          success: true,
+          count: wins.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Wins',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import wins: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Wins',
         success: false,
         count: 0,
         errorMessage: e.toString(),

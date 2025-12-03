@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/habit.dart';
+import '../models/win.dart';
 import '../services/storage_service.dart';
 import '../services/habit_service.dart';
 import '../services/notification_service.dart';
@@ -124,6 +125,34 @@ class HabitProvider extends ChangeNotifier {
         habitTitle: updatedHabit.title,
         streak: currentStreak,
       );
+
+      // Record win for streak milestone
+      await _recordStreakMilestoneWin(
+        habit: updatedHabit,
+        streak: currentStreak,
+      );
+    }
+  }
+
+  /// Records a win when a habit reaches a streak milestone
+  Future<void> _recordStreakMilestoneWin({
+    required Habit habit,
+    required int streak,
+  }) async {
+    try {
+      // Load current wins, add new one, save
+      final wins = await _storage.loadWins();
+      final win = Win(
+        description: '${streak}-day streak on ${habit.title}!',
+        source: WinSource.streakMilestone,
+        category: WinCategory.habit,
+        linkedHabitId: habit.id,
+      );
+      wins.add(win);
+      await _storage.saveWins(wins);
+    } catch (e) {
+      // Don't let win recording failure break habit completion
+      debugPrint('Failed to record streak milestone win: $e');
     }
   }
 

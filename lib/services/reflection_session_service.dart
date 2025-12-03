@@ -61,6 +61,14 @@ You have access to tools that let you help the user directly:
 - Create custom check-in templates for tracking progress
 - Save important insights as journal entries
 - Schedule follow-up reminders
+- Record wins and accomplishments the user mentions
+
+CAPTURING WINS:
+- Listen for accomplishments, progress, or things the user is proud of
+- When someone shares a win (big or small), acknowledge it warmly and offer to record it
+- Ask "Should I record that as a win?" or "That's worth celebrating - want me to save that?"
+- Wins can be linked to goals or habits when relevant
+- Recording wins helps build motivation and track progress over time
 
 USE TOOLS THOUGHTFULLY:
 - Only suggest actions when they genuinely serve the user
@@ -673,6 +681,15 @@ Keep it genuine and warm.''';
           );
           break;
 
+        case ActionType.recordWin:
+          result = await _actionService!.recordWin(
+            description: proposedAction.parameters['description'] as String,
+            category: proposedAction.parameters['category'] as String?,
+            linkedGoalId: proposedAction.parameters['linkedGoalId'] as String?,
+            linkedHabitId: proposedAction.parameters['linkedHabitId'] as String?,
+          );
+          break;
+
         // Add other action types as needed
         default:
           result = ActionResult.failure('Action type not yet implemented: ${proposedAction.type.name}');
@@ -832,6 +849,8 @@ Keep it genuine and warm.''';
         return ActionType.saveSessionAsJournal;
       case 'schedule_followup':
         return ActionType.scheduleFollowUp;
+      case 'record_win':
+        return ActionType.recordWin;
       default:
         _debug.warning(
           'ReflectionSessionService',
@@ -899,6 +918,12 @@ Keep it genuine and warm.''';
       case ActionType.scheduleFollowUp:
         final days = parameters['daysFromNow'] as int? ?? 7;
         return 'Schedule follow-up in $days days';
+      case ActionType.recordWin:
+        final description = parameters['description'] as String? ?? 'accomplishment';
+        final truncated = description.length > 50
+            ? '${description.substring(0, 47)}...'
+            : description;
+        return 'Record win: "$truncated"';
     }
   }
 }

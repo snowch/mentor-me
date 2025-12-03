@@ -4,6 +4,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/goal.dart';
 import '../models/milestone.dart';
 import '../providers/goal_provider.dart';
+import '../providers/win_provider.dart';
+import '../models/win.dart';
 import '../services/goal_decomposition_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/add_milestone_dialog.dart';
@@ -320,6 +322,15 @@ class _GoalDetailSheetState extends State<GoalDetailSheet> {
                                     goal.id,
                                     milestone.id,
                                   );
+
+                              // Record win for milestone completion
+                              await context.read<WinProvider>().recordWin(
+                                description: 'Completed milestone: ${milestone.title}',
+                                source: WinSource.milestoneComplete,
+                                category: _mapGoalCategoryToWinCategory(goal.category),
+                                linkedGoalId: goal.id,
+                                linkedMilestoneId: milestone.id,
+                              );
 
                               // Get updated goal to show in celebration
                               final updatedGoal = context.read<GoalProvider>().getGoalById(goal.id);
@@ -774,5 +785,27 @@ class _GoalDetailSheetState extends State<GoalDetailSheet> {
     if (progress < 50) return Colors.orange;
     if (progress < 75) return Colors.blue;
     return Colors.green;
+  }
+
+  /// Maps GoalCategory to WinCategory for win tracking
+  WinCategory _mapGoalCategoryToWinCategory(GoalCategory category) {
+    switch (category) {
+      case GoalCategory.health:
+        return WinCategory.health;
+      case GoalCategory.fitness:
+        return WinCategory.fitness;
+      case GoalCategory.career:
+        return WinCategory.career;
+      case GoalCategory.learning:
+        return WinCategory.learning;
+      case GoalCategory.relationships:
+        return WinCategory.relationships;
+      case GoalCategory.finance:
+        return WinCategory.finance;
+      case GoalCategory.personal:
+        return WinCategory.personal;
+      case GoalCategory.other:
+        return WinCategory.other;
+    }
   }
 }

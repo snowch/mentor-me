@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/goal.dart';
+import '../models/win.dart';
 import '../providers/goal_provider.dart';
+import '../providers/win_provider.dart';
 import 'package:mentor_me/constants/app_strings.dart';
 
 class EditGoalDialog extends StatefulWidget {
@@ -238,8 +240,13 @@ class _EditGoalDialogState extends State<EditGoalDialog> {
     );
   }
 
-  void _saveGoal() {
+  void _saveGoal() async {
     if (_formKey.currentState!.validate()) {
+      // Check if status is being changed to completed (was not completed before)
+      final wasNotCompleted = widget.goal.status != GoalStatus.completed;
+      final isNowCompleted = _selectedStatus == GoalStatus.completed;
+      final justCompleted = wasNotCompleted && isNowCompleted;
+
       final updatedGoal = widget.goal.copyWith(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -248,16 +255,52 @@ class _EditGoalDialogState extends State<EditGoalDialog> {
         targetDate: _targetDate,
       );
 
-      context.read<GoalProvider>().updateGoal(updatedGoal);
+      await context.read<GoalProvider>().updateGoal(updatedGoal);
 
-      Navigator.pop(context);
+      // Record win if goal was just completed
+      if (justCompleted) {
+        await context.read<WinProvider>().recordWin(
+          description: 'Achieved goal: ${updatedGoal.title}',
+          source: WinSource.goalComplete,
+          category: _mapGoalCategoryToWinCategory(_selectedCategory),
+          linkedGoalId: widget.goal.id,
+        );
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(AppStrings.savedSuccessfully),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(justCompleted
+                ? 'Goal completed! Win recorded!'
+                : AppStrings.savedSuccessfully),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Maps GoalCategory to WinCategory for win tracking
+  WinCategory _mapGoalCategoryToWinCategory(GoalCategory category) {
+    switch (category) {
+      case GoalCategory.health:
+        return WinCategory.health;
+      case GoalCategory.fitness:
+        return WinCategory.fitness;
+      case GoalCategory.career:
+        return WinCategory.career;
+      case GoalCategory.learning:
+        return WinCategory.learning;
+      case GoalCategory.relationships:
+        return WinCategory.relationships;
+      case GoalCategory.finance:
+        return WinCategory.finance;
+      case GoalCategory.personal:
+        return WinCategory.personal;
+      case GoalCategory.other:
+        return WinCategory.other;
     }
   }
 }

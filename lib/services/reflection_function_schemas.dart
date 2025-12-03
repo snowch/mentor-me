@@ -37,6 +37,9 @@ class ReflectionFunctionSchemas {
     // Session tools
     saveSessionAsJournalTool,
     scheduleFollowUpTool,
+
+    // Win tracking tools
+    recordWinTool,
   ];
 
   // ==========================================================================
@@ -449,6 +452,41 @@ class ReflectionFunctionSchemas {
         },
       },
       'required': ['daysFromNow', 'reminderMessage'],
+    },
+  };
+
+  // ==========================================================================
+  // WIN TRACKING TOOLS
+  // ==========================================================================
+
+  static const Map<String, dynamic> recordWinTool = {
+    'name': 'record_win',
+    'description': 'Records a win or accomplishment mentioned by the user. '
+        'Use this when the user shares something they are proud of, '
+        'achieved, or completed. This helps track progress and provides '
+        'motivation through a visible record of accomplishments.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'description': {
+          'type': 'string',
+          'description': 'Description of the win/accomplishment (e.g., "Completed 5 workouts this week", "Had a difficult conversation I\'d been avoiding")',
+        },
+        'category': {
+          'type': 'string',
+          'enum': ['health', 'fitness', 'career', 'learning', 'relationships', 'finance', 'personal', 'habit', 'other'],
+          'description': 'Category of the win',
+        },
+        'linkedGoalId': {
+          'type': 'string',
+          'description': 'Optional ID of a goal this win relates to',
+        },
+        'linkedHabitId': {
+          'type': 'string',
+          'description': 'Optional ID of a habit this win relates to',
+        },
+      },
+      'required': ['description'],
     },
   };
 }

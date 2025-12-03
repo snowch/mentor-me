@@ -9,6 +9,8 @@ import 'package:mentor_me/providers/goal_provider.dart';
 import 'package:mentor_me/providers/habit_provider.dart';
 import 'package:mentor_me/providers/journal_provider.dart';
 import 'package:mentor_me/providers/checkin_template_provider.dart';
+import 'package:mentor_me/providers/win_provider.dart';
+import 'package:mentor_me/models/win.dart';
 import 'package:mentor_me/services/notification_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -52,6 +54,7 @@ class ReflectionActionService {
   final HabitProvider habitProvider;
   final JournalProvider journalProvider;
   final CheckInTemplateProvider templateProvider;
+  final WinProvider winProvider;
   final NotificationService notificationService;
   final DebugService _debug = DebugService();
   final Uuid _uuid = const Uuid();
@@ -61,6 +64,7 @@ class ReflectionActionService {
     required this.habitProvider,
     required this.journalProvider,
     required this.templateProvider,
+    required this.winProvider,
     required this.notificationService,
   });
 
@@ -297,6 +301,14 @@ class ReflectionActionService {
         status: GoalStatus.completed,
       );
       await goalProvider.updateGoal(updated);
+
+      // Record win for goal completion
+      await winProvider.recordWin(
+        description: 'Achieved goal: ${goal.title}',
+        source: WinSource.goalComplete,
+        category: _mapGoalCategoryToWinCategory(goal.category),
+        linkedGoalId: goalId,
+      );
 
       await _debug.info(
         'ReflectionActionService',
@@ -1040,6 +1052,94 @@ class ReflectionActionService {
         stackTrace: stackTrace.toString(),
       );
       return ActionResult.failure('Failed to schedule follow-up: $e');
+    }
+  }
+
+  // =============================================================================
+  // WIN TRACKING TOOLS
+  // =============================================================================
+
+  /// Record a win/accomplishment mentioned by the user
+  Future<ActionResult> recordWin({
+    required String description,
+    String? category,
+    String? linkedGoalId,
+    String? linkedHabitId,
+    String? sourceSessionId,
+  }) async {
+    try {
+      // Parse category if provided
+      WinCategory? winCategory;
+      if (category != null) {
+        try {
+          winCategory = WinCategory.values.firstWhere(
+            (c) => c.name.toLowerCase() == category.toLowerCase(),
+          );
+        } catch (e) {
+          // Default to 'other' if category doesn't match
+          winCategory = WinCategory.other;
+        }
+      }
+
+      final win = await winProvider.recordWin(
+        description: description,
+        source: WinSource.reflection,
+        category: winCategory,
+        linkedGoalId: linkedGoalId,
+        linkedHabitId: linkedHabitId,
+        sourceSessionId: sourceSessionId,
+      );
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Recorded win: $description',
+        metadata: {
+          'winId': win.id,
+          'category': category,
+          'linkedGoalId': linkedGoalId,
+          'linkedHabitId': linkedHabitId,
+        },
+      );
+
+      return ActionResult.success(
+        'Recorded win: $description',
+        resultId: win.id,
+        data: win,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to record win',
+        metadata: {'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to record win: $e');
+    }
+  }
+
+  // =============================================================================
+  // HELPER METHODS
+  // =============================================================================
+
+  /// Maps GoalCategory to WinCategory for win tracking
+  WinCategory _mapGoalCategoryToWinCategory(GoalCategory category) {
+    switch (category) {
+      case GoalCategory.health:
+        return WinCategory.health;
+      case GoalCategory.fitness:
+        return WinCategory.fitness;
+      case GoalCategory.career:
+        return WinCategory.career;
+      case GoalCategory.learning:
+        return WinCategory.learning;
+      case GoalCategory.relationships:
+        return WinCategory.relationships;
+      case GoalCategory.finance:
+        return WinCategory.finance;
+      case GoalCategory.personal:
+        return WinCategory.personal;
+      case GoalCategory.other:
+        return WinCategory.other;
     }
   }
 }

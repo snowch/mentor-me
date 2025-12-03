@@ -590,6 +590,7 @@ class AppStrings {
   static const String sessionSavedToJournal = 'Session saved';
   static const String followUpReminderScheduled = 'Follow-up reminder scheduled';
   static const String actionCompletedSuccessfully = 'Action completed successfully';
+  static const String winRecordedSuccessfully = 'Win recorded!';
 
   // Helper function to get time-appropriate greeting
   static String getGreeting() {

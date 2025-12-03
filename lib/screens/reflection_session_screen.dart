@@ -11,6 +11,7 @@ import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../providers/checkin_template_provider.dart';
+import '../providers/win_provider.dart';
 import '../services/reflection_session_service.dart';
 import '../services/reflection_analysis_service.dart';
 import '../services/reflection_action_service.dart';
@@ -97,6 +98,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
       habitProvider: context.read<HabitProvider>(),
       journalProvider: context.read<JournalProvider>(),
       templateProvider: context.read<CheckInTemplateProvider>(),
+      winProvider: context.read<WinProvider>(),
       notificationService: NotificationService(),
     );
 
@@ -304,6 +306,8 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
         return AppStrings.sessionSavedToJournal;
       case ActionType.scheduleFollowUp:
         return AppStrings.followUpReminderScheduled;
+      case ActionType.recordWin:
+        return AppStrings.winRecordedSuccessfully;
       default:
         return AppStrings.actionCompletedSuccessfully;
     }

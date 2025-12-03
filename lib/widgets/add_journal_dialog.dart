@@ -5,8 +5,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/journal_entry.dart';
+import '../models/win.dart';
 import '../providers/journal_provider.dart';
 import '../providers/goal_provider.dart';
+import '../providers/win_provider.dart';
 import 'package:mentor_me/constants/app_strings.dart';
 import 'package:mentor_me/services/cognitive_distortion_detector.dart';
 import 'package:mentor_me/widgets/distortion_suggestion_widget.dart';
@@ -29,6 +31,7 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
   // Available reflection types
   static const List<Map<String, String>> _reflectionTypes = [
     {'value': 'general', 'label': 'General', 'emoji': '💭'},
+    {'value': 'win', 'label': 'Win', 'emoji': '🏆'},
     {'value': 'meditation', 'label': 'Meditation', 'emoji': '🧘'},
     {'value': 'exercise', 'label': 'Exercise', 'emoji': '🏃'},
     {'value': 'food', 'label': 'Food', 'emoji': '🍎'},
@@ -39,6 +42,14 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
     {'value': 'urge', 'label': 'Urge', 'emoji': '⚡'},
     {'value': 'halt', 'label': 'HALT', 'emoji': '🛑'},
     {'value': 'other', 'label': 'Other', 'emoji': '📝'},
+  ];
+
+  // Keywords that indicate a win when detected in journal text
+  static const List<String> _winKeywords = [
+    'accomplished', 'achieved', 'completed', 'finished', 'succeeded',
+    'proud of', 'proud that', 'managed to', 'finally did', 'did it',
+    'breakthrough', 'milestone', 'victory', 'won', 'success',
+    'overcame', 'conquered', 'mastered', 'nailed', 'crushed it',
   ];
 
   // Cognitive distortion detection
@@ -417,11 +428,37 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
     );
   }
 
+  /// Check if the text contains win-related keywords
+  bool _containsWinKeywords(String text) {
+    final lowerText = text.toLowerCase();
+    return _winKeywords.any((keyword) => lowerText.contains(keyword));
+  }
+
+  /// Map reflection type to win category
+  WinCategory? _getWinCategoryFromReflectionType(String reflectionType) {
+    switch (reflectionType) {
+      case 'exercise':
+        return WinCategory.fitness;
+      case 'health':
+        return WinCategory.health;
+      case 'work':
+        return WinCategory.career;
+      case 'relationship':
+        return WinCategory.relationships;
+      case 'meditation':
+      case 'gratitude':
+        return WinCategory.personal;
+      default:
+        return null;
+    }
+  }
+
   void _saveEntry() async {
     if (_formKey.currentState!.validate()) {
+      final content = _contentController.text;
       final entry = JournalEntry(
         type: JournalEntryType.quickNote,
-        content: _contentController.text,
+        content: content,
         goalIds: _selectedGoalIds,
         createdAt: _selectedDateTime,
         reflectionType: _selectedReflectionType,
@@ -429,12 +466,57 @@ class _AddJournalDialogState extends State<AddJournalDialog> {
 
       await context.read<JournalProvider>().addEntry(entry);
 
+      // Check if we should record a win
+      final isWinReflectionType = _selectedReflectionType == 'win';
+      final hasWinKeywords = _containsWinKeywords(content);
+
+      if (isWinReflectionType || hasWinKeywords) {
+        // Create a win from this journal entry
+        final winProvider = context.read<WinProvider>();
+        final category = _getWinCategoryFromReflectionType(_selectedReflectionType);
+
+        // Extract a meaningful description (first sentence or first 100 chars)
+        String description = content;
+        final firstSentenceEnd = content.indexOf(RegExp(r'[.!?]'));
+        if (firstSentenceEnd > 0 && firstSentenceEnd < 100) {
+          description = content.substring(0, firstSentenceEnd + 1);
+        } else if (content.length > 100) {
+          description = '${content.substring(0, 97)}...';
+        }
+
+        final win = Win(
+          description: description,
+          source: WinSource.journal,
+          category: category,
+          sourceSessionId: entry.id,
+        );
+
+        await winProvider.addWin(win);
+      }
+
       if (!mounted) return;
 
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.savedSuccessfully)),
-      );
+
+      // Show appropriate success message
+      if (isWinReflectionType || hasWinKeywords) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.emoji_events, color: Colors.amber.shade300, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Entry saved and win recorded!')),
+              ],
+            ),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.savedSuccessfully)),
+        );
+      }
     }
   }
 }

@@ -27,6 +27,7 @@ import '../widgets/hydration_widget.dart';
 import '../widgets/weight_widget.dart';
 import '../providers/settings_provider.dart';
 import 'dashboard_settings_screen.dart';
+import '../widgets/recent_wins_widget.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -724,6 +725,13 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
   Widget _buildCustomizeButton(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+        // Recent Wins Widget (only shows if there are wins this week)
+        const RecentWinsWidget(),
+        AppSpacing.gapLg,
+
+        // Glanceable Goals Section
+        _buildGlanceableGoals(context, goalProvider),
+        AppSpacing.gapLg,
 
     return Center(
       child: TextButton.icon(

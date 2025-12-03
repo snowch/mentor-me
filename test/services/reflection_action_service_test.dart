@@ -9,6 +9,7 @@ import 'package:mentor_me/providers/goal_provider.dart';
 import 'package:mentor_me/providers/habit_provider.dart';
 import 'package:mentor_me/providers/journal_provider.dart';
 import 'package:mentor_me/providers/checkin_template_provider.dart';
+import 'package:mentor_me/providers/win_provider.dart';
 import 'package:mentor_me/services/reflection_action_service.dart';
 import 'package:mentor_me/services/notification_service.dart';
 
@@ -18,6 +19,7 @@ void main() {
   late HabitProvider habitProvider;
   late JournalProvider journalProvider;
   late CheckInTemplateProvider templateProvider;
+  late WinProvider winProvider;
 
   setUp(() async {
     // Initialize SharedPreferences with mock data
@@ -28,6 +30,7 @@ void main() {
     habitProvider = HabitProvider();
     journalProvider = JournalProvider();
     templateProvider = CheckInTemplateProvider();
+    winProvider = WinProvider();
 
     // Wait for providers to load
     await Future.wait([
@@ -35,6 +38,7 @@ void main() {
       habitProvider.loadHabits(),
       journalProvider.loadEntries(),
       templateProvider.loadData(),
+      winProvider.reload(),
     ]);
 
     // Initialize action service
@@ -43,6 +47,7 @@ void main() {
       habitProvider: habitProvider,
       journalProvider: journalProvider,
       templateProvider: templateProvider,
+      winProvider: winProvider,
       notificationService: NotificationService(),
     );
   });
