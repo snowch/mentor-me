@@ -626,6 +626,12 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
       widgets.add(AppSpacing.gapLg);
     }
 
+    // Recent Wins Widget (if visible)
+    if (layout.isWidgetVisible('recentWins')) {
+      widgets.add(const RecentWinsWidget());
+      widgets.add(AppSpacing.gapLg);
+    }
+
     // Action buttons (if visible)
     if (layout.isWidgetVisible('actionButtons')) {
       widgets.add(_buildActionButtons(context));
@@ -725,13 +731,6 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
   Widget _buildCustomizeButton(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-        // Recent Wins Widget (only shows if there are wins this week)
-        const RecentWinsWidget(),
-        AppSpacing.gapLg,
-
-        // Glanceable Goals Section
-        _buildGlanceableGoals(context, goalProvider),
-        AppSpacing.gapLg,
 
     return Center(
       child: TextButton.icon(

@@ -96,6 +96,13 @@ class DashboardWidgetRegistry {
       color: Colors.teal,
     ),
     DashboardWidgetInfo(
+      id: 'recentWins',
+      name: 'Recent Wins',
+      description: 'Celebrate your recent accomplishments',
+      icon: Icons.emoji_events,
+      color: Colors.amber,
+    ),
+    DashboardWidgetInfo(
       id: 'hydration',
       name: 'Hydration Tracker',
       description: 'Track daily water intake',
