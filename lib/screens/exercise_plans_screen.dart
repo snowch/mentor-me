@@ -527,7 +527,12 @@ class _PlanDetailsSheet extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
+          ),
           child: FilledButton.icon(
             onPressed: () {
               Navigator.pop(context);
@@ -801,7 +806,12 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
+              ),
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
@@ -1266,6 +1276,9 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewPadding.bottom + 16,
+                ),
                 itemCount: allExercises.length,
                 itemBuilder: (context, index) {
                   final exercise = allExercises[index];
