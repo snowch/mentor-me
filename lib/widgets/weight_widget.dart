@@ -345,8 +345,21 @@ class WeightWidget extends StatelessWidget {
   }
 
   void _showQuickLogDialog(BuildContext context, WeightProvider provider) {
-    final controller = TextEditingController();
     final unit = provider.preferredUnit;
+
+    if (unit == WeightUnit.stone) {
+      _showStoneQuickLogDialog(context, provider);
+    } else {
+      _showSimpleQuickLogDialog(context, provider, unit);
+    }
+  }
+
+  void _showSimpleQuickLogDialog(
+    BuildContext context,
+    WeightProvider provider,
+    WeightUnit unit,
+  ) {
+    final controller = TextEditingController();
 
     showDialog(
       context: context,
@@ -386,6 +399,73 @@ class WeightWidget extends StatelessWidget {
               final weight = double.tryParse(controller.text);
               if (weight != null && weight > 0) {
                 provider.addEntry(weight: weight);
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Weight logged'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            child: const Text('Log'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStoneQuickLogDialog(BuildContext context, WeightProvider provider) {
+    final stoneController = TextEditingController();
+    final lbsController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Quick Log'),
+        content: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: stoneController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Stone',
+                  hintText: '10',
+                  suffixText: 'st',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: lbsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Pounds',
+                  hintText: '7',
+                  suffixText: 'lbs',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final stones = int.tryParse(stoneController.text) ?? 0;
+              final lbs = int.tryParse(lbsController.text) ?? 0;
+              if (stones > 0 || lbs > 0) {
+                // Convert to decimal stone for storage
+                final totalStone = stones + (lbs / 14.0);
+                provider.addEntry(weight: totalStone);
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(

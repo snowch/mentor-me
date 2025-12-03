@@ -16,13 +16,15 @@ class WeightTrackingScreen extends StatefulWidget {
 }
 
 class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
-  final _weightController = TextEditingController();
+  final _weightController = TextEditingController(); // kg/lbs or stone
+  final _lbsController = TextEditingController(); // for stone: additional lbs
   final _noteController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
 
   @override
   void dispose() {
     _weightController.dispose();
+    _lbsController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -35,7 +37,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
       case WeightUnit.lbs:
         return 'e.g., 155.0';
       case WeightUnit.stone:
-        return 'e.g., 11.0';
+        return '10'; // Just stone number
     }
   }
 
@@ -396,6 +398,53 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     );
   }
 
+  /// Build simple weight input for kg or lbs
+  Widget _buildSimpleWeightInput(WeightUnit unit) {
+    return TextField(
+      controller: _weightController,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: 'Weight (${unit.displayName})',
+        hintText: _getWeightHint(unit),
+        border: const OutlineInputBorder(),
+        suffixText: unit.displayName,
+      ),
+    );
+  }
+
+  /// Build stone + lbs input for stone unit
+  Widget _buildStoneInput(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _weightController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Stone',
+              hintText: '10',
+              border: OutlineInputBorder(),
+              suffixText: 'st',
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: _lbsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Pounds',
+              hintText: '7',
+              border: OutlineInputBorder(),
+              suffixText: 'lbs',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLogEntryCard(BuildContext context, WeightProvider provider) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -425,50 +474,32 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
               ],
             ),
             AppSpacing.gapMd,
-            // Weight input
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _weightController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Weight (${unit.displayName})',
-                      hintText: _getWeightHint(unit),
-                      border: const OutlineInputBorder(),
-                      suffixText: unit.displayName,
-                    ),
-                  ),
+            // Weight input - different layout for stone vs kg/lbs
+            if (unit == WeightUnit.stone)
+              _buildStoneInput(context)
+            else
+              _buildSimpleWeightInput(unit),
+            AppSpacing.gapSm,
+            // Date picker row
+            InkWell(
+              onTap: () => _selectDate(context),
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Date',
+                  border: OutlineInputBorder(),
                 ),
-                AppSpacing.gapMd,
-                // Date picker
-                Expanded(
-                  flex: 2,
-                  child: InkWell(
-                    onTap: () => _selectDate(context),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Date',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _isToday(_selectedDate)
-                                ? 'Today'
-                                : DateFormat('MMM d').format(_selectedDate),
-                          ),
-                          const Icon(Icons.calendar_today, size: 18),
-                        ],
-                      ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _isToday(_selectedDate)
+                          ? 'Today'
+                          : DateFormat('MMM d').format(_selectedDate),
                     ),
-                  ),
+                    const Icon(Icons.calendar_today, size: 18),
+                  ],
                 ),
-              ],
+              ),
             ),
             AppSpacing.gapMd,
             // Note input
@@ -833,20 +864,50 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 
   void _logWeight(BuildContext context, WeightProvider provider) {
-    final weightText = _weightController.text.trim();
-    if (weightText.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a weight')),
-      );
-      return;
-    }
+    final unit = provider.preferredUnit;
+    double? weight;
 
-    final weight = double.tryParse(weightText);
-    if (weight == null || weight <= 0 || weight > 1000) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid weight')),
-      );
-      return;
+    if (unit == WeightUnit.stone) {
+      // Parse stone and lbs separately
+      final stoneText = _weightController.text.trim();
+      final lbsText = _lbsController.text.trim();
+
+      if (stoneText.isEmpty && lbsText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a weight')),
+        );
+        return;
+      }
+
+      final stones = int.tryParse(stoneText) ?? 0;
+      final lbs = int.tryParse(lbsText) ?? 0;
+
+      if (stones < 0 || lbs < 0 || lbs >= 14 || (stones == 0 && lbs == 0)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter valid stone/lbs values (lbs should be 0-13)')),
+        );
+        return;
+      }
+
+      // Convert to decimal stone for storage
+      weight = stones + (lbs / 14.0);
+    } else {
+      // Parse kg or lbs
+      final weightText = _weightController.text.trim();
+      if (weightText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a weight')),
+        );
+        return;
+      }
+
+      weight = double.tryParse(weightText);
+      if (weight == null || weight <= 0 || weight > 1000) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid weight')),
+        );
+        return;
+      }
     }
 
     provider.addEntry(
@@ -858,6 +919,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     );
 
     _weightController.clear();
+    _lbsController.clear();
     _noteController.clear();
     setState(() => _selectedDate = DateTime.now());
 
