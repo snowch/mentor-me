@@ -24,6 +24,9 @@ import 'mentor_reminders_screen.dart';
 import 'reflection_session_screen.dart';
 import '../widgets/quick_halt_widget.dart';
 import '../widgets/hydration_widget.dart';
+import '../widgets/weight_widget.dart';
+import '../providers/settings_provider.dart';
+import 'dashboard_settings_screen.dart';
 import '../widgets/recent_wins_widget.dart';
 
 class MentorScreen extends StatefulWidget {
@@ -600,6 +603,67 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
     final goalProvider = context.watch<GoalProvider>();
     final journalProvider = context.watch<JournalProvider>();
     final habitProvider = context.watch<HabitProvider>();
+    final settings = context.watch<SettingsProvider>();
+    final layout = settings.dashboardLayout;
+
+    // Build widgets based on dashboard layout
+    final widgets = <Widget>[];
+
+    // Next check-in info (if visible)
+    if (layout.isWidgetVisible('nextCheckin')) {
+      widgets.add(const NextCheckinCard());
+      widgets.add(AppSpacing.gapLg);
+    }
+
+    // Mentor Coaching Card (always visible - core feature)
+    if (layout.isWidgetVisible('mentorCard')) {
+      widgets.add(_buildMentorCoachingCard(
+        context,
+        goalProvider,
+        habitProvider,
+        journalProvider,
+      ));
+      widgets.add(AppSpacing.gapLg);
+    }
+
+    // Action buttons (if visible)
+    if (layout.isWidgetVisible('actionButtons')) {
+      widgets.add(_buildActionButtons(context));
+      widgets.add(AppSpacing.gapLg);
+    }
+
+    // Quick HALT Widget (if visible)
+    if (layout.isWidgetVisible('quickHalt')) {
+      widgets.add(const QuickHaltWidget());
+      widgets.add(AppSpacing.gapMd);
+    }
+
+    // Hydration Tracking Widget (if visible)
+    if (layout.isWidgetVisible('hydration')) {
+      widgets.add(const HydrationWidget());
+      widgets.add(AppSpacing.gapMd);
+    }
+
+    // Weight Tracking Widget (if visible)
+    if (layout.isWidgetVisible('weight')) {
+      widgets.add(const WeightWidget());
+      widgets.add(AppSpacing.gapLg);
+    }
+
+    // Glanceable Goals Section (if visible)
+    if (layout.isWidgetVisible('goals')) {
+      widgets.add(_buildGlanceableGoals(context, goalProvider));
+      widgets.add(AppSpacing.gapLg);
+    }
+
+    // Today's Habits Section (if visible)
+    if (layout.isWidgetVisible('habits')) {
+      widgets.add(_buildTodaysHabits(context, habitProvider));
+    }
+
+    // Customize dashboard button
+    widgets.add(AppSpacing.gapLg);
+    widgets.add(_buildCustomizeButton(context));
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -608,72 +672,59 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         AppSpacing.lg,
         AppSpacing.lg + 80, // Extra bottom padding for nav bar
       ),
+      children: widgets,
+    );
+  }
+
+  /// Build action buttons (Chat and Deep Reflection)
+  Widget _buildActionButtons(BuildContext context) {
+    return Row(
       children: [
-        // Next check-in info - now a stateful widget that listens to changes
-        const NextCheckinCard(),
-        AppSpacing.gapLg,
-
-        // Mentor Coaching Card with greeting - cached and only regenerates when state changes
-        _buildMentorCoachingCard(
-          context,
-          goalProvider,
-          habitProvider,
-          journalProvider,
-        ),
-        AppSpacing.gapLg,
-
-        // Always-available action buttons (Chat and Deep Reflection)
-        Row(
-          children: [
-            // Chat button
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ChatScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Chat with Mentor'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        // Chat button
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChatScreen(),
                 ),
-              ),
+              );
+            },
+            icon: const Icon(Icons.chat_bubble_outline),
+            label: const Text('Chat with Mentor'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             ),
-            AppSpacing.gapHorizontalMd,
-            // Deep Reflection button
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ReflectionSessionScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.psychology_alt),
-                label: const Text(AppStrings.deepDiveSession),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
-        AppSpacing.gapLg,
+        AppSpacing.gapHorizontalMd,
+        // Deep Reflection button
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ReflectionSessionScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.psychology_alt),
+            label: const Text(AppStrings.deepDiveSession),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-        // Quick HALT Widget
-        const QuickHaltWidget(),
-        AppSpacing.gapMd,
-
-        // Hydration Tracking Widget
-        const HydrationWidget(),
-        AppSpacing.gapLg,
-
+  /// Build customize dashboard button
+  Widget _buildCustomizeButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
         // Recent Wins Widget (only shows if there are wins this week)
         const RecentWinsWidget(),
         AppSpacing.gapLg,
@@ -682,9 +733,28 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         _buildGlanceableGoals(context, goalProvider),
         AppSpacing.gapLg,
 
-        // Today's Habits Section
-        _buildTodaysHabits(context, habitProvider),
-      ],
+    return Center(
+      child: TextButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const DashboardSettingsScreen(),
+            ),
+          );
+        },
+        icon: Icon(
+          Icons.dashboard_customize,
+          size: 18,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        label: Text(
+          'Customize Dashboard',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 

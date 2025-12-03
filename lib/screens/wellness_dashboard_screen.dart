@@ -21,6 +21,7 @@ import 'cognitive_reframing_screen.dart';
 import 'grounding_exercise_screen.dart';
 import 'worry_decision_tree_screen.dart';
 import 'exposure_ladder_screen.dart';
+import 'weight_tracking_screen.dart';
 
 class WellnessDashboardScreen extends StatelessWidget {
   const WellnessDashboardScreen({super.key});
@@ -325,6 +326,26 @@ class WellnessDashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
 
+          // Physical Wellness Section
+          Text(
+            'Physical Wellness',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Weight Tracking
+          _buildFeatureCard(
+            context,
+            icon: Icons.monitor_weight,
+            title: 'Weight Tracking',
+            description: 'Log weight, set goals, and track your progress over time',
+            color: Colors.blue,
+            onTap: () => _navigate(context, const WeightTrackingScreen()),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
           // Analytics Section
           Text(
             'Insights & Progress',
@@ -340,7 +361,7 @@ class WellnessDashboardScreen extends StatelessWidget {
             icon: Icons.analytics_outlined,
             title: 'Analytics & Trends',
             description: 'View your progress, patterns, and wellness insights',
-            color: Colors.blue,
+            color: Colors.blueGrey,
             onTap: () => _navigate(context, const AnalyticsScreen()),
           ),
           const SizedBox(height: AppSpacing.lg),

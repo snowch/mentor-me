@@ -12,6 +12,7 @@ import '../models/pulse_entry.dart';
 import '../models/pulse_type.dart';
 import '../models/hydration_entry.dart';
 import '../models/user_context_summary.dart';
+import '../models/weight_entry.dart';
 import '../models/win.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
@@ -57,6 +58,12 @@ class StorageService {
   static const String _deviceBoundariesKey = 'device_boundaries';
   static const String _userContextSummaryKey = 'user_context_summary';
   static const String _winsKey = 'wins';
+
+  // Weight tracking
+  static const String _weightEntriesKey = 'weight_entries';
+  static const String _weightGoalKey = 'weight_goal';
+  static const String _weightUnitKey = 'weight_unit';
+  static const String _heightKey = 'user_height';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -279,6 +286,86 @@ class StorageService {
     return prefs.getInt(_hydrationGoalKey) ?? 8; // Default: 8 glasses
   }
 
+  // Save/Load Weight Entries
+  Future<void> saveWeightEntries(List<WeightEntry> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = entries.map((entry) => entry.toJson()).toList();
+    await prefs.setString(_weightEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('weight_entries');
+  }
+
+  Future<List<WeightEntry>> loadWeightEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_weightEntriesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((json) => WeightEntry.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted weight entries data, returning empty list. Error: $e');
+      await prefs.remove(_weightEntriesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Weight Goal
+  Future<void> saveWeightGoal(WeightGoal goal) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_weightGoalKey, json.encode(goal.toJson()));
+    await _notifyPersistence('weight_goal');
+  }
+
+  Future<WeightGoal?> loadWeightGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_weightGoalKey);
+    if (jsonString == null) return null;
+
+    try {
+      return WeightGoal.fromJson(json.decode(jsonString));
+    } catch (e) {
+      debugPrint('Warning: Corrupted weight goal data, returning null. Error: $e');
+      await prefs.remove(_weightGoalKey);
+      return null;
+    }
+  }
+
+  Future<void> clearWeightGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_weightGoalKey);
+    await _notifyPersistence('weight_goal');
+  }
+
+  // Save/Load Weight Unit Preference
+  Future<void> saveWeightUnit(WeightUnit unit) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_weightUnitKey, unit.name);
+    await _notifyPersistence('weight_unit');
+  }
+
+  Future<WeightUnit> loadWeightUnit() async {
+    final prefs = await SharedPreferences.getInstance();
+    final unitName = prefs.getString(_weightUnitKey);
+    if (unitName == null) return WeightUnit.kg; // Default: kg
+
+    return WeightUnit.values.firstWhere(
+      (u) => u.name == unitName,
+      orElse: () => WeightUnit.kg,
+    );
+  }
+
+  // Save/Load Height (for BMI calculation, in cm)
+  Future<void> saveHeight(double heightCm) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_heightKey, heightCm);
+    await _notifyPersistence('height');
+  }
+
+  Future<double?> loadHeight() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_heightKey);
+  }
+
   // Save/Load User Context Summary (rolling AI-generated profile)
   Future<void> saveUserContextSummary(UserContextSummary summary) async {
     final prefs = await SharedPreferences.getInstance();
@@ -420,6 +507,10 @@ class StorageService {
       'pulseTypes': await loadPulseTypes(),
       'hydrationEntries': await loadHydrationEntries(),
       'hydrationGoal': await loadHydrationGoal(),
+      'weightEntries': await loadWeightEntries(),
+      'weightGoal': await loadWeightGoal(),
+      'weightUnit': (await loadWeightUnit()).name,
+      'height': await loadHeight(),
       'settings': await loadSettings(),
       'exportDate': DateTime.now().toIso8601String(),
     };
@@ -478,6 +569,30 @@ class StorageService {
 
     if (data['hydrationGoal'] != null) {
       await saveHydrationGoal(data['hydrationGoal'] as int);
+    }
+
+    if (data['weightEntries'] != null) {
+      final weightEntries = (data['weightEntries'] as List)
+          .map((json) => WeightEntry.fromJson(json))
+          .toList();
+      await saveWeightEntries(weightEntries);
+    }
+
+    if (data['weightGoal'] != null) {
+      final weightGoal = WeightGoal.fromJson(data['weightGoal']);
+      await saveWeightGoal(weightGoal);
+    }
+
+    if (data['weightUnit'] != null) {
+      final unit = WeightUnit.values.firstWhere(
+        (u) => u.name == data['weightUnit'],
+        orElse: () => WeightUnit.kg,
+      );
+      await saveWeightUnit(unit);
+    }
+
+    if (data['height'] != null) {
+      await saveHeight((data['height'] as num).toDouble());
     }
 
     if (data['settings'] != null) {

@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 import '../models/ai_provider.dart';
+import '../models/dashboard_config.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
 import '../services/debug_service.dart';
@@ -31,6 +32,9 @@ class SettingsProvider extends ChangeNotifier {
   // Wellness Features Settings
   bool _enableClinicalFeatures = false; // Default: disabled (opt-in for mental health tools)
 
+  // Dashboard Layout Settings
+  DashboardLayout _dashboardLayout = DashboardLayout.defaultLayout();
+
   // Getters
   AIProvider get currentProvider => _currentProvider;
   bool get currentProviderConfigured => _currentProviderConfigured;
@@ -41,6 +45,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get darkMode => _darkMode;
   bool get showAutoBackupIcon => _showAutoBackupIcon;
   bool get enableClinicalFeatures => _enableClinicalFeatures;
+  DashboardLayout get dashboardLayout => _dashboardLayout;
 
   /// Load settings from storage
   Future<void> loadSettings() async {
@@ -78,6 +83,14 @@ class SettingsProvider extends ChangeNotifier {
 
       // Load wellness features settings
       _enableClinicalFeatures = settings['enableClinicalFeatures'] as bool? ?? false;
+
+      // Load dashboard layout
+      final dashboardLayoutJson = settings['dashboardLayout'] as Map<String, dynamic>?;
+      if (dashboardLayoutJson != null) {
+        _dashboardLayout = DashboardLayout.fromJson(dashboardLayoutJson);
+      } else {
+        _dashboardLayout = DashboardLayout.defaultLayout();
+      }
 
       // Check provider configuration status
       await _updateProviderStatus();
@@ -279,5 +292,44 @@ class SettingsProvider extends ChangeNotifier {
       'Clinical features ${enabled ? "enabled" : "disabled"}',
       metadata: {'enabled': enabled},
     );
+  }
+
+  /// Set dashboard layout and notify listeners
+  Future<void> setDashboardLayout(DashboardLayout layout) async {
+    _dashboardLayout = layout;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['dashboardLayout'] = layout.toJson();
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Dashboard layout updated',
+    );
+  }
+
+  /// Toggle a widget's visibility on the dashboard
+  Future<void> toggleDashboardWidget(String widgetId) async {
+    final newLayout = _dashboardLayout.toggleWidgetVisibility(widgetId);
+    await setDashboardLayout(newLayout);
+  }
+
+  /// Reorder widgets on the dashboard
+  Future<void> reorderDashboardWidgets(int oldIndex, int newIndex) async {
+    final newLayout = _dashboardLayout.reorder(oldIndex, newIndex);
+    await setDashboardLayout(newLayout);
+  }
+
+  /// Reset dashboard to default layout
+  Future<void> resetDashboardLayout() async {
+    await setDashboardLayout(DashboardLayout.defaultLayout());
+  }
+
+  /// Check if a specific dashboard widget is visible
+  bool isDashboardWidgetVisible(String widgetId) {
+    return _dashboardLayout.isWidgetVisible(widgetId);
   }
 }
