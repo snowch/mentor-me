@@ -117,6 +117,13 @@ class DashboardWidgetRegistry {
       color: Colors.indigo,
     ),
     DashboardWidgetInfo(
+      id: 'exercise',
+      name: 'Exercise Tracker',
+      description: 'Track workouts and exercise plans',
+      icon: Icons.fitness_center,
+      color: Colors.orange,
+    ),
+    DashboardWidgetInfo(
       id: 'goals',
       name: 'Active Goals',
       description: 'Quick view of your current goals',

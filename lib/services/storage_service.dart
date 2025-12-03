@@ -14,6 +14,7 @@ import '../models/hydration_entry.dart';
 import '../models/user_context_summary.dart';
 import '../models/weight_entry.dart';
 import '../models/win.dart';
+import '../models/exercise.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -64,6 +65,11 @@ class StorageService {
   static const String _weightGoalKey = 'weight_goal';
   static const String _weightUnitKey = 'weight_unit';
   static const String _heightKey = 'user_height';
+
+  // Exercise tracking
+  static const String _customExercisesKey = 'custom_exercises';
+  static const String _exercisePlansKey = 'exercise_plans';
+  static const String _workoutLogsKey = 'workout_logs';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -366,6 +372,79 @@ class StorageService {
     return prefs.getDouble(_heightKey);
   }
 
+  // ============================================================================
+  // Exercise Tracking
+  // ============================================================================
+
+  // Save/Load Custom Exercises
+  Future<void> saveCustomExercises(List<Exercise> exercises) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = exercises.map((e) => e.toJson()).toList();
+    await prefs.setString(_customExercisesKey, json.encode(jsonList));
+    await _notifyPersistence('custom_exercises');
+  }
+
+  Future<List<Exercise>> loadCustomExercises() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_customExercisesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => Exercise.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted custom exercises data, returning empty list. Error: $e');
+      await prefs.remove(_customExercisesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Exercise Plans
+  Future<void> saveExercisePlans(List<ExercisePlan> plans) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = plans.map((p) => p.toJson()).toList();
+    await prefs.setString(_exercisePlansKey, json.encode(jsonList));
+    await _notifyPersistence('exercise_plans');
+  }
+
+  Future<List<ExercisePlan>> loadExercisePlans() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_exercisePlansKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => ExercisePlan.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted exercise plans data, returning empty list. Error: $e');
+      await prefs.remove(_exercisePlansKey);
+      return [];
+    }
+  }
+
+  // Save/Load Workout Logs
+  Future<void> saveWorkoutLogs(List<WorkoutLog> logs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = logs.map((l) => l.toJson()).toList();
+    await prefs.setString(_workoutLogsKey, json.encode(jsonList));
+    await _notifyPersistence('workout_logs');
+  }
+
+  Future<List<WorkoutLog>> loadWorkoutLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_workoutLogsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => WorkoutLog.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted workout logs data, returning empty list. Error: $e');
+      await prefs.remove(_workoutLogsKey);
+      return [];
+    }
+  }
+
   // Save/Load User Context Summary (rolling AI-generated profile)
   Future<void> saveUserContextSummary(UserContextSummary summary) async {
     final prefs = await SharedPreferences.getInstance();
@@ -511,6 +590,9 @@ class StorageService {
       'weightGoal': await loadWeightGoal(),
       'weightUnit': (await loadWeightUnit()).name,
       'height': await loadHeight(),
+      'customExercises': await loadCustomExercises(),
+      'exercisePlans': await loadExercisePlans(),
+      'workoutLogs': await loadWorkoutLogs(),
       'settings': await loadSettings(),
       'exportDate': DateTime.now().toIso8601String(),
     };
@@ -593,6 +675,27 @@ class StorageService {
 
     if (data['height'] != null) {
       await saveHeight((data['height'] as num).toDouble());
+    }
+
+    if (data['customExercises'] != null) {
+      final exercises = (data['customExercises'] as List)
+          .map((json) => Exercise.fromJson(json))
+          .toList();
+      await saveCustomExercises(exercises);
+    }
+
+    if (data['exercisePlans'] != null) {
+      final plans = (data['exercisePlans'] as List)
+          .map((json) => ExercisePlan.fromJson(json))
+          .toList();
+      await saveExercisePlans(plans);
+    }
+
+    if (data['workoutLogs'] != null) {
+      final logs = (data['workoutLogs'] as List)
+          .map((json) => WorkoutLog.fromJson(json))
+          .toList();
+      await saveWorkoutLogs(logs);
     }
 
     if (data['settings'] != null) {

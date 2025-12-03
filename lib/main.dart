@@ -27,6 +27,7 @@ import 'providers/urge_surfing_provider.dart';
 import 'providers/hydration_provider.dart';
 import 'providers/digital_wellness_provider.dart';
 import 'providers/weight_provider.dart';
+import 'providers/exercise_provider.dart';
 import 'providers/win_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -200,6 +201,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UrgeSurfingProvider()),
         ChangeNotifierProvider(create: (_) => HydrationProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
+        ChangeNotifierProvider(create: (_) => ExerciseProvider()),
         ChangeNotifierProvider(create: (_) => DigitalWellnessProvider()),
         ChangeNotifierProvider(create: (_) => WinProvider()),
         ChangeNotifierProvider(create: (_) {

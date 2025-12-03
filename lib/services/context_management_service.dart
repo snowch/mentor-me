@@ -20,6 +20,8 @@ import '../models/pulse_entry.dart';
 import '../models/chat_message.dart';
 import '../models/ai_provider.dart';
 import '../models/user_context_summary.dart';
+import '../models/exercise.dart';
+import '../models/weight_entry.dart';
 
 /// Result of context building containing the formatted context string and metadata
 class ContextBuildResult {
@@ -70,6 +72,10 @@ class ContextManagementService {
     required List<JournalEntry> journalEntries,
     required List<PulseEntry> pulseEntries,
     List<ChatMessage>? conversationHistory,
+    List<ExercisePlan>? exercisePlans,
+    List<WorkoutLog>? workoutLogs,
+    List<WeightEntry>? weightEntries,
+    WeightGoal? weightGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -196,7 +202,54 @@ class ContextManagementService {
       addSection(pulseSection.toString(), 'pulse_entries', pulseCount);
     }
 
-    // 5. Conversation History (last 20 messages for multi-turn context)
+    // 5. Exercise Plans and Recent Workouts
+    if (exercisePlans != null && exercisePlans.isNotEmpty) {
+      final plansSection = StringBuffer('\n**Exercise Plans:**\n');
+      int planCount = 0;
+      for (final plan in exercisePlans.take(10)) {
+        plansSection.writeln('- ${plan.name} (${plan.primaryCategory.displayName}, ${plan.exercises.length} exercises)');
+        planCount++;
+      }
+      plansSection.writeln();
+      addSection(plansSection.toString(), 'exercise_plans', planCount);
+    }
+
+    if (workoutLogs != null && workoutLogs.isNotEmpty) {
+      final workoutsSection = StringBuffer('\n**Recent Workouts:**\n');
+      int workoutCount = 0;
+      for (final workout in workoutLogs.take(14)) {
+        final duration = workout.duration != null
+            ? ' (${workout.duration!.inMinutes} min)'
+            : '';
+        final planName = workout.planName ?? 'Freestyle';
+        workoutsSection.writeln(
+          '- ${_formatDate(workout.startTime)}: $planName$duration - ${workout.totalSetsCompleted} sets, ${workout.totalRepsCompleted} reps',
+        );
+        workoutCount++;
+      }
+      workoutsSection.writeln();
+      addSection(workoutsSection.toString(), 'workout_logs', workoutCount);
+    }
+
+    // 6. Weight Tracking
+    if (weightEntries != null && weightEntries.isNotEmpty) {
+      final weightSection = StringBuffer('\n**Weight Tracking:**\n');
+      if (weightGoal != null) {
+        final current = weightEntries.first;
+        final diff = current.weight - weightGoal.targetWeight;
+        final direction = diff > 0 ? 'above' : 'below';
+        weightSection.writeln('Goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} (currently ${diff.abs().toStringAsFixed(1)} $direction)');
+      }
+      int weightCount = 0;
+      for (final entry in weightEntries.take(7)) {
+        weightSection.writeln('- ${_formatDate(entry.timestamp)}: ${entry.weight.toStringAsFixed(1)} ${entry.unit.displayName}');
+        weightCount++;
+      }
+      weightSection.writeln();
+      addSection(weightSection.toString(), 'weight_entries', weightCount);
+    }
+
+    // 7. Conversation History (last 20 messages for multi-turn context)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\n**Recent Conversation:**\n');
       int msgCount = 0;
@@ -227,6 +280,7 @@ class ContextManagementService {
   /// - 1-2 most active habits
   /// - 1 most recent journal entry (truncated)
   /// - 1 most recent pulse entry
+  /// - Recent workout summary
   /// - Last 2-4 conversation messages
   ContextBuildResult buildLocalContext({
     required List<Goal> goals,
@@ -234,6 +288,8 @@ class ContextManagementService {
     required List<JournalEntry> journalEntries,
     required List<PulseEntry> pulseEntries,
     List<ChatMessage>? conversationHistory,
+    List<WorkoutLog>? workoutLogs,
+    List<WeightEntry>? weightEntries,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -329,7 +385,29 @@ class ContextManagementService {
       }
     }
 
-    // 5. Last 2 Conversation Messages ONLY (very brief for tiny context window)
+    // 5. Recent Exercise (very brief)
+    if (workoutLogs != null && workoutLogs.isNotEmpty) {
+      final recentWorkouts = workoutLogs.take(3).toList();
+      final workoutSection = '\nWorkouts: ${recentWorkouts.length} in last week\n';
+      if (canAdd(workoutSection)) {
+        buffer.write(workoutSection);
+        currentTokens += estimateTokens(workoutSection);
+        itemCounts['workouts'] = recentWorkouts.length;
+      }
+    }
+
+    // 6. Recent Weight (very brief)
+    if (weightEntries != null && weightEntries.isNotEmpty) {
+      final latest = weightEntries.first;
+      final weightSection = '\nWeight: ${latest.weight.toStringAsFixed(1)} ${latest.unit.displayName}\n';
+      if (canAdd(weightSection)) {
+        buffer.write(weightSection);
+        currentTokens += estimateTokens(weightSection);
+        itemCounts['weight'] = 1;
+      }
+    }
+
+    // 7. Last 2 Conversation Messages ONLY (very brief for tiny context window)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\nRecent:\n');
       for (final msg in conversationHistory.reversed.take(2).toList().reversed) {
@@ -362,6 +440,10 @@ class ContextManagementService {
     required List<JournalEntry> journalEntries,
     required List<PulseEntry> pulseEntries,
     List<ChatMessage>? conversationHistory,
+    List<ExercisePlan>? exercisePlans,
+    List<WorkoutLog>? workoutLogs,
+    List<WeightEntry>? weightEntries,
+    WeightGoal? weightGoal,
   }) {
     if (provider == AIProvider.cloud) {
       return buildCloudContext(
@@ -370,6 +452,10 @@ class ContextManagementService {
         journalEntries: journalEntries,
         pulseEntries: pulseEntries,
         conversationHistory: conversationHistory,
+        exercisePlans: exercisePlans,
+        workoutLogs: workoutLogs,
+        weightEntries: weightEntries,
+        weightGoal: weightGoal,
       );
     } else {
       return buildLocalContext(
@@ -378,6 +464,8 @@ class ContextManagementService {
         journalEntries: journalEntries,
         pulseEntries: pulseEntries,
         conversationHistory: conversationHistory,
+        workoutLogs: workoutLogs,
+        weightEntries: weightEntries,
       );
     }
   }
@@ -396,6 +484,10 @@ class ContextManagementService {
     required List<JournalEntry> journalEntries,
     required List<PulseEntry> pulseEntries,
     List<ChatMessage>? conversationHistory,
+    List<ExercisePlan>? exercisePlans,
+    List<WorkoutLog>? workoutLogs,
+    List<WeightEntry>? weightEntries,
+    WeightGoal? weightGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -471,6 +563,55 @@ class ContextManagementService {
       }
       buffer.writeln();
       itemCounts['recent_pulse_entries'] = recentPulse.take(14).length;
+    }
+
+    // LAYER 3b: Recent Exercise Activity
+    if (exercisePlans != null && exercisePlans.isNotEmpty) {
+      buffer.writeln('## Exercise Plans');
+      for (final plan in exercisePlans.take(10)) {
+        buffer.writeln('- ${plan.name} (${plan.primaryCategory.displayName}, ${plan.exercises.length} exercises)');
+      }
+      buffer.writeln();
+      itemCounts['exercise_plans'] = exercisePlans.take(10).length;
+    }
+
+    if (workoutLogs != null && workoutLogs.isNotEmpty) {
+      final recentWorkouts = workoutLogs
+          .where((w) => w.startTime.isAfter(cutoffDate))
+          .toList();
+      if (recentWorkouts.isNotEmpty) {
+        buffer.writeln('## Recent Workouts');
+        for (final workout in recentWorkouts.take(14)) {
+          final duration = workout.duration != null
+              ? ' (${workout.duration!.inMinutes} min)'
+              : '';
+          final planName = workout.planName ?? 'Freestyle';
+          buffer.writeln(
+            '- ${_formatDate(workout.startTime)}: $planName$duration - ${workout.totalSetsCompleted} sets',
+          );
+        }
+        buffer.writeln();
+        itemCounts['recent_workouts'] = recentWorkouts.take(14).length;
+      }
+    }
+
+    // LAYER 3c: Weight Tracking
+    if (weightEntries != null && weightEntries.isNotEmpty) {
+      buffer.writeln('## Weight Tracking');
+      if (weightGoal != null) {
+        final current = weightEntries.first;
+        final diff = current.weight - weightGoal.targetWeight;
+        final direction = diff > 0 ? 'above' : 'below';
+        buffer.writeln('Goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} (currently ${diff.abs().toStringAsFixed(1)} $direction)');
+      }
+      final recentWeights = weightEntries
+          .where((w) => w.timestamp.isAfter(cutoffDate))
+          .toList();
+      for (final entry in recentWeights.take(7)) {
+        buffer.writeln('- ${_formatDate(entry.timestamp)}: ${entry.weight.toStringAsFixed(1)} ${entry.unit.displayName}');
+      }
+      buffer.writeln();
+      itemCounts['weight_entries'] = recentWeights.take(7).length;
     }
 
     // LAYER 4: Conversation History

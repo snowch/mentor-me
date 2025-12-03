@@ -25,6 +25,7 @@ import 'reflection_session_screen.dart';
 import '../widgets/quick_halt_widget.dart';
 import '../widgets/hydration_widget.dart';
 import '../widgets/weight_widget.dart';
+import '../widgets/exercise_widget.dart';
 import '../providers/settings_provider.dart';
 import 'dashboard_settings_screen.dart';
 import '../widgets/recent_wins_widget.dart';
@@ -653,6 +654,12 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
     // Weight Tracking Widget (if visible)
     if (layout.isWidgetVisible('weight')) {
       widgets.add(const WeightWidget());
+      widgets.add(AppSpacing.gapMd);
+    }
+
+    // Exercise Tracking Widget (if visible)
+    if (layout.isWidgetVisible('exercise')) {
+      widgets.add(const ExerciseWidget());
       widgets.add(AppSpacing.gapLg);
     }
 
