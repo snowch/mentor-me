@@ -27,6 +27,33 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     super.dispose();
   }
 
+  /// Get hint text for weight input based on unit
+  String _getWeightHint(WeightUnit unit) {
+    switch (unit) {
+      case WeightUnit.kg:
+        return 'e.g., 70.5';
+      case WeightUnit.lbs:
+        return 'e.g., 155.0';
+      case WeightUnit.stone:
+        return 'e.g., 11.0';
+    }
+  }
+
+  /// Format weight value for display based on unit
+  String _formatWeight(double weight, WeightUnit unit) {
+    if (unit == WeightUnit.stone) {
+      // Show in "X st Y lbs" format
+      final totalLbs = weight * 14.0;
+      final stones = (totalLbs / 14).floor();
+      final remainingLbs = (totalLbs % 14).round();
+      if (remainingLbs == 0) {
+        return '$stones st';
+      }
+      return '$stones st $remainingLbs lbs';
+    }
+    return '${weight.toStringAsFixed(1)} ${unit.displayName}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,7 +149,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                       ),
                       if (currentWeight != null)
                         Text(
-                          '${currentWeight.toStringAsFixed(1)} ${unit.displayName}',
+                          _formatWeight(currentWeight, unit),
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -308,19 +335,19 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 _buildStatItem(
                   context,
                   'Start',
-                  '${goal.startWeight.toStringAsFixed(1)} ${unit.displayName}',
+                  _formatWeight(goal.startWeight, unit),
                 ),
                 _buildStatItem(
                   context,
                   'Target',
-                  '${goal.targetWeight.toStringAsFixed(1)} ${unit.displayName}',
+                  _formatWeight(goal.targetWeight, unit),
                 ),
                 _buildStatItem(
                   context,
                   isAchieved ? 'Status' : 'Remaining',
                   isAchieved
                       ? 'Done!'
-                      : '${remaining.toStringAsFixed(1)} ${unit.displayName}',
+                      : _formatWeight(remaining, unit),
                   highlight: true,
                 ),
               ],
@@ -410,7 +437,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     ),
                     decoration: InputDecoration(
                       labelText: 'Weight (${unit.displayName})',
-                      hintText: 'e.g., ${unit == WeightUnit.kg ? '70.5' : '155.0'}',
+                      hintText: _getWeightHint(unit),
                       border: const OutlineInputBorder(),
                       suffixText: unit.displayName,
                     ),
@@ -512,7 +539,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     context,
                     '7-Day Avg',
                     weeklyAvg != null
-                        ? '${weeklyAvg.toStringAsFixed(1)} ${unit.displayName}'
+                        ? _formatWeight(weeklyAvg, unit)
                         : '-',
                     Icons.calendar_view_week,
                     Colors.blue,
@@ -524,7 +551,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                     context,
                     '30-Day Avg',
                     monthlyAvg != null
-                        ? '${monthlyAvg.toStringAsFixed(1)} ${unit.displayName}'
+                        ? _formatWeight(monthlyAvg, unit)
                         : '-',
                     Icons.calendar_month,
                     Colors.indigo,
@@ -731,7 +758,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         title: Row(
           children: [
             Text(
-              '${weight.toStringAsFixed(1)} ${unit.displayName}',
+              _formatWeight(weight, unit),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -914,7 +941,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 title: const Text('Weight Goal'),
                 subtitle: Text(
                   provider.goal != null
-                      ? '${provider.goal!.targetWeight.toStringAsFixed(1)} ${provider.preferredUnit.displayName}'
+                      ? _formatWeight(provider.goal!.targetWeight, provider.preferredUnit)
                       : 'Not set',
                 ),
                 trailing: const Icon(Icons.chevron_right),
@@ -1155,6 +1182,21 @@ class _WeightHistoryScreen extends StatelessWidget {
 
   const _WeightHistoryScreen({required this.provider});
 
+  /// Format weight value for display based on unit
+  String _formatWeight(double weight, WeightUnit unit) {
+    if (unit == WeightUnit.stone) {
+      // Show in "X st Y lbs" format
+      final totalLbs = weight * 14.0;
+      final stones = (totalLbs / 14).floor();
+      final remainingLbs = (totalLbs % 14).round();
+      if (remainingLbs == 0) {
+        return '$stones st';
+      }
+      return '$stones st $remainingLbs lbs';
+    }
+    return '${weight.toStringAsFixed(1)} ${unit.displayName}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1188,7 +1230,7 @@ class _WeightHistoryScreen extends StatelessWidget {
                 return Card(
                   child: ListTile(
                     title: Text(
-                      '${entry.weightIn(unit).toStringAsFixed(1)} ${unit.displayName}',
+                      _formatWeight(entry.weightIn(unit), unit),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),

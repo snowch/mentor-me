@@ -3,7 +3,8 @@ import 'package:uuid/uuid.dart';
 /// Supported weight units
 enum WeightUnit {
   kg,
-  lbs;
+  lbs,
+  stone;
 
   String get displayName {
     switch (this) {
@@ -11,6 +12,8 @@ enum WeightUnit {
         return 'kg';
       case WeightUnit.lbs:
         return 'lbs';
+      case WeightUnit.stone:
+        return 'st';
     }
   }
 
@@ -20,6 +23,8 @@ enum WeightUnit {
         return 'Kilograms';
       case WeightUnit.lbs:
         return 'Pounds';
+      case WeightUnit.stone:
+        return 'Stone';
     }
   }
 }
@@ -43,18 +48,62 @@ class WeightEntry {
 
   /// Convert weight to kilograms
   double get weightInKg {
-    return unit == WeightUnit.kg ? weight : weight * 0.453592;
+    switch (unit) {
+      case WeightUnit.kg:
+        return weight;
+      case WeightUnit.lbs:
+        return weight * 0.453592;
+      case WeightUnit.stone:
+        return weight * 6.35029;
+    }
   }
 
   /// Convert weight to pounds
   double get weightInLbs {
-    return unit == WeightUnit.lbs ? weight : weight * 2.20462;
+    switch (unit) {
+      case WeightUnit.lbs:
+        return weight;
+      case WeightUnit.kg:
+        return weight * 2.20462;
+      case WeightUnit.stone:
+        return weight * 14.0;
+    }
+  }
+
+  /// Convert weight to stone (decimal)
+  double get weightInStone {
+    switch (unit) {
+      case WeightUnit.stone:
+        return weight;
+      case WeightUnit.kg:
+        return weight * 0.157473;
+      case WeightUnit.lbs:
+        return weight / 14.0;
+    }
   }
 
   /// Get weight in specified unit
   double weightIn(WeightUnit targetUnit) {
     if (unit == targetUnit) return weight;
-    return targetUnit == WeightUnit.kg ? weightInKg : weightInLbs;
+    switch (targetUnit) {
+      case WeightUnit.kg:
+        return weightInKg;
+      case WeightUnit.lbs:
+        return weightInLbs;
+      case WeightUnit.stone:
+        return weightInStone;
+    }
+  }
+
+  /// Format weight in stone as "X st Y lbs" (commonly used in UK)
+  String get weightInStoneFormatted {
+    final totalLbs = weightInLbs;
+    final stones = (totalLbs / 14).floor();
+    final remainingLbs = (totalLbs % 14).round();
+    if (remainingLbs == 0) {
+      return '$stones st';
+    }
+    return '$stones st $remainingLbs lbs';
   }
 
   Map<String, dynamic> toJson() {

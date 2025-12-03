@@ -12,6 +12,33 @@ import '../theme/app_spacing.dart';
 class WeightWidget extends StatelessWidget {
   const WeightWidget({super.key});
 
+  /// Format weight value for display based on unit
+  String _formatWeight(double weight, WeightUnit unit) {
+    if (unit == WeightUnit.stone) {
+      // Show in "X st Y lbs" format
+      final totalLbs = weight * 14.0;
+      final stones = (totalLbs / 14).floor();
+      final remainingLbs = (totalLbs % 14).round();
+      if (remainingLbs == 0) {
+        return '$stones st';
+      }
+      return '$stones st $remainingLbs lbs';
+    }
+    return '${weight.toStringAsFixed(1)} ${unit.displayName}';
+  }
+
+  /// Get hint text for weight input based on unit
+  String _getWeightHint(WeightUnit unit) {
+    switch (unit) {
+      case WeightUnit.kg:
+        return '70.5';
+      case WeightUnit.lbs:
+        return '155.0';
+      case WeightUnit.stone:
+        return '11.0';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<WeightProvider>(
@@ -80,23 +107,11 @@ class WeightWidget extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (currentWeight != null)
-                              RichText(
-                                text: TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: currentWeight.toStringAsFixed(1),
-                                      style: theme.textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: ' ${unit.displayName}',
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                _formatWeight(currentWeight, unit),
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
                                 ),
                               )
                             else
@@ -236,8 +251,8 @@ class WeightWidget extends StatelessWidget {
           Expanded(
             child: Text(
               isAchieved
-                  ? 'Goal of ${goal.targetWeight.toStringAsFixed(1)} ${unit.displayName} achieved!'
-                  : '${remaining.toStringAsFixed(1)} ${unit.displayName} to goal (${goal.targetWeight.toStringAsFixed(1)})',
+                  ? 'Goal of ${_formatWeight(goal.targetWeight, unit)} achieved!'
+                  : '${_formatWeight(remaining, unit)} to goal (${_formatWeight(goal.targetWeight, unit)})',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: isAchieved
                     ? Colors.green.shade700
@@ -343,7 +358,7 @@ class WeightWidget extends StatelessWidget {
           autofocus: true,
           decoration: InputDecoration(
             labelText: 'Weight',
-            hintText: unit == WeightUnit.kg ? '70.5' : '155.0',
+            hintText: _getWeightHint(unit),
             suffixText: unit.displayName,
             border: const OutlineInputBorder(),
           ),
