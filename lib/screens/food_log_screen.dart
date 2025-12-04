@@ -236,7 +236,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
   Widget _buildMealList(BuildContext context, FoodLogProvider provider) {
     final entries = provider.entriesForDate(_selectedDate);
-    final byMealType = provider.entriesByMealType(_selectedDate);
 
     if (entries.isEmpty) {
       return Center(
@@ -267,52 +266,16 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
-      itemCount: MealType.values.length,
-      itemBuilder: (context, index) {
-        final mealType = MealType.values[index];
-        final mealEntries = byMealType[mealType] ?? [];
-
-        if (mealEntries.isEmpty) return const SizedBox.shrink();
-
-        return _buildMealSection(context, mealType, mealEntries, provider);
-      },
-    );
-  }
-
-  Widget _buildMealSection(
-    BuildContext context,
-    MealType mealType,
-    List<FoodEntry> entries,
-    FoodLogProvider provider,
-  ) {
-    final theme = Theme.of(context);
-
-    // Sort entries by time
+    // Sort all entries by time
     final sortedEntries = List<FoodEntry>.from(entries)
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Text(mealType.emoji, style: const TextStyle(fontSize: 20)),
-              AppSpacing.gapHorizontalSm,
-              Text(
-                mealType.displayName,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        ...sortedEntries.map((entry) => _buildFoodEntryTile(context, entry, provider)),
-      ],
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
+      itemCount: sortedEntries.length,
+      itemBuilder: (context, index) {
+        return _buildFoodEntryTile(context, sortedEntries[index], provider);
+      },
     );
   }
 
@@ -335,11 +298,18 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       ),
       onDismissed: (_) => provider.deleteEntry(entry.id),
       child: ListTile(
-        leading: Text(
-          timeFormat.format(entry.timestamp),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.outline,
-          ),
+        leading: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(entry.mealType.emoji, style: const TextStyle(fontSize: 18)),
+            Text(
+              timeFormat.format(entry.timestamp),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+                fontSize: 10,
+              ),
+            ),
+          ],
         ),
         title: Text(entry.description),
         subtitle: entry.nutrition != null
