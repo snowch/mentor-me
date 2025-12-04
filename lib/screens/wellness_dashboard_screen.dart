@@ -356,6 +356,7 @@ class WellnessDashboardScreen extends StatelessWidget {
             description: 'Track meals with AI-powered nutrition estimation',
             color: Colors.orange,
             onTap: () => _navigate(context, const FoodLogScreen()),
+          ),
           const SizedBox(height: AppSpacing.md),
 
           // Exercise Tracking
