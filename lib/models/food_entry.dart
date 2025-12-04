@@ -185,6 +185,7 @@ class FoodEntry {
   final String? notes; // Optional user notes
   final int? energyAfterMeal; // 1-5 scale, how they felt after eating
   final bool isManualEntry; // True if user manually entered nutrition
+  final String? imagePath; // Path to food photo (optional)
 
   FoodEntry({
     String? id,
@@ -195,6 +196,7 @@ class FoodEntry {
     this.notes,
     this.energyAfterMeal,
     this.isManualEntry = false,
+    this.imagePath,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -213,6 +215,7 @@ class FoodEntry {
       notes: json['notes'] as String?,
       energyAfterMeal: json['energyAfterMeal'] as int?,
       isManualEntry: json['isManualEntry'] as bool? ?? false,
+      imagePath: json['imagePath'] as String?,
     );
   }
 
@@ -226,6 +229,7 @@ class FoodEntry {
       if (notes != null) 'notes': notes,
       if (energyAfterMeal != null) 'energyAfterMeal': energyAfterMeal,
       'isManualEntry': isManualEntry,
+      if (imagePath != null) 'imagePath': imagePath,
     };
   }
 
@@ -238,6 +242,7 @@ class FoodEntry {
     String? notes,
     int? energyAfterMeal,
     bool? isManualEntry,
+    String? imagePath,
   }) {
     return FoodEntry(
       id: id ?? this.id,
@@ -248,6 +253,7 @@ class FoodEntry {
       notes: notes ?? this.notes,
       energyAfterMeal: energyAfterMeal ?? this.energyAfterMeal,
       isManualEntry: isManualEntry ?? this.isManualEntry,
+      imagePath: imagePath ?? this.imagePath,
     );
   }
 

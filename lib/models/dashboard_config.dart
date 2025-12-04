@@ -124,6 +124,13 @@ class DashboardWidgetRegistry {
       color: Colors.orange,
     ),
     DashboardWidgetInfo(
+      id: 'foodLog',
+      name: 'Food Log',
+      description: 'Track meals and nutrition',
+      icon: Icons.restaurant_menu,
+      color: Colors.green,
+    ),
+    DashboardWidgetInfo(
       id: 'goals',
       name: 'Active Goals',
       description: 'Quick view of your current goals',
