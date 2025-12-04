@@ -44,6 +44,7 @@ import '../models/urge_surfing.dart';
 import '../models/hydration_entry.dart';
 import '../models/user_context_summary.dart';
 import '../models/win.dart';
+import '../models/food_entry.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -95,6 +96,8 @@ class BackupService {
     final hydrationGoal = await _storage.loadHydrationGoal();
     final userContextSummary = await _storage.loadUserContextSummary();
     final wins = await _storage.loadWins();
+    final foodEntries = await _storage.loadFoodEntries();
+    final nutritionGoal = await _storage.loadNutritionGoal();
 
     // Remove sensitive/installation-specific data from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -161,6 +164,10 @@ class BackupService {
       // Wins/accomplishments tracking
       'wins': json.encode(wins.map((w) => w.toJson()).toList()),
 
+      // Food log / nutrition tracking
+      'food_entries': json.encode(foodEntries.map((f) => f.toJson()).toList()),
+      'nutrition_goal': nutritionGoal != null ? json.encode(nutritionGoal.toJson()) : null,
+
       // Statistics for UI display
       'statistics': {
         'totalGoals': goals.length,
@@ -188,6 +195,8 @@ class BackupService {
         'totalHydrationEntries': hydrationEntries.length,
         'hydrationGoal': hydrationGoal,
         'totalWins': wins.length,
+        'totalFoodEntries': foodEntries.length,
+        'hasNutritionGoal': nutritionGoal != null,
       },
     };
 
@@ -1601,6 +1610,71 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Wins',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import food entries
+    try {
+      if (data.containsKey('food_entries') && data['food_entries'] != null) {
+        final foodEntriesJson = json.decode(data['food_entries'] as String) as List;
+        final foodEntries = foodEntriesJson.map((json) => FoodEntry.fromJson(json)).toList();
+        await _storage.saveFoodEntries(foodEntries);
+        await _debug.info('BackupService', 'Imported ${foodEntries.length} food entries');
+        results.add(ImportItemResult(
+          dataType: 'Food Entries',
+          success: true,
+          count: foodEntries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Food Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import food entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Food Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import nutrition goal
+    try {
+      if (data.containsKey('nutrition_goal') && data['nutrition_goal'] != null) {
+        final nutritionGoal = NutritionGoal.fromJson(json.decode(data['nutrition_goal'] as String));
+        await _storage.saveNutritionGoal(nutritionGoal);
+        await _debug.info('BackupService', 'Imported nutrition goal');
+        results.add(ImportItemResult(
+          dataType: 'Nutrition Goal',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Nutrition Goal',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import nutrition goal: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Nutrition Goal',
         success: false,
         count: 0,
         errorMessage: e.toString(),

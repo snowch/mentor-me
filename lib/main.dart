@@ -29,6 +29,7 @@ import 'providers/digital_wellness_provider.dart';
 import 'providers/weight_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/win_provider.dart';
+import 'providers/food_log_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/notification_service.dart';
@@ -204,6 +205,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ExerciseProvider()),
         ChangeNotifierProvider(create: (_) => DigitalWellnessProvider()),
         ChangeNotifierProvider(create: (_) => WinProvider()),
+        ChangeNotifierProvider(create: (_) => FoodLogProvider()),
         ChangeNotifierProvider(create: (_) {
           final provider = JournalTemplateProvider();
           // Initialize system templates

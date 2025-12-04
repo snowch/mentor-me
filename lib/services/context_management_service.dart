@@ -22,6 +22,7 @@ import '../models/ai_provider.dart';
 import '../models/user_context_summary.dart';
 import '../models/exercise.dart';
 import '../models/weight_entry.dart';
+import '../models/food_entry.dart';
 
 /// Result of context building containing the formatted context string and metadata
 class ContextBuildResult {
@@ -76,6 +77,8 @@ class ContextManagementService {
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     WeightGoal? weightGoal,
+    List<FoodEntry>? foodEntries,
+    NutritionGoal? nutritionGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -249,7 +252,44 @@ class ContextManagementService {
       addSection(weightSection.toString(), 'weight_entries', weightCount);
     }
 
-    // 7. Conversation History (last 20 messages for multi-turn context)
+    // 7. Food Log / Nutrition Tracking
+    if (foodEntries != null && foodEntries.isNotEmpty) {
+      final foodSection = StringBuffer('\n**Food Log:**\n');
+      if (nutritionGoal != null) {
+        foodSection.writeln('Daily goal: ${nutritionGoal.targetCalories} cal');
+        if (nutritionGoal.targetProteinGrams != null) {
+          foodSection.writeln('Macros target: ${nutritionGoal.targetProteinGrams}g protein, ${nutritionGoal.targetCarbsGrams ?? 0}g carbs, ${nutritionGoal.targetFatGrams ?? 0}g fat');
+        }
+      }
+      // Group today's entries
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
+      if (todayEntries.isNotEmpty) {
+        int totalCal = 0;
+        int totalProtein = 0;
+        for (final entry in todayEntries) {
+          if (entry.nutrition != null) {
+            totalCal += entry.nutrition!.calories;
+            totalProtein += entry.nutrition!.proteinGrams;
+          }
+        }
+        foodSection.writeln('Today so far: $totalCal cal, ${totalProtein}g protein (${todayEntries.length} meals)');
+      }
+      // Recent food entries
+      int foodCount = 0;
+      for (final entry in foodEntries.take(10)) {
+        final nutrition = entry.nutrition != null
+            ? ' (${entry.nutrition!.calories} cal, ${entry.nutrition!.proteinGrams}g protein)'
+            : '';
+        foodSection.writeln('- ${_formatDate(entry.timestamp)} ${entry.mealType.displayName}: ${entry.description}$nutrition');
+        foodCount++;
+      }
+      foodSection.writeln();
+      addSection(foodSection.toString(), 'food_entries', foodCount);
+    }
+
+    // 8. Conversation History (last 20 messages for multi-turn context)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\n**Recent Conversation:**\n');
       int msgCount = 0;
@@ -281,6 +321,7 @@ class ContextManagementService {
   /// - 1 most recent journal entry (truncated)
   /// - 1 most recent pulse entry
   /// - Recent workout summary
+  /// - Recent food log summary
   /// - Last 2-4 conversation messages
   ContextBuildResult buildLocalContext({
     required List<Goal> goals,
@@ -290,6 +331,7 @@ class ContextManagementService {
     List<ChatMessage>? conversationHistory,
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
+    List<FoodEntry>? foodEntries,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -407,7 +449,28 @@ class ContextManagementService {
       }
     }
 
-    // 7. Last 2 Conversation Messages ONLY (very brief for tiny context window)
+    // 7. Today's Food (very brief)
+    if (foodEntries != null && foodEntries.isNotEmpty) {
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
+      if (todayEntries.isNotEmpty) {
+        int totalCal = 0;
+        for (final entry in todayEntries) {
+          if (entry.nutrition != null) {
+            totalCal += entry.nutrition!.calories;
+          }
+        }
+        final foodSection = '\nFood today: $totalCal cal (${todayEntries.length} meals)\n';
+        if (canAdd(foodSection)) {
+          buffer.write(foodSection);
+          currentTokens += estimateTokens(foodSection);
+          itemCounts['food'] = todayEntries.length;
+        }
+      }
+    }
+
+    // 8. Last 2 Conversation Messages ONLY (very brief for tiny context window)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\nRecent:\n');
       for (final msg in conversationHistory.reversed.take(2).toList().reversed) {
@@ -444,6 +507,8 @@ class ContextManagementService {
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     WeightGoal? weightGoal,
+    List<FoodEntry>? foodEntries,
+    NutritionGoal? nutritionGoal,
   }) {
     if (provider == AIProvider.cloud) {
       return buildCloudContext(
@@ -456,6 +521,8 @@ class ContextManagementService {
         workoutLogs: workoutLogs,
         weightEntries: weightEntries,
         weightGoal: weightGoal,
+        foodEntries: foodEntries,
+        nutritionGoal: nutritionGoal,
       );
     } else {
       return buildLocalContext(
@@ -466,6 +533,7 @@ class ContextManagementService {
         conversationHistory: conversationHistory,
         workoutLogs: workoutLogs,
         weightEntries: weightEntries,
+        foodEntries: foodEntries,
       );
     }
   }
@@ -488,6 +556,8 @@ class ContextManagementService {
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     WeightGoal? weightGoal,
+    List<FoodEntry>? foodEntries,
+    NutritionGoal? nutritionGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -612,6 +682,44 @@ class ContextManagementService {
       }
       buffer.writeln();
       itemCounts['weight_entries'] = recentWeights.take(7).length;
+    }
+
+    // LAYER 3d: Food Log / Nutrition Tracking
+    if (foodEntries != null && foodEntries.isNotEmpty) {
+      buffer.writeln('## Food Log');
+      if (nutritionGoal != null) {
+        buffer.writeln('Daily goal: ${nutritionGoal.targetCalories} cal');
+        if (nutritionGoal.targetProteinGrams != null) {
+          buffer.writeln('Macros target: ${nutritionGoal.targetProteinGrams}g protein, ${nutritionGoal.targetCarbsGrams ?? 0}g carbs, ${nutritionGoal.targetFatGrams ?? 0}g fat');
+        }
+      }
+      // Today's summary
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
+      if (todayEntries.isNotEmpty) {
+        int totalCal = 0;
+        int totalProtein = 0;
+        for (final entry in todayEntries) {
+          if (entry.nutrition != null) {
+            totalCal += entry.nutrition!.calories;
+            totalProtein += entry.nutrition!.proteinGrams;
+          }
+        }
+        buffer.writeln('Today so far: $totalCal cal, ${totalProtein}g protein (${todayEntries.length} meals)');
+      }
+      // Recent entries
+      final recentFood = foodEntries
+          .where((f) => f.timestamp.isAfter(cutoffDate))
+          .toList();
+      for (final entry in recentFood.take(10)) {
+        final nutrition = entry.nutrition != null
+            ? ' (${entry.nutrition!.calories} cal, ${entry.nutrition!.proteinGrams}g protein)'
+            : '';
+        buffer.writeln('- ${_formatDate(entry.timestamp)} ${entry.mealType.displayName}: ${entry.description}$nutrition');
+      }
+      buffer.writeln();
+      itemCounts['food_entries'] = recentFood.take(10).length;
     }
 
     // LAYER 4: Conversation History

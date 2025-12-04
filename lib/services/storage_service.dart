@@ -15,6 +15,7 @@ import '../models/user_context_summary.dart';
 import '../models/weight_entry.dart';
 import '../models/win.dart';
 import '../models/exercise.dart';
+import '../models/food_entry.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -70,6 +71,10 @@ class StorageService {
   static const String _customExercisesKey = 'custom_exercises';
   static const String _exercisePlansKey = 'exercise_plans';
   static const String _workoutLogsKey = 'workout_logs';
+
+  // Food logging
+  static const String _foodEntriesKey = 'food_entries';
+  static const String _nutritionGoalKey = 'nutrition_goal';
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -443,6 +448,60 @@ class StorageService {
       await prefs.remove(_workoutLogsKey);
       return [];
     }
+  }
+
+  // ============================================================================
+  // Food Logging
+  // ============================================================================
+
+  // Save/Load Food Entries
+  Future<void> saveFoodEntries(List<FoodEntry> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = entries.map((e) => e.toJson()).toList();
+    await prefs.setString(_foodEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('food_entries');
+  }
+
+  Future<List<FoodEntry>> loadFoodEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_foodEntriesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => FoodEntry.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted food entries data, returning empty list. Error: $e');
+      await prefs.remove(_foodEntriesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Nutrition Goal
+  Future<void> saveNutritionGoal(NutritionGoal goal) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_nutritionGoalKey, json.encode(goal.toJson()));
+    await _notifyPersistence('nutrition_goal');
+  }
+
+  Future<NutritionGoal?> loadNutritionGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_nutritionGoalKey);
+    if (jsonString == null) return null;
+
+    try {
+      return NutritionGoal.fromJson(json.decode(jsonString));
+    } catch (e) {
+      debugPrint('Warning: Corrupted nutrition goal, returning null. Error: $e');
+      await prefs.remove(_nutritionGoalKey);
+      return null;
+    }
+  }
+
+  Future<void> clearNutritionGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_nutritionGoalKey);
+    await _notifyPersistence('nutrition_goal');
   }
 
   // Save/Load User Context Summary (rolling AI-generated profile)

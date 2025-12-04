@@ -30,6 +30,7 @@ import '../models/habit.dart';
 import '../models/chat_message.dart';
 import '../models/exercise.dart';
 import '../models/weight_entry.dart';
+import '../models/food_entry.dart';
 import 'storage_service.dart';
 import 'debug_service.dart';
 import 'local_ai_service.dart';
@@ -318,6 +319,8 @@ class AIService {
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     WeightGoal? weightGoal,
+    List<FoodEntry>? foodEntries,
+    NutritionGoal? nutritionGoal,
   }) async {
     // Route to local or cloud based on provider selection
     if (_selectedProvider == AIProvider.local) {
@@ -332,7 +335,7 @@ class AIService {
       }
       return _getLocalResponse(
         prompt, goals, habits, recentEntries, pulseEntries, conversationHistory,
-        workoutLogs, weightEntries,
+        workoutLogs, weightEntries, foodEntries,
       );
     }
 
@@ -348,6 +351,7 @@ class AIService {
     return _getCloudResponse(
       prompt, goals, habits, recentEntries, pulseEntries,
       exercisePlans, workoutLogs, weightEntries, weightGoal,
+      foodEntries, nutritionGoal,
     );
   }
 
@@ -361,6 +365,7 @@ class AIService {
     List<ChatMessage>? conversationHistory,
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
+    List<FoodEntry>? foodEntries,
   ) async {
     final localAI = LocalAIService();
 
@@ -373,6 +378,7 @@ class AIService {
       conversationHistory: conversationHistory,
       workoutLogs: workoutLogs,
       weightEntries: weightEntries,
+      foodEntries: foodEntries,
     );
 
     final fullPrompt = '''You are a supportive AI mentor helping with goals and habits.
@@ -442,6 +448,8 @@ CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     WeightGoal? weightGoal,
+    List<FoodEntry>? foodEntries,
+    NutritionGoal? nutritionGoal,
   ) async {
     try {
       // Build comprehensive context for cloud AI (large context window)
@@ -454,6 +462,8 @@ CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for
         workoutLogs: workoutLogs,
         weightEntries: weightEntries,
         weightGoal: weightGoal,
+        foodEntries: foodEntries,
+        nutritionGoal: nutritionGoal,
       );
 
       final fullPrompt = '''You are an empathetic AI mentor and coach helping someone achieve their goals and build better habits.
@@ -1098,6 +1108,77 @@ Goals:''';
         metadata: {'error': e.toString()},
       );
       return null; // Fallback
+    }
+  }
+
+  /// Estimate nutrition from a natural language food description
+  ///
+  /// Takes a description like "chicken caesar salad and a Diet Coke"
+  /// and returns estimated calories, protein, carbs, and fat.
+  Future<NutritionEstimate?> estimateNutrition(String foodDescription) async {
+    if (!hasApiKey()) {
+      await _debug.warning('AIService', 'Cannot estimate nutrition: no API key');
+      return null;
+    }
+
+    if (foodDescription.trim().isEmpty) {
+      return null;
+    }
+
+    try {
+      await _debug.info('AIService', 'Estimating nutrition', metadata: {
+        'description': foodDescription,
+      });
+
+      final prompt = '''Estimate the nutritional content of this food/meal. Be reasonable with portion sizes based on typical serving amounts.
+
+Food: $foodDescription
+
+Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
+{"calories": 450, "protein": 35, "carbs": 20, "fat": 28, "confidence": "medium", "notes": "Estimated based on typical caesar salad with grilled chicken"}
+
+Guidelines:
+- calories: total estimated calories (integer)
+- protein: grams of protein (integer)
+- carbs: grams of carbohydrates (integer)
+- fat: grams of fat (integer)
+- confidence: "high" for common foods with clear portions, "medium" for typical meals, "low" for vague descriptions
+- notes: brief explanation of your estimate (optional)
+
+JSON:''';
+
+      final response = await getCoachingResponse(prompt: prompt);
+
+      // Try to parse the JSON from the response
+      final jsonMatch = RegExp(r'\{[^}]+\}').firstMatch(response);
+      if (jsonMatch == null) {
+        await _debug.warning('AIService', 'No JSON found in nutrition response', metadata: {
+          'response': response,
+        });
+        return null;
+      }
+
+      final jsonString = jsonMatch.group(0)!;
+      final Map<String, dynamic> parsed = json.decode(jsonString);
+
+      final estimate = NutritionEstimate.fromJson(parsed);
+
+      await _debug.info('AIService', 'Nutrition estimated successfully', metadata: {
+        'calories': estimate.calories,
+        'protein': estimate.proteinGrams,
+        'carbs': estimate.carbsGrams,
+        'fat': estimate.fatGrams,
+        'confidence': estimate.confidence,
+      });
+
+      return estimate;
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AIService',
+        'Failed to estimate nutrition: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      return null;
     }
   }
 }
