@@ -1133,6 +1133,16 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                     fontWeight: FontWeight.bold,
                   ),
             ),
+            if (exercise.notes != null && exercise.notes!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                exercise.notes!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+            ],
             const SizedBox(height: 12),
             // Completed sets
             if (exercise.completedSets.isNotEmpty) ...[
@@ -1178,13 +1188,20 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   ) {
     final repsController = TextEditingController(text: '10');
     final weightController = TextEditingController();
+    final notesController = TextEditingController(text: exercise.notes ?? '');
 
-    // Pre-fill from last set if available
+    // Pre-fill from last set in current workout if available
     if (exercise.completedSets.isNotEmpty) {
       final lastSet = exercise.completedSets.last;
       repsController.text = '${lastSet.reps}';
       if (lastSet.weight != null) {
         weightController.text = lastSet.weight!.toStringAsFixed(1);
+      }
+    } else {
+      // Pre-fill weight from previous workout session
+      final lastWeight = provider.lastWeight(exercise.exerciseId);
+      if (lastWeight != null) {
+        weightController.text = lastWeight.toStringAsFixed(1);
       }
     }
 
@@ -1192,29 +1209,45 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Log Set - ${exercise.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: repsController,
-              decoration: const InputDecoration(
-                labelText: 'Reps',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: repsController,
+                decoration: const InputDecoration(
+                  labelText: 'Reps',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                autofocus: true,
               ),
-              keyboardType: TextInputType.number,
-              autofocus: true,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: weightController,
-              decoration: const InputDecoration(
-                labelText: 'Weight (optional)',
-                border: OutlineInputBorder(),
-                suffixText: 'kg',
+              const SizedBox(height: 16),
+              TextField(
+                controller: weightController,
+                decoration: InputDecoration(
+                  labelText: 'Weight (optional)',
+                  border: const OutlineInputBorder(),
+                  suffixText: 'kg',
+                  helperText: provider.personalBest(exercise.exerciseId) != null
+                      ? 'PB: ${provider.personalBest(exercise.exerciseId)!.toStringAsFixed(1)} kg'
+                      : null,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (optional)',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g., felt strong, adjust form...',
+                ),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1227,11 +1260,18 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               if (reps <= 0) return;
 
               final weight = double.tryParse(weightController.text);
+              final notes = notesController.text.trim().isEmpty
+                  ? null
+                  : notesController.text.trim();
               provider.logSet(
                 exerciseId: exercise.exerciseId,
                 reps: reps,
                 weight: weight,
               );
+              // Update exercise notes if provided
+              if (notes != null && notes != exercise.notes) {
+                provider.setExerciseNotes(exercise.exerciseId, notes);
+              }
               Navigator.pop(context);
             },
             child: const Text('Log'),

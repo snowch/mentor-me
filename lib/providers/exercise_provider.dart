@@ -278,6 +278,24 @@ class ExerciseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Set notes for an exercise in the active workout
+  void setExerciseNotes(String exerciseId, String? notes) {
+    if (_activeWorkout == null) return;
+
+    final exerciseIndex = _activeWorkout!.exercises
+        .indexWhere((e) => e.exerciseId == exerciseId);
+    if (exerciseIndex == -1) return;
+
+    final exercise = _activeWorkout!.exercises[exerciseIndex];
+    final updatedExercise = exercise.copyWith(notes: notes);
+
+    final updatedExercises = List<LoggedExercise>.from(_activeWorkout!.exercises);
+    updatedExercises[exerciseIndex] = updatedExercise;
+
+    _activeWorkout = _activeWorkout!.copyWith(exercises: updatedExercises);
+    notifyListeners();
+  }
+
   /// Remove the last set from an exercise
   void removeLastSet(String exerciseId) {
     if (_activeWorkout == null) return;
@@ -344,6 +362,24 @@ class ExerciseProvider extends ChangeNotifier {
   /// Get workout logs for a specific plan
   List<WorkoutLog> workoutsForPlan(String planId) {
     return _workoutLogs.where((w) => w.planId == planId).toList();
+  }
+
+  /// Get the last weight used for an exercise (from previous workouts)
+  double? lastWeight(String exerciseId) {
+    for (final workout in _workoutLogs) {
+      for (final exercise in workout.exercises) {
+        if (exercise.exerciseId == exerciseId) {
+          // Find the last set with weight in this workout
+          for (int i = exercise.completedSets.length - 1; i >= 0; i--) {
+            final set = exercise.completedSets[i];
+            if (set.weight != null) {
+              return set.weight;
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /// Get personal best for an exercise (max weight)
