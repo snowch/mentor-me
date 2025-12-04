@@ -45,6 +45,7 @@ import '../models/hydration_entry.dart';
 import '../models/user_context_summary.dart';
 import '../models/win.dart';
 import '../models/food_entry.dart';
+import '../models/weight_entry.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -98,6 +99,11 @@ class BackupService {
     final wins = await _storage.loadWins();
     final foodEntries = await _storage.loadFoodEntries();
     final nutritionGoal = await _storage.loadNutritionGoal();
+
+    // Weight tracking data
+    final weightEntries = await _storage.loadWeightEntries();
+    final weightGoal = await _storage.loadWeightGoal();
+    final weightUnit = await _storage.loadWeightUnit();
 
     // Remove sensitive/installation-specific data from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -168,6 +174,11 @@ class BackupService {
       'food_entries': json.encode(foodEntries.map((f) => f.toJson()).toList()),
       'nutrition_goal': nutritionGoal != null ? json.encode(nutritionGoal.toJson()) : null,
 
+      // Weight tracking
+      'weight_entries': json.encode(weightEntries.map((w) => w.toJson()).toList()),
+      'weight_goal': weightGoal != null ? json.encode(weightGoal.toJson()) : null,
+      'weight_unit': weightUnit.name,
+
       // Statistics for UI display
       'statistics': {
         'totalGoals': goals.length,
@@ -197,6 +208,9 @@ class BackupService {
         'totalWins': wins.length,
         'totalFoodEntries': foodEntries.length,
         'hasNutritionGoal': nutritionGoal != null,
+        'totalWeightEntries': weightEntries.length,
+        'hasWeightGoal': weightGoal != null,
+        'weightUnit': weightUnit.name,
       },
     };
 
@@ -1675,6 +1689,107 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Nutrition Goal',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import weight entries
+    try {
+      if (data.containsKey('weight_entries') && data['weight_entries'] != null) {
+        final weightEntriesJson = json.decode(data['weight_entries'] as String) as List;
+        final weightEntries = weightEntriesJson.map((json) => WeightEntry.fromJson(json)).toList();
+        await _storage.saveWeightEntries(weightEntries);
+        await _debug.info('BackupService', 'Imported ${weightEntries.length} weight entries');
+        results.add(ImportItemResult(
+          dataType: 'Weight Entries',
+          success: true,
+          count: weightEntries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Weight Entries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import weight entries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Weight Entries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import weight goal
+    try {
+      if (data.containsKey('weight_goal') && data['weight_goal'] != null) {
+        final weightGoal = WeightGoal.fromJson(json.decode(data['weight_goal'] as String));
+        await _storage.saveWeightGoal(weightGoal);
+        await _debug.info('BackupService', 'Imported weight goal');
+        results.add(ImportItemResult(
+          dataType: 'Weight Goal',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Weight Goal',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import weight goal: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Weight Goal',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import weight unit preference
+    try {
+      if (data.containsKey('weight_unit') && data['weight_unit'] != null) {
+        final unitName = data['weight_unit'] as String;
+        final unit = WeightUnit.values.firstWhere(
+          (u) => u.name == unitName,
+          orElse: () => WeightUnit.kg,
+        );
+        await _storage.saveWeightUnit(unit);
+        await _debug.info('BackupService', 'Imported weight unit preference: ${unit.name}');
+        results.add(ImportItemResult(
+          dataType: 'Weight Unit',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Weight Unit',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import weight unit: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Weight Unit',
         success: false,
         count: 0,
         errorMessage: e.toString(),
