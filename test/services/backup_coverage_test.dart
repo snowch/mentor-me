@@ -84,6 +84,7 @@ void main() {
         'weight_entries': 'weight_entries',
         'weight_goal': 'weight_goal',
         'weight_unit': 'weight_unit',
+        'height': 'height',
 
         // Exercise tracking
         'custom_exercises': 'custom_exercises',
@@ -158,6 +159,7 @@ void main() {
         'totalWeightEntries',
         'hasWeightGoal',
         'weightUnit',
+        'hasHeight',
         // Exercise tracking
         'totalCustomExercises',
         'totalExercisePlans',
@@ -230,6 +232,7 @@ void main() {
         'weight_entries',
         'weight_goal',
         'weight_unit',
+        'height',
         // Exercise tracking
         'custom_exercises',
         'exercise_plans',
