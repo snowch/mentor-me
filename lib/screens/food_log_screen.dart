@@ -555,14 +555,15 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
               segments: MealType.values
                   .map((type) => ButtonSegment(
                         value: type,
-                        label: Text(type.displayName),
-                        icon: Text(type.emoji),
+                        label: Text(type.emoji, style: const TextStyle(fontSize: 20)),
+                        tooltip: type.displayName,
                       ))
                   .toList(),
               selected: {_selectedMealType},
               onSelectionChanged: (selected) {
                 setState(() => _selectedMealType = selected.first);
               },
+              showSelectedIcon: false,
             ),
             AppSpacing.gapVerticalMd,
 
