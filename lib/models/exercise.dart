@@ -2,6 +2,35 @@
 ///
 /// JSON Schema: lib/schemas/v2.json#definitions/exercise_v2
 
+/// Types of exercises based on how they're measured
+enum ExerciseType {
+  strength, // Measured by sets × reps × weight (e.g., bench press)
+  timed,    // Measured by duration only (e.g., planks, yoga)
+  cardio;   // Measured by duration + level/distance (e.g., running, cycling)
+
+  String get displayName {
+    switch (this) {
+      case ExerciseType.strength:
+        return 'Strength';
+      case ExerciseType.timed:
+        return 'Timed';
+      case ExerciseType.cardio:
+        return 'Cardio';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case ExerciseType.strength:
+        return 'Sets × Reps × Weight';
+      case ExerciseType.timed:
+        return 'Duration';
+      case ExerciseType.cardio:
+        return 'Duration + Level/Distance';
+    }
+  }
+}
+
 /// Categories for exercises
 enum ExerciseCategory {
   upperBody,
@@ -36,7 +65,7 @@ enum ExerciseCategory {
       case ExerciseCategory.upperBody:
         return '💪';
       case ExerciseCategory.lowerBody:
-        return '🦵';
+        return '🦶';
       case ExerciseCategory.core:
         return '🎯';
       case ExerciseCategory.cardio:
@@ -56,20 +85,33 @@ class Exercise {
   final String id;
   final String name;
   final ExerciseCategory category;
+  final ExerciseType exerciseType; // How this exercise is measured
   final String? notes;
+
+  // Strength exercise defaults (sets × reps × weight)
   final int defaultSets;
   final int defaultReps;
   final double? defaultWeight; // in user's preferred unit
+
+  // Cardio/timed exercise defaults
+  final int? defaultDurationMinutes; // For cardio/timed exercises
+  final int? defaultLevel; // Resistance level (1-20) for cardio machines
+  final double? defaultDistance; // in km, for cardio exercises
+
   final bool isCustom; // false for preset exercises, true for user-created
 
   const Exercise({
     required this.id,
     required this.name,
     required this.category,
+    this.exerciseType = ExerciseType.strength,
     this.notes,
     this.defaultSets = 3,
     this.defaultReps = 10,
     this.defaultWeight,
+    this.defaultDurationMinutes,
+    this.defaultLevel,
+    this.defaultDistance,
     this.isCustom = true,
   });
 
@@ -77,20 +119,28 @@ class Exercise {
     String? id,
     String? name,
     ExerciseCategory? category,
+    ExerciseType? exerciseType,
     String? notes,
     int? defaultSets,
     int? defaultReps,
     double? defaultWeight,
+    int? defaultDurationMinutes,
+    int? defaultLevel,
+    double? defaultDistance,
     bool? isCustom,
   }) {
     return Exercise(
       id: id ?? this.id,
       name: name ?? this.name,
       category: category ?? this.category,
+      exerciseType: exerciseType ?? this.exerciseType,
       notes: notes ?? this.notes,
       defaultSets: defaultSets ?? this.defaultSets,
       defaultReps: defaultReps ?? this.defaultReps,
       defaultWeight: defaultWeight ?? this.defaultWeight,
+      defaultDurationMinutes: defaultDurationMinutes ?? this.defaultDurationMinutes,
+      defaultLevel: defaultLevel ?? this.defaultLevel,
+      defaultDistance: defaultDistance ?? this.defaultDistance,
       isCustom: isCustom ?? this.isCustom,
     );
   }
@@ -100,10 +150,14 @@ class Exercise {
       'id': id,
       'name': name,
       'category': category.name,
+      'exerciseType': exerciseType.name,
       'notes': notes,
       'defaultSets': defaultSets,
       'defaultReps': defaultReps,
       'defaultWeight': defaultWeight,
+      'defaultDurationMinutes': defaultDurationMinutes,
+      'defaultLevel': defaultLevel,
+      'defaultDistance': defaultDistance,
       'isCustom': isCustom,
     };
   }
@@ -116,10 +170,17 @@ class Exercise {
         (e) => e.name == json['category'],
         orElse: () => ExerciseCategory.other,
       ),
+      exerciseType: ExerciseType.values.firstWhere(
+        (e) => e.name == json['exerciseType'],
+        orElse: () => ExerciseType.strength,
+      ),
       notes: json['notes'] as String?,
       defaultSets: json['defaultSets'] as int? ?? 3,
       defaultReps: json['defaultReps'] as int? ?? 10,
       defaultWeight: (json['defaultWeight'] as num?)?.toDouble(),
+      defaultDurationMinutes: json['defaultDurationMinutes'] as int?,
+      defaultLevel: json['defaultLevel'] as int?,
+      defaultDistance: (json['defaultDistance'] as num?)?.toDouble(),
       isCustom: json['isCustom'] as bool? ?? true,
     );
   }
@@ -237,9 +298,10 @@ class Exercise {
       id: 'preset_planks',
       name: 'Planks',
       category: ExerciseCategory.core,
+      exerciseType: ExerciseType.timed,
       defaultSets: 3,
-      defaultReps: 1, // 1 rep = hold for time
-      notes: 'Hold for 30-60 seconds',
+      defaultDurationMinutes: 1,
+      notes: 'Hold for 30-60 seconds per set',
       isCustom: false,
     ),
     const Exercise(
@@ -274,7 +336,7 @@ class Exercise {
       defaultReps: 20,
       isCustom: false,
     ),
-    // Cardio
+    // Cardio - HIIT style (still uses reps)
     const Exercise(
       id: 'preset_jumping_jacks',
       name: 'Jumping Jacks',
@@ -299,13 +361,110 @@ class Exercise {
       defaultReps: 30,
       isCustom: false,
     ),
-    // Flexibility
+    // Cardio - Machine/Duration based
+    const Exercise(
+      id: 'preset_treadmill',
+      name: 'Treadmill',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 30,
+      defaultLevel: 5,
+      notes: 'Level = speed or incline',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_stationary_bike',
+      name: 'Stationary Bike',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 30,
+      defaultLevel: 5,
+      notes: 'Level = resistance',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_elliptical',
+      name: 'Elliptical',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 30,
+      defaultLevel: 5,
+      notes: 'Level = resistance',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_rowing',
+      name: 'Rowing Machine',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 20,
+      defaultLevel: 5,
+      notes: 'Level = resistance',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_stair_climber',
+      name: 'Stair Climber',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 20,
+      defaultLevel: 5,
+      notes: 'Level = speed/resistance',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_outdoor_run',
+      name: 'Outdoor Run',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 30,
+      defaultDistance: 5.0,
+      notes: 'Track your distance',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_outdoor_walk',
+      name: 'Outdoor Walk',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 30,
+      defaultDistance: 3.0,
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_cycling',
+      name: 'Cycling',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 45,
+      defaultDistance: 15.0,
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_swimming',
+      name: 'Swimming',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 30,
+      notes: 'Track laps or distance',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_jump_rope',
+      name: 'Jump Rope',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 15,
+      notes: 'Great for intervals',
+      isCustom: false,
+    ),
+    // Flexibility - Timed
     const Exercise(
       id: 'preset_stretching',
       name: 'Full Body Stretch',
       category: ExerciseCategory.flexibility,
-      defaultSets: 1,
-      defaultReps: 1,
+      exerciseType: ExerciseType.timed,
+      defaultDurationMinutes: 10,
       notes: 'Hold each stretch for 30 seconds',
       isCustom: false,
     ),
@@ -313,9 +472,17 @@ class Exercise {
       id: 'preset_yoga_flow',
       name: 'Yoga Flow',
       category: ExerciseCategory.flexibility,
-      defaultSets: 1,
-      defaultReps: 1,
-      notes: '10-15 minutes',
+      exerciseType: ExerciseType.timed,
+      defaultDurationMinutes: 15,
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_foam_rolling',
+      name: 'Foam Rolling',
+      category: ExerciseCategory.flexibility,
+      exerciseType: ExerciseType.timed,
+      defaultDurationMinutes: 10,
+      notes: 'Target sore muscles',
       isCustom: false,
     ),
   ];
@@ -404,39 +571,123 @@ class ExercisePlan {
 class PlanExercise {
   final String exerciseId;
   final String name; // Denormalized for display
+  final ExerciseType exerciseType; // Type of exercise for UI rendering
+  final int order; // Order in the plan
+  final String? notes;
+
+  // Strength exercise settings
   final int sets;
   final int reps;
   final double? weight;
-  final String? notes;
-  final int order; // Order in the plan
+
+  // Cardio/timed exercise settings
+  final int? durationMinutes;
+  final int? level; // Resistance level (1-20)
+  final double? targetDistance; // Target distance in km
 
   const PlanExercise({
     required this.exerciseId,
     required this.name,
-    required this.sets,
-    required this.reps,
-    this.weight,
-    this.notes,
+    this.exerciseType = ExerciseType.strength,
     required this.order,
+    this.notes,
+    this.sets = 3,
+    this.reps = 10,
+    this.weight,
+    this.durationMinutes,
+    this.level,
+    this.targetDistance,
   });
+
+  /// Create a strength plan exercise
+  factory PlanExercise.strength({
+    required String exerciseId,
+    required String name,
+    required int order,
+    int sets = 3,
+    int reps = 10,
+    double? weight,
+    String? notes,
+  }) {
+    return PlanExercise(
+      exerciseId: exerciseId,
+      name: name,
+      exerciseType: ExerciseType.strength,
+      order: order,
+      sets: sets,
+      reps: reps,
+      weight: weight,
+      notes: notes,
+    );
+  }
+
+  /// Create a cardio plan exercise
+  factory PlanExercise.cardio({
+    required String exerciseId,
+    required String name,
+    required int order,
+    required int durationMinutes,
+    int? level,
+    double? targetDistance,
+    String? notes,
+  }) {
+    return PlanExercise(
+      exerciseId: exerciseId,
+      name: name,
+      exerciseType: ExerciseType.cardio,
+      order: order,
+      durationMinutes: durationMinutes,
+      level: level,
+      targetDistance: targetDistance,
+      notes: notes,
+    );
+  }
+
+  /// Create a timed plan exercise (like planks)
+  factory PlanExercise.timed({
+    required String exerciseId,
+    required String name,
+    required int order,
+    required int durationMinutes,
+    int sets = 1,
+    String? notes,
+  }) {
+    return PlanExercise(
+      exerciseId: exerciseId,
+      name: name,
+      exerciseType: ExerciseType.timed,
+      order: order,
+      sets: sets,
+      durationMinutes: durationMinutes,
+      notes: notes,
+    );
+  }
 
   PlanExercise copyWith({
     String? exerciseId,
     String? name,
+    ExerciseType? exerciseType,
+    int? order,
+    String? notes,
     int? sets,
     int? reps,
     double? weight,
-    String? notes,
-    int? order,
+    int? durationMinutes,
+    int? level,
+    double? targetDistance,
   }) {
     return PlanExercise(
       exerciseId: exerciseId ?? this.exerciseId,
       name: name ?? this.name,
+      exerciseType: exerciseType ?? this.exerciseType,
+      order: order ?? this.order,
+      notes: notes ?? this.notes,
       sets: sets ?? this.sets,
       reps: reps ?? this.reps,
       weight: weight ?? this.weight,
-      notes: notes ?? this.notes,
-      order: order ?? this.order,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      level: level ?? this.level,
+      targetDistance: targetDistance ?? this.targetDistance,
     );
   }
 
@@ -444,11 +695,15 @@ class PlanExercise {
     return {
       'exerciseId': exerciseId,
       'name': name,
+      'exerciseType': exerciseType.name,
+      'order': order,
+      'notes': notes,
       'sets': sets,
       'reps': reps,
       'weight': weight,
-      'notes': notes,
-      'order': order,
+      'durationMinutes': durationMinutes,
+      'level': level,
+      'targetDistance': targetDistance,
     };
   }
 
@@ -456,12 +711,35 @@ class PlanExercise {
     return PlanExercise(
       exerciseId: json['exerciseId'] as String,
       name: json['name'] as String,
+      exerciseType: ExerciseType.values.firstWhere(
+        (e) => e.name == json['exerciseType'],
+        orElse: () => ExerciseType.strength,
+      ),
+      order: json['order'] as int? ?? 0,
+      notes: json['notes'] as String?,
       sets: json['sets'] as int? ?? 3,
       reps: json['reps'] as int? ?? 10,
       weight: (json['weight'] as num?)?.toDouble(),
-      notes: json['notes'] as String?,
-      order: json['order'] as int? ?? 0,
+      durationMinutes: json['durationMinutes'] as int?,
+      level: json['level'] as int?,
+      targetDistance: (json['targetDistance'] as num?)?.toDouble(),
     );
+  }
+
+  /// Format settings for display based on exercise type
+  String get settingsSummary {
+    switch (exerciseType) {
+      case ExerciseType.strength:
+        final weightStr = weight != null ? ' @ ${weight!.toStringAsFixed(1)}' : '';
+        return '$sets × $reps$weightStr';
+      case ExerciseType.timed:
+        return sets > 1 ? '$sets × ${durationMinutes}m' : '${durationMinutes}m';
+      case ExerciseType.cardio:
+        final parts = <String>['${durationMinutes}m'];
+        if (level != null) parts.add('L$level');
+        if (targetDistance != null) parts.add('${targetDistance!.toStringAsFixed(1)}km');
+        return parts.join(' · ');
+    }
   }
 }
 
@@ -609,29 +887,76 @@ class LoggedExercise {
 
 /// A single set within an exercise
 class ExerciseSet {
-  final int reps;
-  final double? weight;
+  final int reps; // For strength exercises
+  final double? weight; // For strength exercises (in user's preferred unit)
   final bool completed;
-  final Duration? duration; // For timed exercises like planks
+  final Duration? duration; // For timed/cardio exercises
+  final int? level; // Resistance level for cardio machines (1-20)
+  final double? distance; // For cardio exercises (in km)
 
   const ExerciseSet({
-    required this.reps,
+    this.reps = 0,
     this.weight,
     this.completed = true,
     this.duration,
+    this.level,
+    this.distance,
   });
+
+  /// Create a strength set (reps + weight)
+  factory ExerciseSet.strength({
+    required int reps,
+    double? weight,
+    bool completed = true,
+  }) {
+    return ExerciseSet(
+      reps: reps,
+      weight: weight,
+      completed: completed,
+    );
+  }
+
+  /// Create a timed set (duration only)
+  factory ExerciseSet.timed({
+    required Duration duration,
+    bool completed = true,
+  }) {
+    return ExerciseSet(
+      duration: duration,
+      completed: completed,
+    );
+  }
+
+  /// Create a cardio set (duration + level + optional distance)
+  factory ExerciseSet.cardio({
+    required Duration duration,
+    int? level,
+    double? distance,
+    bool completed = true,
+  }) {
+    return ExerciseSet(
+      duration: duration,
+      level: level,
+      distance: distance,
+      completed: completed,
+    );
+  }
 
   ExerciseSet copyWith({
     int? reps,
     double? weight,
     bool? completed,
     Duration? duration,
+    int? level,
+    double? distance,
   }) {
     return ExerciseSet(
       reps: reps ?? this.reps,
       weight: weight ?? this.weight,
       completed: completed ?? this.completed,
       duration: duration ?? this.duration,
+      level: level ?? this.level,
+      distance: distance ?? this.distance,
     );
   }
 
@@ -641,6 +966,8 @@ class ExerciseSet {
       'weight': weight,
       'completed': completed,
       'durationSeconds': duration?.inSeconds,
+      'level': level,
+      'distance': distance,
     };
   }
 
@@ -652,6 +979,36 @@ class ExerciseSet {
       duration: json['durationSeconds'] != null
           ? Duration(seconds: json['durationSeconds'] as int)
           : null,
+      level: json['level'] as int?,
+      distance: (json['distance'] as num?)?.toDouble(),
     );
+  }
+
+  /// Format for display based on exercise type
+  String formatForDisplay(ExerciseType type) {
+    switch (type) {
+      case ExerciseType.strength:
+        final weightStr = weight != null ? ' @ ${weight!.toStringAsFixed(1)}' : '';
+        return '$reps reps$weightStr';
+      case ExerciseType.timed:
+        return _formatDuration(duration);
+      case ExerciseType.cardio:
+        final parts = <String>[_formatDuration(duration)];
+        if (level != null) parts.add('Level $level');
+        if (distance != null) parts.add('${distance!.toStringAsFixed(1)} km');
+        return parts.join(' · ');
+    }
+  }
+
+  String _formatDuration(Duration? d) {
+    if (d == null) return '0:00';
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds % 60;
+    if (minutes >= 60) {
+      final hours = minutes ~/ 60;
+      final mins = minutes % 60;
+      return '${hours}h ${mins}m';
+    }
+    return seconds > 0 ? '$minutes:${seconds.toString().padLeft(2, '0')}' : '${minutes}m';
   }
 }

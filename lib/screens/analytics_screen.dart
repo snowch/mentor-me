@@ -45,7 +45,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             floating: false,
           ),
           SliverPadding(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              100, // Extra padding for bottom navigation bar
+            ),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 // Overview Stats Card
