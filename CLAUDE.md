@@ -885,6 +885,57 @@ final insights = await mentorService.analyzeUserState(
 
 All models use JSON serialization (`toJson`/`fromJson`) and `copyWith` patterns for immutability.
 
+### Model Serialization with @JsonSerializable
+
+**IMPORTANT:** When creating new domain models or modifying existing ones, use the `@JsonSerializable` annotation from `json_annotation` package to auto-generate `toJson()`/`fromJson()` methods.
+
+**Why @JsonSerializable?**
+- **Prevents data loss:** Fields are automatically included in serialization when added to the class
+- **No manual maintenance:** No need to manually update `toJson()`/`fromJson()` when adding fields
+- **Type safety:** Generated code handles type conversion correctly
+- **Compile-time errors:** Missing fields cause build failures, not runtime data loss
+
+**Migration Status:**
+- ✅ `weight_entry.dart` - Migrated to @JsonSerializable
+- ✅ `food_entry.dart` - Migrated to @JsonSerializable
+- ✅ `exercise.dart` - Migrated to @JsonSerializable
+- ⏳ Other models - Migrate when modifying
+
+**How to use @JsonSerializable:**
+
+```dart
+import 'package:json_annotation/json_annotation.dart';
+
+part 'my_model.g.dart';  // Generated file
+
+@JsonSerializable()
+class MyModel {
+  final String id;
+  final String title;
+  final DateTime createdAt;
+
+  MyModel({required this.id, required this.title, required this.createdAt});
+
+  /// Auto-generated serialization - ensures all fields are included
+  factory MyModel.fromJson(Map<String, dynamic> json) => _$MyModelFromJson(json);
+  Map<String, dynamic> toJson() => _$MyModelToJson(this);
+}
+```
+
+**For computed properties that shouldn't be serialized:**
+
+```dart
+@JsonKey(includeFromJson: false, includeToJson: false)
+double get computedValue => /* ... */;
+```
+
+**After modifying a model, run:**
+```bash
+flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+**When modifying existing domain objects:** If you're editing a model that still uses manual `toJson()`/`fromJson()`, migrate it to `@JsonSerializable` as part of your changes to prevent future data loss issues.
+
 ### Core Models
 
 #### Goal (`lib/models/goal.dart`)

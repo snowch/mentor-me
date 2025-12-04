@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'weight_entry.g.dart';
 
 /// Supported weight units
 enum WeightUnit {
@@ -30,6 +33,7 @@ enum WeightUnit {
 }
 
 /// Represents a single weight log entry
+@JsonSerializable()
 class WeightEntry {
   final String id;
   final DateTime timestamp;
@@ -47,6 +51,7 @@ class WeightEntry {
         timestamp = timestamp ?? DateTime.now();
 
   /// Convert weight to kilograms
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get weightInKg {
     switch (unit) {
       case WeightUnit.kg:
@@ -59,6 +64,7 @@ class WeightEntry {
   }
 
   /// Convert weight to pounds
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get weightInLbs {
     switch (unit) {
       case WeightUnit.lbs:
@@ -71,6 +77,7 @@ class WeightEntry {
   }
 
   /// Convert weight to stone (decimal)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get weightInStone {
     switch (unit) {
       case WeightUnit.stone:
@@ -96,6 +103,7 @@ class WeightEntry {
   }
 
   /// Format weight in stone as "X st Y lbs" (commonly used in UK)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   String get weightInStoneFormatted {
     final totalLbs = weightInLbs;
     final stones = (totalLbs / 14).floor();
@@ -106,28 +114,9 @@ class WeightEntry {
     return '$stones st $remainingLbs lbs';
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'timestamp': timestamp.toIso8601String(),
-      'weight': weight,
-      'unit': unit.name,
-      'note': note,
-    };
-  }
-
-  factory WeightEntry.fromJson(Map<String, dynamic> json) {
-    return WeightEntry(
-      id: json['id'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      weight: (json['weight'] as num).toDouble(),
-      unit: WeightUnit.values.firstWhere(
-        (u) => u.name == json['unit'],
-        orElse: () => WeightUnit.kg,
-      ),
-      note: json['note'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory WeightEntry.fromJson(Map<String, dynamic> json) => _$WeightEntryFromJson(json);
+  Map<String, dynamic> toJson() => _$WeightEntryToJson(this);
 
   WeightEntry copyWith({
     String? id,
@@ -147,6 +136,7 @@ class WeightEntry {
 }
 
 /// Represents a weight goal
+@JsonSerializable()
 class WeightGoal {
   final String id;
   final double targetWeight;
@@ -168,9 +158,11 @@ class WeightGoal {
         startDate = startDate ?? DateTime.now();
 
   /// Whether this is a weight loss goal
+  @JsonKey(includeFromJson: false, includeToJson: false)
   bool get isWeightLoss => targetWeight < startWeight;
 
   /// Total weight change needed (positive = loss, negative = gain)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get totalChange => startWeight - targetWeight;
 
   /// Calculate progress given current weight (0.0 to 1.0+)
@@ -198,34 +190,9 @@ class WeightGoal {
     }
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'targetWeight': targetWeight,
-      'startWeight': startWeight,
-      'unit': unit.name,
-      'startDate': startDate.toIso8601String(),
-      'targetDate': targetDate?.toIso8601String(),
-      'isActive': isActive,
-    };
-  }
-
-  factory WeightGoal.fromJson(Map<String, dynamic> json) {
-    return WeightGoal(
-      id: json['id'] as String,
-      targetWeight: (json['targetWeight'] as num).toDouble(),
-      startWeight: (json['startWeight'] as num).toDouble(),
-      unit: WeightUnit.values.firstWhere(
-        (u) => u.name == json['unit'],
-        orElse: () => WeightUnit.kg,
-      ),
-      startDate: DateTime.parse(json['startDate'] as String),
-      targetDate: json['targetDate'] != null
-          ? DateTime.parse(json['targetDate'] as String)
-          : null,
-      isActive: json['isActive'] as bool? ?? true,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory WeightGoal.fromJson(Map<String, dynamic> json) => _$WeightGoalFromJson(json);
+  Map<String, dynamic> toJson() => _$WeightGoalToJson(this);
 
   WeightGoal copyWith({
     String? id,
@@ -249,6 +216,7 @@ class WeightGoal {
 }
 
 /// Weekly weight summary for trend analysis
+/// Note: This is a computed summary, not persisted, so no serialization needed
 class WeeklyWeightSummary {
   final DateTime weekStart;
   final List<WeightEntry> entries;
