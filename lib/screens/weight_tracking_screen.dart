@@ -1048,46 +1048,140 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
 
   void _showHeightDialog(BuildContext context) {
     final provider = context.read<WeightProvider>();
-    final controller = TextEditingController(
-      text: provider.height?.toStringAsFixed(0) ?? '',
+
+    // Convert cm to ft/in for display
+    final currentHeightCm = provider.height;
+    int feet = 0;
+    int inches = 0;
+    if (currentHeightCm != null) {
+      final totalInches = currentHeightCm / 2.54;
+      feet = (totalInches / 12).floor();
+      inches = (totalInches % 12).round();
+    }
+
+    final cmController = TextEditingController(
+      text: currentHeightCm?.toStringAsFixed(0) ?? '',
     );
+    final feetController = TextEditingController(
+      text: currentHeightCm != null ? feet.toString() : '',
+    );
+    final inchesController = TextEditingController(
+      text: currentHeightCm != null ? inches.toString() : '',
+    );
+    bool useMetric = true; // Default to metric
 
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Set Height'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Height (cm)',
-            hintText: 'e.g., 175',
-            suffixText: 'cm',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Set Height'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Unit toggle
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: true, label: Text('cm')),
+                  ButtonSegment(value: false, label: Text('ft / in')),
+                ],
+                selected: {useMetric},
+                onSelectionChanged: (selected) {
+                  setState(() => useMetric = selected.first);
+                },
+              ),
+              AppSpacing.gapMd,
+              if (useMetric)
+                TextField(
+                  controller: cmController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Height',
+                    hintText: 'e.g., 175',
+                    suffixText: 'cm',
+                    border: OutlineInputBorder(),
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: feetController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Feet',
+                          hintText: '5',
+                          suffixText: 'ft',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: inchesController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Inches',
+                          hintText: '10',
+                          suffixText: 'in',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                double? heightCm;
+                if (useMetric) {
+                  heightCm = double.tryParse(cmController.text);
+                } else {
+                  final ft = int.tryParse(feetController.text) ?? 0;
+                  final inches = int.tryParse(inchesController.text) ?? 0;
+                  if (ft > 0 || inches > 0) {
+                    heightCm = (ft * 12 + inches) * 2.54;
+                  }
+                }
+                if (heightCm != null && heightCm > 50 && heightCm < 300) {
+                  provider.setHeight(heightCm);
+                  Navigator.of(dialogContext).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final height = double.tryParse(controller.text);
-              if (height != null && height > 50 && height < 300) {
-                provider.setHeight(height);
-                Navigator.of(dialogContext).pop();
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
 
   void _showGoalDialog(BuildContext context, WeightProvider provider) {
+    final unit = provider.preferredUnit;
+
+    // For stone, split into st and lbs
+    int goalStone = 0;
+    int goalLbs = 0;
+    if (unit == WeightUnit.stone && provider.goal != null) {
+      final totalLbs = provider.goal!.targetWeight * 14.0;
+      goalStone = (totalLbs / 14).floor();
+      goalLbs = (totalLbs % 14).round();
+    }
+
     final targetController = TextEditingController(
-      text: provider.goal?.targetWeight.toStringAsFixed(1) ?? '',
+      text: unit == WeightUnit.stone
+          ? goalStone.toString()
+          : (provider.goal?.targetWeight.toStringAsFixed(1) ?? ''),
+    );
+    final lbsController = TextEditingController(
+      text: unit == WeightUnit.stone ? goalLbs.toString() : '',
     );
     DateTime? targetDate = provider.goal?.targetDate;
 
@@ -1099,14 +1193,46 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: targetController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Target Weight',
-                  suffixText: provider.preferredUnit.displayName,
+              if (unit == WeightUnit.stone)
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: targetController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Target Stone',
+                          hintText: '10',
+                          suffixText: 'st',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: lbsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Pounds',
+                          hintText: '7',
+                          suffixText: 'lbs',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                TextField(
+                  controller: targetController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Target Weight',
+                    suffixText: unit.displayName,
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
-              ),
               AppSpacing.gapMd,
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -1149,7 +1275,17 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             ),
             FilledButton(
               onPressed: () {
-                final target = double.tryParse(targetController.text);
+                double? target;
+                if (unit == WeightUnit.stone) {
+                  final stones = int.tryParse(targetController.text) ?? 0;
+                  final lbs = int.tryParse(lbsController.text) ?? 0;
+                  if (stones > 0 || lbs > 0) {
+                    // Store as decimal stone
+                    target = stones + (lbs / 14.0);
+                  }
+                } else {
+                  target = double.tryParse(targetController.text);
+                }
                 if (target != null && target > 0) {
                   provider.setGoal(
                     targetWeight: target,

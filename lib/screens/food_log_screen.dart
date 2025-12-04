@@ -289,6 +289,10 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   ) {
     final theme = Theme.of(context);
 
+    // Sort entries by time
+    final sortedEntries = List<FoodEntry>.from(entries)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -307,7 +311,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
             ],
           ),
         ),
-        ...entries.map((entry) => _buildFoodEntryTile(context, entry, provider)),
+        ...sortedEntries.map((entry) => _buildFoodEntryTile(context, entry, provider)),
       ],
     );
   }
@@ -318,6 +322,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     FoodLogProvider provider,
   ) {
     final theme = Theme.of(context);
+    final timeFormat = DateFormat('h:mm a');
 
     return Dismissible(
       key: Key(entry.id),
@@ -330,6 +335,12 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       ),
       onDismissed: (_) => provider.deleteEntry(entry.id),
       child: ListTile(
+        leading: Text(
+          timeFormat.format(entry.timestamp),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
         title: Text(entry.description),
         subtitle: entry.nutrition != null
             ? Text(
@@ -411,6 +422,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   NutritionEstimate? _nutrition;
   bool _isEstimating = false;
   String? _estimateError;
+  late TimeOfDay _selectedTime;
 
   @override
   void initState() {
@@ -419,7 +431,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       _descriptionController.text = widget.existingEntry!.description;
       _selectedMealType = widget.existingEntry!.mealType;
       _nutrition = widget.existingEntry!.nutrition;
+      _selectedTime = TimeOfDay.fromDateTime(widget.existingEntry!.timestamp);
     } else {
+      // Default to current time
+      _selectedTime = TimeOfDay.now();
       // Default meal type based on time of day
       final hour = DateTime.now().hour;
       if (hour < 10) {
@@ -478,9 +493,18 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
 
     final provider = context.read<FoodLogProvider>();
 
+    // Combine selected date with selected time
+    final timestamp = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month,
+      widget.selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
     final entry = FoodEntry(
       id: widget.existingEntry?.id,
-      timestamp: widget.existingEntry?.timestamp ?? widget.selectedDate,
+      timestamp: timestamp,
       mealType: _selectedMealType,
       description: description,
       nutrition: _nutrition,
@@ -539,6 +563,24 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
               onSelectionChanged: (selected) {
                 setState(() => _selectedMealType = selected.first);
               },
+            ),
+            AppSpacing.gapVerticalMd,
+
+            // Time selector
+            OutlinedButton.icon(
+              onPressed: () async {
+                final picked = await showTimePicker(
+                  context: context,
+                  initialTime: _selectedTime,
+                );
+                if (picked != null) {
+                  setState(() => _selectedTime = picked);
+                }
+              },
+              icon: const Icon(Icons.access_time),
+              label: Text(
+                'Time: ${_selectedTime.format(context)}',
+              ),
             ),
             AppSpacing.gapVerticalMd,
 

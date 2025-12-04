@@ -46,6 +46,9 @@ class NutritionEstimate {
   final int proteinGrams;
   final int carbsGrams;
   final int fatGrams;
+  final int? saturatedFatGrams; // "Bad" fat - solid at room temp
+  final int? unsaturatedFatGrams; // "Good" fat - liquid at room temp (mono + poly)
+  final int? transFatGrams; // Artificial trans fats - worst for health
   final int? fiberGrams;
   final int? sugarGrams;
   final String? confidence; // 'high', 'medium', 'low'
@@ -56,6 +59,9 @@ class NutritionEstimate {
     required this.proteinGrams,
     required this.carbsGrams,
     required this.fatGrams,
+    this.saturatedFatGrams,
+    this.unsaturatedFatGrams,
+    this.transFatGrams,
     this.fiberGrams,
     this.sugarGrams,
     this.confidence,
@@ -69,6 +75,9 @@ class NutritionEstimate {
       proteinGrams: json['proteinGrams'] as int? ?? json['protein'] as int? ?? 0,
       carbsGrams: json['carbsGrams'] as int? ?? json['carbs'] as int? ?? 0,
       fatGrams: json['fatGrams'] as int? ?? json['fat'] as int? ?? 0,
+      saturatedFatGrams: json['saturatedFatGrams'] as int? ?? json['saturatedFat'] as int?,
+      unsaturatedFatGrams: json['unsaturatedFatGrams'] as int? ?? json['unsaturatedFat'] as int?,
+      transFatGrams: json['transFatGrams'] as int? ?? json['transFat'] as int?,
       fiberGrams: json['fiberGrams'] as int? ?? json['fiber'] as int?,
       sugarGrams: json['sugarGrams'] as int? ?? json['sugar'] as int?,
       confidence: json['confidence'] as String?,
@@ -82,6 +91,9 @@ class NutritionEstimate {
       'proteinGrams': proteinGrams,
       'carbsGrams': carbsGrams,
       'fatGrams': fatGrams,
+      if (saturatedFatGrams != null) 'saturatedFatGrams': saturatedFatGrams,
+      if (unsaturatedFatGrams != null) 'unsaturatedFatGrams': unsaturatedFatGrams,
+      if (transFatGrams != null) 'transFatGrams': transFatGrams,
       if (fiberGrams != null) 'fiberGrams': fiberGrams,
       if (sugarGrams != null) 'sugarGrams': sugarGrams,
       if (confidence != null) 'confidence': confidence,
@@ -94,6 +106,9 @@ class NutritionEstimate {
     int? proteinGrams,
     int? carbsGrams,
     int? fatGrams,
+    int? saturatedFatGrams,
+    int? unsaturatedFatGrams,
+    int? transFatGrams,
     int? fiberGrams,
     int? sugarGrams,
     String? confidence,
@@ -104,6 +119,9 @@ class NutritionEstimate {
       proteinGrams: proteinGrams ?? this.proteinGrams,
       carbsGrams: carbsGrams ?? this.carbsGrams,
       fatGrams: fatGrams ?? this.fatGrams,
+      saturatedFatGrams: saturatedFatGrams ?? this.saturatedFatGrams,
+      unsaturatedFatGrams: unsaturatedFatGrams ?? this.unsaturatedFatGrams,
+      transFatGrams: transFatGrams ?? this.transFatGrams,
       fiberGrams: fiberGrams ?? this.fiberGrams,
       sugarGrams: sugarGrams ?? this.sugarGrams,
       confidence: confidence ?? this.confidence,
@@ -243,6 +261,11 @@ class NutritionSummary {
   final int totalProtein;
   final int totalCarbs;
   final int totalFat;
+  final int totalSaturatedFat;
+  final int totalUnsaturatedFat;
+  final int totalTransFat;
+  final int totalSugar;
+  final int totalFiber;
   final int entryCount;
 
   const NutritionSummary({
@@ -250,6 +273,11 @@ class NutritionSummary {
     required this.totalProtein,
     required this.totalCarbs,
     required this.totalFat,
+    this.totalSaturatedFat = 0,
+    this.totalUnsaturatedFat = 0,
+    this.totalTransFat = 0,
+    this.totalSugar = 0,
+    this.totalFiber = 0,
     required this.entryCount,
   });
 
@@ -259,6 +287,11 @@ class NutritionSummary {
     int protein = 0;
     int carbs = 0;
     int fat = 0;
+    int saturatedFat = 0;
+    int unsaturatedFat = 0;
+    int transFat = 0;
+    int sugar = 0;
+    int fiber = 0;
 
     for (final entry in entries) {
       if (entry.nutrition != null) {
@@ -266,6 +299,11 @@ class NutritionSummary {
         protein += entry.nutrition!.proteinGrams;
         carbs += entry.nutrition!.carbsGrams;
         fat += entry.nutrition!.fatGrams;
+        saturatedFat += entry.nutrition!.saturatedFatGrams ?? 0;
+        unsaturatedFat += entry.nutrition!.unsaturatedFatGrams ?? 0;
+        transFat += entry.nutrition!.transFatGrams ?? 0;
+        sugar += entry.nutrition!.sugarGrams ?? 0;
+        fiber += entry.nutrition!.fiberGrams ?? 0;
       }
     }
 
@@ -274,6 +312,11 @@ class NutritionSummary {
       totalProtein: protein,
       totalCarbs: carbs,
       totalFat: fat,
+      totalSaturatedFat: saturatedFat,
+      totalUnsaturatedFat: unsaturatedFat,
+      totalTransFat: transFat,
+      totalSugar: sugar,
+      totalFiber: fiber,
       entryCount: entries.length,
     );
   }
