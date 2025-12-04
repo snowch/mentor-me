@@ -205,6 +205,20 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "File URI is required", null)
                     }
                 }
+                "validatePermissions" -> {
+                    val uriString = call.argument<String>("uri")
+                    if (uriString != null) {
+                        try {
+                            val isValid = validateSAFPermissions(uriString)
+                            result.success(isValid)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "SAF permission validation failed: ${e.message}")
+                            result.success(false)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "URI is required", null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -640,6 +654,54 @@ class MainActivity : FlutterActivity() {
     private fun deleteSAFFile(fileUriString: String): Boolean {
         val fileUri = Uri.parse(fileUriString)
         return DocumentsContract.deleteDocument(contentResolver, fileUri)
+    }
+
+    /// Validate that we have persistable permissions for the given SAF URI
+    /// This is important after fresh install when URI may be restored from backup
+    /// but the actual SAF permission grant is gone (permissions are installation-specific)
+    private fun validateSAFPermissions(uriString: String): Boolean {
+        val uri = Uri.parse(uriString)
+
+        // Check if we have this URI in our persisted permissions
+        val persistedPermissions = contentResolver.persistedUriPermissions
+        val hasPermission = persistedPermissions.any { permission ->
+            permission.uri == uri && permission.isReadPermission && permission.isWritePermission
+        }
+
+        if (!hasPermission) {
+            Log.d(TAG, "SAF permission validation failed: URI not in persisted permissions")
+            return false
+        }
+
+        // Additional check: try to query the folder to verify access actually works
+        try {
+            val treeUri = uri
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+                treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri)
+            )
+
+            contentResolver.query(
+                childrenUri,
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                // Successfully queried - permissions are valid
+                Log.d(TAG, "SAF permission validation passed: can access folder")
+                return true
+            }
+
+            Log.d(TAG, "SAF permission validation failed: query returned null")
+            return false
+        } catch (e: SecurityException) {
+            Log.d(TAG, "SAF permission validation failed with SecurityException: ${e.message}")
+            return false
+        } catch (e: Exception) {
+            Log.e(TAG, "SAF permission validation error: ${e.message}")
+            return false
+        }
     }
 
     override fun onDestroy() {

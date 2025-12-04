@@ -143,9 +143,23 @@ class AutoBackupService extends ChangeNotifier {
     });
 
     // Use SAF for External Storage (downloads) location if configured
-    if (location == BackupLocation.downloads && await _safService.hasFolderAccess()) {
-      await _performSAFBackup();
-      return;
+    if (location == BackupLocation.downloads) {
+      // Check if SAF is configured and has valid permissions
+      if (await _safService.hasFolderAccess()) {
+        // Validate permissions are still valid (may be invalid after fresh install/restore)
+        final hasValidPermissions = await _safService.validateFolderPermissions();
+        if (hasValidPermissions) {
+          await _performSAFBackup();
+          return;
+        } else {
+          await _debug.warning(
+            'AutoBackupService',
+            'SAF permissions invalid, falling back to internal storage. User must re-select folder.',
+          );
+          // Fall through to internal storage fallback
+        }
+      }
+      // No valid SAF access - fall through to fallback
     }
 
     // Get directory for selected location (only for internal storage)

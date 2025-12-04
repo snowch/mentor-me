@@ -96,12 +96,15 @@ class BackupService {
     final userContextSummary = await _storage.loadUserContextSummary();
     final wins = await _storage.loadWins();
 
-    // Remove sensitive data (API key, HF token) from export
+    // Remove sensitive/installation-specific data from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
     // are intentionally INCLUDED in backups so users can restore their configuration
     final exportSettings = Map<String, dynamic>.from(settings);
     exportSettings.remove('claudeApiKey');
     exportSettings.remove('huggingfaceToken'); // Fixed: was 'hfToken', actual key is 'huggingfaceToken'
+    // SAF folder URI is installation-specific (permission grant tied to app installation)
+    // Must be re-selected after fresh install, just like API keys
+    exportSettings.remove('saf_folder_uri');
 
     // Create backup data structure (matches migration format)
     // Using string values (JSON-encoded) for data fields to match storage format
@@ -853,6 +856,7 @@ class BackupService {
         // Merge: keep current API key, HF token, onboarding state, and auto-backup enabled preference
         // Note: Auto-backup LOCATION settings (autoBackupLocation, autoBackupCustomPath)
         // are RESTORED from the backup to preserve user's backup configuration
+        // BUT: saf_folder_uri is NOT restored (installation-specific permission grant)
         final mergedSettings = {
           ...exportedSettings, // Includes autoBackupLocation and autoBackupCustomPath from backup
           'claudeApiKey': currentSettings['claudeApiKey'], // Keep current API key
@@ -866,26 +870,25 @@ class BackupService {
             'autoBackupEnabled': currentSettings['autoBackupEnabled'],
         };
 
+        // Remove saf_folder_uri if it was in the backup (old backups may still have it)
+        // SAF permissions are installation-specific and must be re-granted after fresh install
+        mergedSettings.remove('saf_folder_uri');
+
         await _storage.saveSettings(mergedSettings);
 
         // Post-import validation: Check if External Storage is selected but SAF not configured
         // This happens after fresh install when restoring a backup that had external storage
         final restoredLocation = mergedSettings['autoBackupLocation'] as String?;
         if (restoredLocation == 'downloads') {
-          // Check if SAF folder access is configured
-          final safUri = await _safService.getSavedFolderUri();
-          if (safUri == null) {
-            // External storage selected but no SAF URI - reset to internal storage
-            mergedSettings['autoBackupLocation'] = 'internal';
-            await _storage.saveSettings(mergedSettings);
+          // External storage selected but no valid SAF permission - reset to internal storage
+          // (saf_folder_uri was removed above, so SAF will need to be reconfigured)
+          mergedSettings['autoBackupLocation'] = 'internal';
+          await _storage.saveSettings(mergedSettings);
 
-            await _debug.info(
-              'BackupService',
-              'Reset backup location to Internal Storage (External Storage requires folder selection)',
-            );
-
-            // Note: We'll add a warning to the import result later
-          }
+          await _debug.info(
+            'BackupService',
+            'Reset backup location to Internal Storage (External Storage requires folder selection after fresh install)',
+          );
         }
 
         await _debug.info('BackupService', 'Imported settings (preserved API key, HF token, onboarding state, auto-backup enabled; restored backup location settings)');
