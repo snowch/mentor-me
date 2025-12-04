@@ -70,6 +70,21 @@ void main() {
         'hydration_entries': 'hydration_entries',
         'hydration_goal': 'hydration_goal',
 
+        // User context summary (AI-generated profile)
+        'user_context_summary': 'user_context_summary',
+
+        // Wins/accomplishments tracking
+        'wins': 'wins',
+
+        // Food log / nutrition tracking
+        'food_entries': 'food_entries',
+        'nutrition_goal': 'nutrition_goal',
+
+        // Weight tracking
+        'weight_entries': 'weight_entries',
+        'weight_goal': 'weight_goal',
+        'weight_unit': 'weight_unit',
+
         // Digital wellness (added but may be missing from backup!)
         // Uncomment when added to StorageService load methods:
         // 'unplug_sessions': 'unplug_sessions',
@@ -130,6 +145,12 @@ void main() {
         'totalUrgeSurfingSessions',
         'totalHydrationEntries',
         'hydrationGoal',
+        'totalWins',
+        'totalFoodEntries',
+        'hasNutritionGoal',
+        'totalWeightEntries',
+        'hasWeightGoal',
+        'weightUnit',
       ];
 
       final missingStats = <String>[];
@@ -187,6 +208,13 @@ void main() {
         'urge_surfing_sessions',
         'hydration_entries',
         'hydration_goal',
+        'user_context_summary',
+        'wins',
+        'food_entries',
+        'nutrition_goal',
+        'weight_entries',
+        'weight_goal',
+        'weight_unit',
         // Note: unplug_sessions and device_boundaries may need to be added
         // when their StorageService getter methods are implemented
       ];
