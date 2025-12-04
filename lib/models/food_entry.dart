@@ -130,8 +130,49 @@ class NutritionEstimate {
   }
 
   /// Format as a brief summary string
-  String get summary =>
-      '${calories}cal · ${proteinGrams}g protein · ${carbsGrams}g carbs · ${fatGrams}g fat';
+  String get summary {
+    final parts = <String>[
+      '${proteinGrams}g P',
+      '${carbsGrams}g C',
+      '${fatGrams}g F',
+    ];
+    if (fiberGrams != null && fiberGrams! > 0) {
+      parts.add('${fiberGrams}g fiber');
+    }
+    if (sugarGrams != null && sugarGrams! > 0) {
+      parts.add('${sugarGrams}g sugar');
+    }
+    return parts.join(' · ');
+  }
+
+  /// Detailed summary including fat breakdown
+  String get detailedSummary {
+    final buffer = StringBuffer();
+    buffer.write('$calories cal · ${proteinGrams}g protein · ${carbsGrams}g carbs');
+
+    if (fiberGrams != null && fiberGrams! > 0) {
+      buffer.write(' · ${fiberGrams}g fiber');
+    }
+    if (sugarGrams != null && sugarGrams! > 0) {
+      buffer.write(' · ${sugarGrams}g sugar');
+    }
+
+    buffer.write(' · ${fatGrams}g fat');
+    if (saturatedFatGrams != null || unsaturatedFatGrams != null) {
+      final fatParts = <String>[];
+      if (saturatedFatGrams != null && saturatedFatGrams! > 0) {
+        fatParts.add('${saturatedFatGrams}g sat');
+      }
+      if (unsaturatedFatGrams != null && unsaturatedFatGrams! > 0) {
+        fatParts.add('${unsaturatedFatGrams}g unsat');
+      }
+      if (fatParts.isNotEmpty) {
+        buffer.write(' (${fatParts.join(', ')})');
+      }
+    }
+
+    return buffer.toString();
+  }
 }
 
 /// A food log entry representing a meal or snack
