@@ -29,6 +29,7 @@ import '../widgets/exercise_widget.dart';
 import '../providers/settings_provider.dart';
 import 'dashboard_settings_screen.dart';
 import '../widgets/recent_wins_widget.dart';
+import '../widgets/food_log_widget.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -660,6 +661,12 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
     // Exercise Tracking Widget (if visible)
     if (layout.isWidgetVisible('exercise')) {
       widgets.add(const ExerciseWidget());
+      widgets.add(AppSpacing.gapMd);
+    }
+
+    // Food Log Widget (if visible)
+    if (layout.isWidgetVisible('foodLog')) {
+      widgets.add(const FoodLogWidget());
       widgets.add(AppSpacing.gapLg);
     }
 

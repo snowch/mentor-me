@@ -1135,13 +1135,18 @@ Goals:''';
 Food: $foodDescription
 
 Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
-{"calories": 450, "protein": 35, "carbs": 20, "fat": 28, "confidence": "medium", "notes": "Estimated based on typical caesar salad with grilled chicken"}
+{"calories": 450, "protein": 35, "carbs": 20, "fat": 28, "saturatedFat": 8, "unsaturatedFat": 18, "transFat": 0, "fiber": 4, "sugar": 3, "confidence": "medium", "notes": "Estimated based on typical caesar salad with grilled chicken"}
 
 Guidelines:
 - calories: total estimated calories (integer)
 - protein: grams of protein (integer)
 - carbs: grams of carbohydrates (integer)
-- fat: grams of fat (integer)
+- fat: total grams of fat (integer)
+- saturatedFat: grams of saturated fat (integer) - from animal products, butter, cheese
+- unsaturatedFat: grams of unsaturated fat (integer) - from olive oil, nuts, fish
+- transFat: grams of trans fat (integer) - typically 0 for whole foods
+- fiber: grams of dietary fiber (integer)
+- sugar: grams of sugar (integer)
 - confidence: "high" for common foods with clear portions, "medium" for typical meals, "low" for vague descriptions
 - notes: brief explanation of your estimate (optional)
 

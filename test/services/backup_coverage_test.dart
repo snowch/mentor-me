@@ -85,10 +85,17 @@ void main() {
         'weight_goal': 'weight_goal',
         'weight_unit': 'weight_unit',
 
-        // Digital wellness (added but may be missing from backup!)
-        // Uncomment when added to StorageService load methods:
-        // 'unplug_sessions': 'unplug_sessions',
-        // 'device_boundaries': 'device_boundaries',
+        // Exercise tracking
+        'custom_exercises': 'custom_exercises',
+        'exercise_plans': 'exercise_plans',
+        'workout_logs': 'workout_logs',
+
+        // Digital wellness
+        'unplug_sessions': 'unplug_sessions',
+        'device_boundaries': 'device_boundaries',
+
+        // Safety plan
+        'safety_plan': 'safety_plan',
       };
 
       // Check each expected data type is in the backup
@@ -151,6 +158,15 @@ void main() {
         'totalWeightEntries',
         'hasWeightGoal',
         'weightUnit',
+        // Exercise tracking
+        'totalCustomExercises',
+        'totalExercisePlans',
+        'totalWorkoutLogs',
+        // Digital wellness
+        'totalUnplugSessions',
+        'totalDeviceBoundaries',
+        // Safety plan
+        'hasSafetyPlan',
       ];
 
       final missingStats = <String>[];
@@ -176,7 +192,6 @@ void main() {
       // Keys that are explicitly NOT backed up (with reason)
       final excludedKeys = <String, String>{
         'schema_version': 'Internal metadata, not user data',
-        'safety_plan': 'Sensitive data, excluded by design',
         'api_key': 'Security - never backup credentials',
         'claude_api_key': 'Security - never backup credentials',
         'huggingface_token': 'Security - never backup credentials',
@@ -215,8 +230,15 @@ void main() {
         'weight_entries',
         'weight_goal',
         'weight_unit',
-        // Note: unplug_sessions and device_boundaries may need to be added
-        // when their StorageService getter methods are implemented
+        // Exercise tracking
+        'custom_exercises',
+        'exercise_plans',
+        'workout_logs',
+        // Digital wellness
+        'unplug_sessions',
+        'device_boundaries',
+        // Safety plan
+        'safety_plan',
       ];
 
       // This is a documentation test - it passes but serves as a checklist

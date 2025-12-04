@@ -46,6 +46,8 @@ import '../models/user_context_summary.dart';
 import '../models/win.dart';
 import '../models/food_entry.dart';
 import '../models/weight_entry.dart';
+import '../models/exercise.dart';
+import '../models/digital_wellness.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -105,6 +107,18 @@ class BackupService {
     final weightGoal = await _storage.loadWeightGoal();
     final weightUnit = await _storage.loadWeightUnit();
     final height = await _storage.loadHeight();
+
+    // Exercise tracking data
+    final customExercises = await _storage.loadCustomExercises();
+    final exercisePlans = await _storage.loadExercisePlans();
+    final workoutLogs = await _storage.loadWorkoutLogs();
+
+    // Digital wellness data
+    final unplugSessions = await _storage.getUnplugSessions() ?? [];
+    final deviceBoundaries = await _storage.getDeviceBoundaries() ?? [];
+
+    // Safety plan
+    final safetyPlan = await _storage.getSafetyPlan();
 
     // Remove sensitive/installation-specific data from export
     // Note: Auto-backup location settings (autoBackupLocation, autoBackupCustomPath)
@@ -181,6 +195,18 @@ class BackupService {
       'weight_unit': weightUnit.name,
       'height': height,
 
+      // Exercise tracking
+      'custom_exercises': json.encode(customExercises.map((e) => e.toJson()).toList()),
+      'exercise_plans': json.encode(exercisePlans.map((p) => p.toJson()).toList()),
+      'workout_logs': json.encode(workoutLogs.map((l) => l.toJson()).toList()),
+
+      // Digital wellness
+      'unplug_sessions': json.encode(unplugSessions),
+      'device_boundaries': json.encode(deviceBoundaries),
+
+      // Safety plan
+      'safety_plan': safetyPlan != null ? json.encode(safetyPlan) : null,
+
       // Statistics for UI display
       'statistics': {
         'totalGoals': goals.length,
@@ -214,6 +240,15 @@ class BackupService {
         'hasWeightGoal': weightGoal != null,
         'weightUnit': weightUnit.name,
         'hasHeight': height != null,
+        // Exercise tracking
+        'totalCustomExercises': customExercises.length,
+        'totalExercisePlans': exercisePlans.length,
+        'totalWorkoutLogs': workoutLogs.length,
+        // Digital wellness
+        'totalUnplugSessions': unplugSessions.length,
+        'totalDeviceBoundaries': deviceBoundaries.length,
+        // Safety plan
+        'hasSafetyPlan': safetyPlan != null,
       },
     };
 
@@ -1825,6 +1860,203 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Height',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import custom exercises
+    try {
+      if (data.containsKey('custom_exercises') && data['custom_exercises'] != null) {
+        final exercisesJson = json.decode(data['custom_exercises'] as String) as List;
+        final exercises = exercisesJson.map((json) => Exercise.fromJson(json)).toList();
+        await _storage.saveCustomExercises(exercises);
+        await _debug.info('BackupService', 'Imported ${exercises.length} custom exercises');
+        results.add(ImportItemResult(
+          dataType: 'Custom Exercises',
+          success: true,
+          count: exercises.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Custom Exercises',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import custom exercises: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Custom Exercises',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import exercise plans
+    try {
+      if (data.containsKey('exercise_plans') && data['exercise_plans'] != null) {
+        final plansJson = json.decode(data['exercise_plans'] as String) as List;
+        final plans = plansJson.map((json) => ExercisePlan.fromJson(json)).toList();
+        await _storage.saveExercisePlans(plans);
+        await _debug.info('BackupService', 'Imported ${plans.length} exercise plans');
+        results.add(ImportItemResult(
+          dataType: 'Exercise Plans',
+          success: true,
+          count: plans.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Exercise Plans',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import exercise plans: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Exercise Plans',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import workout logs
+    try {
+      if (data.containsKey('workout_logs') && data['workout_logs'] != null) {
+        final logsJson = json.decode(data['workout_logs'] as String) as List;
+        final logs = logsJson.map((json) => WorkoutLog.fromJson(json)).toList();
+        await _storage.saveWorkoutLogs(logs);
+        await _debug.info('BackupService', 'Imported ${logs.length} workout logs');
+        results.add(ImportItemResult(
+          dataType: 'Workout Logs',
+          success: true,
+          count: logs.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Workout Logs',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import workout logs: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Workout Logs',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import unplug sessions (digital wellness)
+    try {
+      if (data.containsKey('unplug_sessions') && data['unplug_sessions'] != null) {
+        final sessionsJson = json.decode(data['unplug_sessions'] as String) as List;
+        final sessions = sessionsJson.map((json) => UnplugSession.fromJson(json).toJson()).toList();
+        await _storage.saveUnplugSessions(sessions);
+        await _debug.info('BackupService', 'Imported ${sessions.length} unplug sessions');
+        results.add(ImportItemResult(
+          dataType: 'Unplug Sessions',
+          success: true,
+          count: sessions.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Unplug Sessions',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import unplug sessions: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Unplug Sessions',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import device boundaries (digital wellness)
+    try {
+      if (data.containsKey('device_boundaries') && data['device_boundaries'] != null) {
+        final boundariesJson = json.decode(data['device_boundaries'] as String) as List;
+        final boundaries = boundariesJson.map((json) => DeviceBoundary.fromJson(json).toJson()).toList();
+        await _storage.saveDeviceBoundaries(boundaries);
+        await _debug.info('BackupService', 'Imported ${boundaries.length} device boundaries');
+        results.add(ImportItemResult(
+          dataType: 'Device Boundaries',
+          success: true,
+          count: boundaries.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Device Boundaries',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import device boundaries: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Device Boundaries',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import safety plan
+    try {
+      if (data.containsKey('safety_plan') && data['safety_plan'] != null) {
+        final planJson = json.decode(data['safety_plan'] as String) as Map<String, dynamic>;
+        await _storage.saveSafetyPlan(planJson);
+        await _debug.info('BackupService', 'Imported safety plan');
+        results.add(ImportItemResult(
+          dataType: 'Safety Plan',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Safety Plan',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import safety plan: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Safety Plan',
         success: false,
         count: 0,
         errorMessage: e.toString(),

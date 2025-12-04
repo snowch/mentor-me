@@ -1,6 +1,10 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/food_entry.dart';
 import '../providers/food_log_provider.dart';
 import '../services/ai_service.dart';
@@ -236,7 +240,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
   Widget _buildMealList(BuildContext context, FoodLogProvider provider) {
     final entries = provider.entriesForDate(_selectedDate);
-    final byMealType = provider.entriesByMealType(_selectedDate);
 
     if (entries.isEmpty) {
       return Center(
@@ -267,52 +270,16 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
-      itemCount: MealType.values.length,
-      itemBuilder: (context, index) {
-        final mealType = MealType.values[index];
-        final mealEntries = byMealType[mealType] ?? [];
-
-        if (mealEntries.isEmpty) return const SizedBox.shrink();
-
-        return _buildMealSection(context, mealType, mealEntries, provider);
-      },
-    );
-  }
-
-  Widget _buildMealSection(
-    BuildContext context,
-    MealType mealType,
-    List<FoodEntry> entries,
-    FoodLogProvider provider,
-  ) {
-    final theme = Theme.of(context);
-
-    // Sort entries by time
+    // Sort all entries by time
     final sortedEntries = List<FoodEntry>.from(entries)
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            children: [
-              Text(mealType.emoji, style: const TextStyle(fontSize: 20)),
-              AppSpacing.gapHorizontalSm,
-              Text(
-                mealType.displayName,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        ...sortedEntries.map((entry) => _buildFoodEntryTile(context, entry, provider)),
-      ],
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
+      itemCount: sortedEntries.length,
+      itemBuilder: (context, index) {
+        return _buildFoodEntryTile(context, sortedEntries[index], provider);
+      },
     );
   }
 
@@ -335,11 +302,18 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       ),
       onDismissed: (_) => provider.deleteEntry(entry.id),
       child: ListTile(
-        leading: Text(
-          timeFormat.format(entry.timestamp),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.outline,
-          ),
+        leading: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(entry.mealType.emoji, style: const TextStyle(fontSize: 18)),
+            Text(
+              timeFormat.format(entry.timestamp),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+                fontSize: 10,
+              ),
+            ),
+          ],
         ),
         title: Text(entry.description),
         subtitle: entry.nutrition != null
@@ -418,11 +392,13 @@ class _AddFoodBottomSheet extends StatefulWidget {
 
 class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   final _descriptionController = TextEditingController();
+  final _imagePicker = ImagePicker();
   MealType _selectedMealType = MealType.lunch;
   NutritionEstimate? _nutrition;
   bool _isEstimating = false;
   String? _estimateError;
   late TimeOfDay _selectedTime;
+  String? _imagePath;
 
   @override
   void initState() {
@@ -432,6 +408,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       _selectedMealType = widget.existingEntry!.mealType;
       _nutrition = widget.existingEntry!.nutrition;
       _selectedTime = TimeOfDay.fromDateTime(widget.existingEntry!.timestamp);
+      _imagePath = widget.existingEntry!.imagePath;
     } else {
       // Default to current time
       _selectedTime = TimeOfDay.now();
@@ -487,6 +464,89 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     }
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    if (kIsWeb) {
+      // Web doesn't support camera, only gallery
+      if (source == ImageSource.camera) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Camera not supported on web')),
+        );
+        return;
+      }
+    }
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        // Copy to app's documents directory for persistence
+        if (!kIsWeb) {
+          final appDir = await getApplicationDocumentsDirectory();
+          final foodImagesDir = Directory('${appDir.path}/food_images');
+          if (!await foodImagesDir.exists()) {
+            await foodImagesDir.create(recursive: true);
+          }
+          final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final savedPath = '${foodImagesDir.path}/$fileName';
+          await File(image.path).copy(savedPath);
+          setState(() => _imagePath = savedPath);
+        } else {
+          // On web, just use the temporary path
+          setState(() => _imagePath = image.path);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
+    }
+  }
+
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            if (_imagePath != null)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _imagePath = null);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _save() {
     final description = _descriptionController.text.trim();
     if (description.isEmpty) return;
@@ -508,6 +568,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       mealType: _selectedMealType,
       description: description,
       nutrition: _nutrition,
+      imagePath: _imagePath,
     );
 
     if (widget.existingEntry != null) {
@@ -565,6 +626,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
               },
               showSelectedIcon: false,
             ),
+            AppSpacing.gapVerticalMd,
+
+            // Photo capture section
+            _buildPhotoSection(theme),
             AppSpacing.gapVerticalMd,
 
             // Time selector
@@ -707,6 +772,58 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPhotoSection(ThemeData theme) {
+    if (_imagePath != null) {
+      return GestureDetector(
+        onTap: _showImageSourceDialog,
+        child: Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: kIsWeb
+                  ? Image.network(
+                      _imagePath!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : Image.file(
+                      File(_imagePath!),
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: _showImageSourceDialog,
+                  iconSize: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: _showImageSourceDialog,
+      icon: const Icon(Icons.camera_alt),
+      label: const Text('Add Photo'),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
     );
   }
 }

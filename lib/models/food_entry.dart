@@ -130,8 +130,49 @@ class NutritionEstimate {
   }
 
   /// Format as a brief summary string
-  String get summary =>
-      '${calories}cal · ${proteinGrams}g protein · ${carbsGrams}g carbs · ${fatGrams}g fat';
+  String get summary {
+    final parts = <String>[
+      '${proteinGrams}g P',
+      '${carbsGrams}g C',
+      '${fatGrams}g F',
+    ];
+    if (fiberGrams != null && fiberGrams! > 0) {
+      parts.add('${fiberGrams}g fiber');
+    }
+    if (sugarGrams != null && sugarGrams! > 0) {
+      parts.add('${sugarGrams}g sugar');
+    }
+    return parts.join(' · ');
+  }
+
+  /// Detailed summary including fat breakdown
+  String get detailedSummary {
+    final buffer = StringBuffer();
+    buffer.write('$calories cal · ${proteinGrams}g protein · ${carbsGrams}g carbs');
+
+    if (fiberGrams != null && fiberGrams! > 0) {
+      buffer.write(' · ${fiberGrams}g fiber');
+    }
+    if (sugarGrams != null && sugarGrams! > 0) {
+      buffer.write(' · ${sugarGrams}g sugar');
+    }
+
+    buffer.write(' · ${fatGrams}g fat');
+    if (saturatedFatGrams != null || unsaturatedFatGrams != null) {
+      final fatParts = <String>[];
+      if (saturatedFatGrams != null && saturatedFatGrams! > 0) {
+        fatParts.add('${saturatedFatGrams}g sat');
+      }
+      if (unsaturatedFatGrams != null && unsaturatedFatGrams! > 0) {
+        fatParts.add('${unsaturatedFatGrams}g unsat');
+      }
+      if (fatParts.isNotEmpty) {
+        buffer.write(' (${fatParts.join(', ')})');
+      }
+    }
+
+    return buffer.toString();
+  }
 }
 
 /// A food log entry representing a meal or snack
@@ -144,6 +185,7 @@ class FoodEntry {
   final String? notes; // Optional user notes
   final int? energyAfterMeal; // 1-5 scale, how they felt after eating
   final bool isManualEntry; // True if user manually entered nutrition
+  final String? imagePath; // Path to food photo (optional)
 
   FoodEntry({
     String? id,
@@ -154,6 +196,7 @@ class FoodEntry {
     this.notes,
     this.energyAfterMeal,
     this.isManualEntry = false,
+    this.imagePath,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -172,6 +215,7 @@ class FoodEntry {
       notes: json['notes'] as String?,
       energyAfterMeal: json['energyAfterMeal'] as int?,
       isManualEntry: json['isManualEntry'] as bool? ?? false,
+      imagePath: json['imagePath'] as String?,
     );
   }
 
@@ -185,6 +229,7 @@ class FoodEntry {
       if (notes != null) 'notes': notes,
       if (energyAfterMeal != null) 'energyAfterMeal': energyAfterMeal,
       'isManualEntry': isManualEntry,
+      if (imagePath != null) 'imagePath': imagePath,
     };
   }
 
@@ -197,6 +242,7 @@ class FoodEntry {
     String? notes,
     int? energyAfterMeal,
     bool? isManualEntry,
+    String? imagePath,
   }) {
     return FoodEntry(
       id: id ?? this.id,
@@ -207,6 +253,7 @@ class FoodEntry {
       notes: notes ?? this.notes,
       energyAfterMeal: energyAfterMeal ?? this.energyAfterMeal,
       isManualEntry: isManualEntry ?? this.isManualEntry,
+      imagePath: imagePath ?? this.imagePath,
     );
   }
 

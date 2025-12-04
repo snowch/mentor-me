@@ -67,6 +67,9 @@ dependencies:
   # URL launching for phone calls and web links
   url_launcher: ^6.3.1
 
+  # Image picker for camera/gallery access
+  image_picker: ^1.0.7
+
   # Google Drive integration for cloud backups
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
