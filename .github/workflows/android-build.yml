@@ -104,6 +104,12 @@ jobs:
         continue-on-error: false  # FAIL build if provider tests fail
         # Provider tests are critical for preventing state management regressions
 
+      - name: Run backup coverage test (data loss prevention)
+        run: flutter test test/services/backup_coverage_test.dart
+        continue-on-error: false  # FAIL build if backup coverage test fails
+        # This test ensures all data types in StorageService are backed up
+        # Prevents data loss when adding new features (like weight tracking)
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
