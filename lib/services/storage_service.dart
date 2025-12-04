@@ -76,6 +76,80 @@ class StorageService {
   static const String _foodEntriesKey = 'food_entries';
   static const String _nutritionGoalKey = 'nutrition_goal';
 
+  /// All storage keys that contain USER DATA and should be backed up.
+  /// This is the SINGLE SOURCE OF TRUTH for backup coverage.
+  ///
+  /// When adding a new data type:
+  /// 1. Add the private key constant above
+  /// 2. Add it to this list
+  /// 3. Implement load/save methods
+  /// 4. Add to BackupService.createBackupJson() and _importData()
+  ///
+  /// The backup_coverage_test.dart will FAIL if this list doesn't match BackupService exports.
+  static const Set<String> userDataKeys = {
+    // Core data types
+    'goals',
+    'journal_entries',
+    'checkin',
+    'habits',
+    'pulse_entries',
+    'pulse_types',
+    'settings',
+    'conversations',
+    'journal_templates_custom',  // custom_templates in backup
+    'structured_journaling_sessions',  // sessions in backup
+    'enabled_templates',
+    'checkin_templates',
+    'checkin_responses',
+
+    // Clinical/wellness data
+    'clinical_assessments',
+    'intervention_attempts',
+    'activities',
+    'scheduled_activities',
+    'gratitude_entries',
+    'worries',
+    'worry_sessions',
+    'self_compassion_entries',
+    'personal_values',
+    'implementation_intentions',
+    'meditation_sessions',
+    'urge_surfing_sessions',
+    'hydration_entries',
+    'hydration_goal',
+    'unplug_sessions',
+    'device_boundaries',
+    'user_context_summary',
+    'wins',
+
+    // Weight tracking
+    'weight_entries',
+    'weight_goal',
+    'weight_unit',
+    'user_height',  // height in backup
+
+    // Exercise tracking
+    'custom_exercises',
+    'exercise_plans',
+    'workout_logs',
+
+    // Food logging
+    'food_entries',
+    'nutrition_goal',
+
+    // Safety plan
+    'safety_plan',
+  };
+
+  /// Keys that are explicitly NOT backed up (security/internal).
+  static const Set<String> excludedFromBackupKeys = {
+    'schema_version',  // Internal metadata
+    'api_key',  // Security - never backup
+    'claudeApiKey',  // Security - never backup
+    'huggingfaceToken',  // Security - never backup
+    'autoBackupSafUri',  // Installation-specific permission
+  };
+
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
   MigrationService get _migrationService => _migrationServiceInstance ??= MigrationService();
@@ -111,7 +185,17 @@ class StorageService {
   ///
   /// IMPORTANT: This MUST be called at the end of every save method.
   /// Tests will fail if any save method doesn't call this.
+  ///
+  /// Also validates that the dataType is registered in userDataKeys or excludedFromBackupKeys.
+  /// This catches unregistered storage keys at runtime.
   Future<void> _notifyPersistence(String dataType) async {
+    // Validate that this key is registered (catches missing backup coverage at runtime)
+    assert(
+      userDataKeys.contains(dataType) || excludedFromBackupKeys.contains(dataType),
+      'Storage key "$dataType" is not registered in userDataKeys or excludedFromBackupKeys. '
+      'Add it to StorageService.userDataKeys to ensure backup coverage.',
+    );
+
     for (final listener in _persistenceListeners) {
       try {
         await listener(dataType);
