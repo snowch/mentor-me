@@ -517,8 +517,8 @@ class _PlanDetailsSheet extends StatelessWidget {
                     child: Text('${index + 1}'),
                   ),
                   title: Text(exercise.name),
-                  subtitle: Text('${exercise.sets} sets × ${exercise.reps} reps'),
-                  trailing: exercise.weight != null
+                  subtitle: Text(exercise.settingsSummary),
+                  trailing: exercise.exerciseType == ExerciseType.strength && exercise.weight != null
                       ? Text('${exercise.weight!.toStringAsFixed(1)} kg')
                       : null,
                 ),
@@ -722,7 +722,7 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.drag_handle),
                     title: Text(exercise.name),
-                    subtitle: Text('${exercise.sets} sets × ${exercise.reps} reps'),
+                    subtitle: Text(exercise.settingsSummary),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -791,9 +791,7 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                     leading: Text(exercise.category.emoji,
                         style: const TextStyle(fontSize: 20)),
                     title: Text(exercise.name),
-                    subtitle: Text(
-                      '${exercise.defaultSets} sets × ${exercise.defaultReps} reps',
-                    ),
+                    subtitle: Text(exercise.defaultSettingsSummary),
                     trailing: isInCategory
                         ? const Icon(Icons.star, color: Colors.amber, size: 16)
                         : null,

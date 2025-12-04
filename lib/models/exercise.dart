@@ -115,6 +115,22 @@ class Exercise {
     this.isCustom = true,
   });
 
+  /// Format default settings for display based on exercise type
+  String get defaultSettingsSummary {
+    switch (exerciseType) {
+      case ExerciseType.strength:
+        final weightStr = defaultWeight != null ? ' @ ${defaultWeight!.toStringAsFixed(1)}' : '';
+        return '$defaultSets × $defaultReps$weightStr';
+      case ExerciseType.timed:
+        return defaultSets > 1 ? '$defaultSets × ${defaultDurationMinutes}m' : '${defaultDurationMinutes ?? 0}m';
+      case ExerciseType.cardio:
+        final parts = <String>['${defaultDurationMinutes ?? 0}m'];
+        if (defaultLevel != null) parts.add('L$defaultLevel');
+        if (defaultDistance != null) parts.add('${defaultDistance!.toStringAsFixed(1)}km');
+        return parts.join(' · ');
+    }
+  }
+
   Exercise copyWith({
     String? id,
     String? name,
