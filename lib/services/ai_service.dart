@@ -1213,4 +1213,144 @@ JSON:''';
       return null;
     }
   }
+
+  /// Estimate calories burned from a workout
+  ///
+  /// Takes workout details (exercises, duration, sets, reps, user info)
+  /// and returns an estimated calorie burn.
+  Future<CalorieEstimate?> estimateExerciseCalories({
+    required List<Map<String, dynamic>> exercises,
+    required int durationMinutes,
+    int? totalSets,
+    int? totalReps,
+    double? userWeightKg,
+    String? userGender,
+  }) async {
+    if (!hasApiKey()) {
+      await _debug.warning('AIService', 'Cannot estimate calories: no API key');
+      return null;
+    }
+
+    if (exercises.isEmpty) {
+      return null;
+    }
+
+    try {
+      await _debug.info('AIService', 'Estimating exercise calories', metadata: {
+        'exerciseCount': exercises.length,
+        'durationMinutes': durationMinutes,
+        'totalSets': totalSets,
+        'totalReps': totalReps,
+      });
+
+      // Build workout description
+      final exerciseDescriptions = exercises.map((e) {
+        final name = e['name'] as String? ?? 'Unknown';
+        final sets = e['sets'] as int? ?? 0;
+        final reps = e['reps'] as int? ?? 0;
+        final weight = e['weight'] as double?;
+
+        if (weight != null) {
+          return '$name: $sets sets × $reps reps @ ${weight.toStringAsFixed(1)}kg';
+        } else if (sets > 0 && reps > 0) {
+          return '$name: $sets sets × $reps reps';
+        } else {
+          return name;
+        }
+      }).join('\n');
+
+      final userInfo = StringBuffer();
+      if (userWeightKg != null) {
+        userInfo.write('User weight: ${userWeightKg.toStringAsFixed(1)} kg');
+      }
+      if (userGender != null) {
+        if (userInfo.isNotEmpty) userInfo.write(', ');
+        userInfo.write('Gender: $userGender');
+      }
+
+      final prompt = '''Estimate calories burned for this workout. Consider exercise intensity, duration, and the number of sets/reps.
+
+Workout Duration: $durationMinutes minutes
+${totalSets != null ? 'Total Sets: $totalSets\n' : ''}${totalReps != null ? 'Total Reps: $totalReps\n' : ''}${userInfo.isNotEmpty ? '$userInfo\n' : ''}
+Exercises:
+$exerciseDescriptions
+
+Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
+{"calories": 350, "confidence": "medium", "notes": "Estimated based on moderate intensity strength training"}
+
+Guidelines:
+- calories: total estimated calories burned (integer)
+- confidence: "high" for standard exercises with clear effort, "medium" for typical workouts, "low" for unusual or vague exercises
+- notes: brief explanation of your estimate
+
+For reference:
+- Light strength training: 3-5 cal/min
+- Moderate strength training: 5-8 cal/min
+- Intense strength training: 8-12 cal/min
+- Circuit training: 8-10 cal/min
+- HIIT: 10-15 cal/min
+
+JSON:''';
+
+      final response = await getCoachingResponse(prompt: prompt);
+
+      // Try to parse the JSON from the response
+      final jsonMatch = RegExp(r'\{[^{}]*\}').firstMatch(response);
+      if (jsonMatch == null) {
+        await _debug.warning('AIService', 'No JSON found in calorie response', metadata: {
+          'response': response,
+        });
+        return null;
+      }
+
+      final jsonString = jsonMatch.group(0)!;
+      final Map<String, dynamic> parsed = json.decode(jsonString);
+
+      // Helper to safely parse numbers
+      int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+        if (value == null) return defaultValue;
+        if (value is int) return value;
+        if (value is double) return value.toInt();
+        if (value is String) return int.tryParse(value) ?? defaultValue;
+        return defaultValue;
+      }
+
+      final calories = parseIntSafe(parsed['calories']);
+      final confidence = parsed['confidence']?.toString() ?? 'medium';
+      final notes = parsed['notes']?.toString();
+
+      final estimate = CalorieEstimate(
+        calories: calories,
+        confidence: confidence,
+        notes: notes,
+      );
+
+      await _debug.info('AIService', 'Exercise calories estimated successfully', metadata: {
+        'calories': estimate.calories,
+        'confidence': estimate.confidence,
+      });
+
+      return estimate;
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AIService',
+        'Failed to estimate exercise calories: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      return null;
+    }
+  }
+}
+
+/// Estimated calories burned from exercise
+class CalorieEstimate {
+  final int calories;
+  final String confidence; // "high", "medium", "low"
+  final String? notes;
+
+  const CalorieEstimate({
+    required this.calories,
+    required this.confidence,
+    this.notes,
+  });
 }

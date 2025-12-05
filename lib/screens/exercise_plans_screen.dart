@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/weight_provider.dart';
+import '../services/ai_service.dart';
 
 class ExercisePlansScreen extends StatelessWidget {
   const ExercisePlansScreen({super.key});
@@ -1549,47 +1551,175 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
   void _finishWorkout(BuildContext context, ExerciseProvider provider) {
     int? rating;
+    int? estimatedCalories;
+    bool isEstimating = false;
+    String? estimateNotes;
+    final caloriesController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setState) => AlertDialog(
           title: const Text('Finish Workout'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('How was your workout?'),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return IconButton(
-                    icon: Icon(
-                      index < (rating ?? 0) ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 32,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('How was your workout?'),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    return IconButton(
+                      icon: Icon(
+                        index < (rating ?? 0) ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 32,
+                      ),
+                      onPressed: () {
+                        setState(() => rating = index + 1);
+                      },
+                    );
+                  }),
+                ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                Text(
+                  'Calories Burned',
+                  style: Theme.of(dialogContext).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (estimatedCalories != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(dialogContext).colorScheme.primaryContainer.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    onPressed: () {
-                      setState(() => rating = index + 1);
-                    },
-                  );
-                }),
-              ),
-            ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.local_fire_department,
+                              color: Colors.orange,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$estimatedCalories cal',
+                              style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () {
+                                caloriesController.text = estimatedCalories.toString();
+                                setState(() {
+                                  estimatedCalories = null;
+                                  estimateNotes = null;
+                                });
+                              },
+                              tooltip: 'Edit manually',
+                            ),
+                          ],
+                        ),
+                        if (estimateNotes != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            estimateNotes!,
+                            style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  TextField(
+                    controller: caloriesController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter calories or use AI',
+                      suffixText: 'cal',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: AIService().hasApiKey()
+                          ? IconButton(
+                              icon: isEstimating
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.auto_awesome),
+                              tooltip: 'Estimate with AI',
+                              onPressed: isEstimating
+                                  ? null
+                                  : () async {
+                                      setState(() => isEstimating = true);
+                                      final estimate = await _estimateCalories(
+                                        context,
+                                        provider.activeWorkout!,
+                                      );
+                                      if (dialogContext.mounted) {
+                                        setState(() {
+                                          isEstimating = false;
+                                          if (estimate != null) {
+                                            estimatedCalories = estimate.calories;
+                                            estimateNotes = estimate.notes;
+                                            caloriesController.text = estimate.calories.toString();
+                                          }
+                                        });
+                                      }
+                                    },
+                            )
+                          : null,
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  if (AIService().hasApiKey()) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap ✨ to estimate calories with AI',
+                      style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () async {
-                await provider.finishWorkout(rating: rating);
-                if (context.mounted) {
-                  Navigator.pop(context);
+                final calories = estimatedCalories ?? int.tryParse(caloriesController.text);
+                await provider.finishWorkout(
+                  rating: rating,
+                  caloriesBurned: calories,
+                );
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Workout saved!')),
+                    SnackBar(
+                      content: Text(
+                        calories != null
+                            ? 'Workout saved! ($calories cal burned)'
+                            : 'Workout saved!',
+                      ),
+                    ),
                   );
                 }
               },
@@ -1598,6 +1728,53 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<CalorieEstimate?> _estimateCalories(
+    BuildContext context,
+    WorkoutLog workout,
+  ) async {
+    // Get user weight and gender if available
+    double? userWeight;
+    String? userGender;
+    try {
+      final weightProvider = context.read<WeightProvider>();
+      userWeight = weightProvider.currentWeight;
+      userGender = weightProvider.gender;
+    } catch (_) {
+      // Provider not available
+    }
+
+    // Build exercise data for the AI
+    final exercises = workout.exercises.map((e) {
+      final totalSets = e.completedSets.length;
+      final totalReps = e.completedSets.fold(0, (sum, set) => sum + set.reps);
+      final avgWeight = e.completedSets.isNotEmpty
+          ? e.completedSets
+              .where((s) => s.weight != null)
+              .map((s) => s.weight!)
+              .fold(0.0, (sum, w) => sum + w) /
+              e.completedSets.where((s) => s.weight != null).length
+          : null;
+
+      return {
+        'name': e.name,
+        'sets': totalSets,
+        'reps': totalReps,
+        'weight': avgWeight?.isNaN == true ? null : avgWeight,
+      };
+    }).toList();
+
+    final durationMinutes = workout.duration?.inMinutes ?? 30;
+
+    return await AIService().estimateExerciseCalories(
+      exercises: exercises,
+      durationMinutes: durationMinutes,
+      totalSets: workout.totalSetsCompleted,
+      totalReps: workout.totalRepsCompleted,
+      userWeightKg: userWeight,
+      userGender: userGender,
     );
   }
 

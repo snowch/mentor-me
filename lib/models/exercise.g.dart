@@ -130,6 +130,7 @@ WorkoutLog _$WorkoutLogFromJson(Map<String, dynamic> json) => WorkoutLog(
           .toList(),
       notes: json['notes'] as String?,
       rating: (json['rating'] as num?)?.toInt(),
+      caloriesBurned: (json['caloriesBurned'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$WorkoutLogToJson(WorkoutLog instance) =>
@@ -142,6 +143,7 @@ Map<String, dynamic> _$WorkoutLogToJson(WorkoutLog instance) =>
       'exercises': instance.exercises,
       'notes': instance.notes,
       'rating': instance.rating,
+      'caloriesBurned': instance.caloriesBurned,
     };
 
 LoggedExercise _$LoggedExerciseFromJson(Map<String, dynamic> json) =>
