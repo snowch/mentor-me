@@ -31,6 +31,7 @@ import '../models/chat_message.dart';
 import '../models/exercise.dart';
 import '../models/weight_entry.dart';
 import '../models/food_entry.dart';
+import '../models/win.dart';
 import 'storage_service.dart';
 import 'debug_service.dart';
 import 'local_ai_service.dart';
@@ -321,6 +322,7 @@ class AIService {
     WeightGoal? weightGoal,
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
+    List<Win>? wins,
   }) async {
     // Route to local or cloud based on provider selection
     if (_selectedProvider == AIProvider.local) {
@@ -335,7 +337,7 @@ class AIService {
       }
       return _getLocalResponse(
         prompt, goals, habits, recentEntries, pulseEntries, conversationHistory,
-        workoutLogs, weightEntries, foodEntries,
+        workoutLogs, weightEntries, foodEntries, wins,
       );
     }
 
@@ -351,7 +353,7 @@ class AIService {
     return _getCloudResponse(
       prompt, goals, habits, recentEntries, pulseEntries,
       exercisePlans, workoutLogs, weightEntries, weightGoal,
-      foodEntries, nutritionGoal,
+      foodEntries, nutritionGoal, wins,
     );
   }
 
@@ -366,6 +368,7 @@ class AIService {
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     List<FoodEntry>? foodEntries,
+    List<Win>? wins,
   ) async {
     final localAI = LocalAIService();
 
@@ -379,6 +382,7 @@ class AIService {
       workoutLogs: workoutLogs,
       weightEntries: weightEntries,
       foodEntries: foodEntries,
+      wins: wins,
     );
 
     final fullPrompt = '''You are a supportive AI mentor helping with goals and habits.
@@ -450,6 +454,7 @@ CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for
     WeightGoal? weightGoal,
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
+    List<Win>? wins,
   ) async {
     try {
       // Build comprehensive context for cloud AI (large context window)
@@ -464,6 +469,7 @@ CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for
         weightGoal: weightGoal,
         foodEntries: foodEntries,
         nutritionGoal: nutritionGoal,
+        wins: wins,
       );
 
       final fullPrompt = '''You are an empathetic AI mentor and coach helping someone achieve their goals and build better habits.
