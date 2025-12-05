@@ -457,6 +457,25 @@ class Exercise {
       notes: 'Great for intervals',
       isCustom: false,
     ),
+    const Exercise(
+      id: 'preset_skiing',
+      name: 'Skiing',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 60,
+      notes: 'Downhill or cross-country',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_cross_country_skiing',
+      name: 'Cross-Country Skiing',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 45,
+      defaultDistance: 5.0,
+      notes: 'Great full-body workout',
+      isCustom: false,
+    ),
     // Flexibility - Timed
     const Exercise(
       id: 'preset_stretching',

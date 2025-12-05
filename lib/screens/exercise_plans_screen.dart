@@ -791,10 +791,43 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                     leading: Text(exercise.category.emoji,
                         style: const TextStyle(fontSize: 20)),
                     title: Text(exercise.name),
-                    subtitle: Text(exercise.defaultSettingsSummary),
-                    trailing: isInCategory
-                        ? const Icon(Icons.star, color: Colors.amber, size: 16)
-                        : null,
+                    subtitle: Row(
+                      children: [
+                        Expanded(child: Text(exercise.defaultSettingsSummary)),
+                        if (exercise.isCustom)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Custom',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isInCategory)
+                          const Icon(Icons.star, color: Colors.amber, size: 16),
+                        if (exercise.isCustom) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(Icons.delete_outline,
+                              size: 20,
+                              color: Colors.red.shade400),
+                            onPressed: () => _confirmDeleteExercise(context, exercise),
+                            tooltip: 'Delete',
+                          ),
+                        ],
+                      ],
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       _addExercise(exercise);
@@ -833,9 +866,11 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
       _exercises.add(PlanExercise(
         exerciseId: exercise.id,
         name: exercise.name,
+        exerciseType: exercise.exerciseType,
         sets: exercise.defaultSets,
         reps: exercise.defaultReps,
         weight: exercise.defaultWeight,
+        durationMinutes: exercise.defaultDurationMinutes,
         notes: exercise.notes,
         order: _exercises.length,
       ));
@@ -844,10 +879,23 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
 
   void _editExercise(int index) {
     final exercise = _exercises[index];
+
+    // Strength fields
     final setsController = TextEditingController(text: '${exercise.sets}');
     final repsController = TextEditingController(text: '${exercise.reps}');
     final weightController = TextEditingController(
       text: exercise.weight?.toStringAsFixed(1) ?? '',
+    );
+
+    // Cardio/timed fields
+    final durationController = TextEditingController(
+      text: '${exercise.durationMinutes ?? 30}',
+    );
+    final levelController = TextEditingController(
+      text: '${exercise.level ?? 5}',
+    );
+    final distanceController = TextEditingController(
+      text: exercise.targetDistance?.toStringAsFixed(1) ?? '',
     );
 
     showDialog(
@@ -857,26 +905,68 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: setsController,
-              decoration: const InputDecoration(labelText: 'Sets'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: repsController,
-              decoration: const InputDecoration(labelText: 'Reps'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: weightController,
-              decoration: const InputDecoration(
-                labelText: 'Weight (optional)',
-                suffixText: 'kg',
+            // Strength exercise fields
+            if (exercise.exerciseType == ExerciseType.strength) ...[
+              TextField(
+                controller: setsController,
+                decoration: const InputDecoration(labelText: 'Sets'),
+                keyboardType: TextInputType.number,
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: repsController,
+                decoration: const InputDecoration(labelText: 'Reps'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: weightController,
+                decoration: const InputDecoration(
+                  labelText: 'Weight (optional)',
+                  suffixText: 'kg',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+            // Timed exercise fields
+            if (exercise.exerciseType == ExerciseType.timed) ...[
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duration',
+                  suffixText: 'min',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+            // Cardio exercise fields
+            if (exercise.exerciseType == ExerciseType.cardio) ...[
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duration',
+                  suffixText: 'min',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: levelController,
+                decoration: const InputDecoration(
+                  labelText: 'Level/Resistance (1-20)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: distanceController,
+                decoration: const InputDecoration(
+                  labelText: 'Target Distance (optional)',
+                  suffixText: 'km',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -886,15 +976,31 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
           ),
           FilledButton(
             onPressed: () {
-              final sets = int.tryParse(setsController.text) ?? exercise.sets;
-              final reps = int.tryParse(repsController.text) ?? exercise.reps;
-              final weight = double.tryParse(weightController.text);
               setState(() {
-                _exercises[index] = exercise.copyWith(
-                  sets: sets,
-                  reps: reps,
-                  weight: weight,
-                );
+                if (exercise.exerciseType == ExerciseType.strength) {
+                  final sets = int.tryParse(setsController.text) ?? exercise.sets;
+                  final reps = int.tryParse(repsController.text) ?? exercise.reps;
+                  final weight = double.tryParse(weightController.text);
+                  _exercises[index] = exercise.copyWith(
+                    sets: sets,
+                    reps: reps,
+                    weight: weight,
+                  );
+                } else if (exercise.exerciseType == ExerciseType.timed) {
+                  final duration = int.tryParse(durationController.text) ?? 30;
+                  _exercises[index] = exercise.copyWith(
+                    durationMinutes: duration,
+                  );
+                } else if (exercise.exerciseType == ExerciseType.cardio) {
+                  final duration = int.tryParse(durationController.text) ?? 30;
+                  final level = int.tryParse(levelController.text);
+                  final distance = double.tryParse(distanceController.text);
+                  _exercises[index] = exercise.copyWith(
+                    durationMinutes: duration,
+                    level: level,
+                    targetDistance: distance,
+                  );
+                }
               });
               Navigator.pop(context);
             },
@@ -1009,6 +1115,37 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteExercise(BuildContext dialogContext, Exercise exercise) {
+    showDialog(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Exercise'),
+        content: Text('Delete "${exercise.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final provider = this.context.read<ExerciseProvider>();
+              provider.deleteExercise(exercise.id);
+              Navigator.pop(context); // Close confirmation dialog
+              Navigator.pop(dialogContext); // Close exercise picker
+              ScaffoldMessenger.of(this.context).showSnackBar(
+                SnackBar(
+                  content: Text('"${exercise.name}" deleted'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
