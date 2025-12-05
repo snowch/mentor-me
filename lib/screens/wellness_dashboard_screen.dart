@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/wellness_recommendation_dialog.dart';
+import '../services/storage_service.dart';
 import 'gratitude_journal_screen.dart';
 import 'worry_time_screen.dart';
 import 'self_compassion_screen.dart';
@@ -27,15 +28,123 @@ import 'exercise_plans_screen.dart';
 import 'medication_screen.dart';
 import 'symptom_tracker_screen.dart';
 
-class WellnessDashboardScreen extends StatelessWidget {
+class WellnessDashboardScreen extends StatefulWidget {
   const WellnessDashboardScreen({super.key});
 
   @override
+  State<WellnessDashboardScreen> createState() => _WellnessDashboardScreenState();
+}
+
+class _WellnessDashboardScreenState extends State<WellnessDashboardScreen> {
+  final _storage = StorageService();
+
+  // Section expansion states - default all to expanded for discoverability
+  // Crisis Support is always expanded (not collapsible for safety reasons)
+  bool _clinicalToolsExpanded = true;
+  bool _cognitiveExpanded = true;
+  bool _wellnessExpanded = true;
+  bool _physicalExpanded = true;
+  bool _healthExpanded = true;
+  bool _insightsExpanded = true;
+
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSectionStates();
+  }
+
+  Future<void> _loadSectionStates() async {
+    final settings = await _storage.loadSettings();
+
+    if (mounted) {
+      setState(() {
+        // Load saved states, defaulting to expanded if not set
+        _clinicalToolsExpanded = settings['wellness_clinical_expanded'] as bool? ?? true;
+        _cognitiveExpanded = settings['wellness_cognitive_expanded'] as bool? ?? true;
+        _wellnessExpanded = settings['wellness_practices_expanded'] as bool? ?? true;
+        _physicalExpanded = settings['wellness_physical_expanded'] as bool? ?? true;
+        _healthExpanded = settings['wellness_health_expanded'] as bool? ?? true;
+        _insightsExpanded = settings['wellness_insights_expanded'] as bool? ?? true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveSectionState(String key, bool expanded) async {
+    final settings = await _storage.loadSettings();
+    settings[key] = expanded;
+    await _storage.saveSettings(settings);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Wellness Tools'),
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Wellness Tools'),
         elevation: 0,
+        actions: [
+          // Expand/Collapse all button
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) async {
+              if (value == 'expand_all') {
+                setState(() {
+                  _clinicalToolsExpanded = true;
+                  _cognitiveExpanded = true;
+                  _wellnessExpanded = true;
+                  _physicalExpanded = true;
+                  _healthExpanded = true;
+                  _insightsExpanded = true;
+                });
+                await _saveAllSectionStates(true);
+              } else if (value == 'collapse_all') {
+                setState(() {
+                  _clinicalToolsExpanded = false;
+                  _cognitiveExpanded = false;
+                  _wellnessExpanded = false;
+                  _physicalExpanded = false;
+                  _healthExpanded = false;
+                  _insightsExpanded = false;
+                });
+                await _saveAllSectionStates(false);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'expand_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.unfold_more),
+                    SizedBox(width: 8),
+                    Text('Expand all'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'collapse_all',
+                child: Row(
+                  children: [
+                    Icon(Icons.unfold_less),
+                    SizedBox(width: 8),
+                    Text('Collapse all'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.only(
@@ -111,318 +220,408 @@ class WellnessDashboardScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.lg),
 
-          // Crisis Support Section
-          Text(
-            'Crisis Support',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.error,
-            ),
-          ),
+          // Crisis Support Section - Always visible, not collapsible
+          _buildCrisisSupportSection(),
+
           const SizedBox(height: AppSpacing.sm),
-
-          // Crisis Resources
-          _buildFeatureCard(
-            context,
-            icon: Icons.sos,
-            title: 'Get Help Now',
-            description: 'Emergency contacts and crisis support hotlines',
-            color: Colors.red,
-            onTap: () => _navigate(context, const CrisisResourcesScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Safety Plan
-          _buildFeatureCard(
-            context,
-            icon: Icons.shield_outlined,
-            title: 'Safety Plan',
-            description: 'Create your personal crisis management plan',
-            color: Colors.orange,
-            onTap: () => _navigate(context, const SafetyPlanScreen()),
-          ),
-          const SizedBox(height: AppSpacing.xl),
 
           // Clinical Tools Section
-          Text(
-            'Clinical Tools',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          _buildCollapsibleSection(
+            title: 'Clinical Tools',
+            icon: Icons.medical_services_outlined,
+            isExpanded: _clinicalToolsExpanded,
+            onExpansionChanged: (expanded) {
+              setState(() => _clinicalToolsExpanded = expanded);
+              _saveSectionState('wellness_clinical_expanded', expanded);
+            },
+            children: [
+              _buildFeatureCard(
+                context,
+                icon: Icons.assessment_outlined,
+                title: 'Clinical Assessments',
+                description: 'Track depression, anxiety, and stress with validated tools',
+                color: Colors.teal,
+                onTap: () => _navigate(context, const AssessmentDashboardScreen()),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Assessment
-          _buildFeatureCard(
-            context,
-            icon: Icons.assessment_outlined,
-            title: 'Clinical Assessments',
-            description: 'Track depression, anxiety, and stress with validated tools',
-            color: Colors.teal,
-            onTap: () => _navigate(context, const AssessmentDashboardScreen()),
-          ),
-          const SizedBox(height: AppSpacing.xl),
 
           // Cognitive Techniques Section
-          Text(
-            'Cognitive Techniques',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+          _buildCollapsibleSection(
+            title: 'Cognitive Techniques',
+            icon: Icons.psychology_outlined,
+            isExpanded: _cognitiveExpanded,
+            onExpansionChanged: (expanded) {
+              setState(() => _cognitiveExpanded = expanded);
+              _saveSectionState('wellness_cognitive_expanded', expanded);
+            },
+            children: [
+              _buildFeatureCard(
+                context,
+                icon: Icons.psychology,
+                title: 'Cognitive Reframing',
+                description: 'Challenge and reframe unhelpful thoughts',
+                color: Colors.indigo,
+                onTap: () => _navigate(context, const CognitiveReframingScreen()),
+                evidenceBase: 'CBT (Cognitive Behavioral Therapy)',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.spa,
+                title: '5-4-3-2-1 Grounding',
+                description: 'Sensory awareness technique for anxiety and overwhelm',
+                color: Colors.teal,
+                onTap: () => _navigate(context, const GroundingExerciseScreen()),
+                evidenceBase: 'DBT, Mindfulness',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.account_tree,
+                title: 'Worry Decision Tree',
+                description: 'Work through worries with a guided decision process',
+                color: Colors.blue,
+                onTap: () => _navigate(context, const WorryDecisionTreeScreen()),
+                evidenceBase: 'CBT (Cognitive Behavioral Therapy)',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.stairs,
+                title: 'Exposure Ladder',
+                description: 'Gradually face fears step by step',
+                color: Colors.orange,
+                onTap: () => _navigate(context, const ExposureLadderScreen()),
+                evidenceBase: 'Exposure Therapy, CBT',
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Cognitive Reframing
-          _buildFeatureCard(
-            context,
-            icon: Icons.psychology,
-            title: 'Cognitive Reframing',
-            description: 'Challenge and reframe unhelpful thoughts',
-            color: Colors.indigo,
-            onTap: () => _navigate(context, const CognitiveReframingScreen()),
-            evidenceBase: 'CBT (Cognitive Behavioral Therapy)',
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // 5-4-3-2-1 Grounding
-          _buildFeatureCard(
-            context,
-            icon: Icons.spa,
-            title: '5-4-3-2-1 Grounding',
-            description: 'Sensory awareness technique for anxiety and overwhelm',
-            color: Colors.teal,
-            onTap: () => _navigate(context, const GroundingExerciseScreen()),
-            evidenceBase: 'DBT, Mindfulness',
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Worry Decision Tree
-          _buildFeatureCard(
-            context,
-            icon: Icons.account_tree,
-            title: 'Worry Decision Tree',
-            description: 'Work through worries with a guided decision process',
-            color: Colors.blue,
-            onTap: () => _navigate(context, const WorryDecisionTreeScreen()),
-            evidenceBase: 'CBT (Cognitive Behavioral Therapy)',
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Exposure Ladder
-          _buildFeatureCard(
-            context,
-            icon: Icons.stairs,
-            title: 'Exposure Ladder',
-            description: 'Gradually face fears step by step',
-            color: Colors.orange,
-            onTap: () => _navigate(context, const ExposureLadderScreen()),
-            evidenceBase: 'Exposure Therapy, CBT',
-          ),
-          const SizedBox(height: AppSpacing.xl),
 
           // Wellness Practices Section
-          Text(
-            'Wellness Practices',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          _buildCollapsibleSection(
+            title: 'Wellness Practices',
+            icon: Icons.self_improvement_outlined,
+            isExpanded: _wellnessExpanded,
+            onExpansionChanged: (expanded) {
+              setState(() => _wellnessExpanded = expanded);
+              _saveSectionState('wellness_practices_expanded', expanded);
+            },
+            itemCount: 9,
+            children: [
+              _buildFeatureCard(
+                context,
+                icon: Icons.directions_run,
+                title: 'Behavioral Activation',
+                description: 'Schedule pleasant activities to improve mood',
+                color: Colors.green,
+                onTap: () => _navigate(context, const BehavioralActivationScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.self_improvement,
+                title: 'Mindfulness & Meditation',
+                description: 'Breathing exercises, body scan, and guided meditation',
+                color: Colors.teal,
+                onTap: () => _navigate(context, const MeditationScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.favorite,
+                title: 'Gratitude Practice',
+                description: 'Three good things journal for positive focus',
+                color: Colors.pink,
+                onTap: () => _navigate(context, const GratitudeJournalScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.schedule,
+                title: 'Worry Time',
+                description: 'Contain anxiety with designated worry practice',
+                color: Colors.deepPurple,
+                onTap: () => _navigate(context, const WorryTimeScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.waves,
+                title: 'Urge Surfing',
+                description: 'Manage cravings and impulses with mindfulness techniques',
+                color: Colors.cyan,
+                onTap: () => _navigate(context, const UrgeSurfingScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.phone_android,
+                title: 'Digital Wellness',
+                description: 'Mindful technology use with intentional unplugging',
+                color: Colors.indigo,
+                onTap: () => _navigate(context, const DigitalWellnessScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.self_improvement,
+                title: 'Self-Compassion',
+                description: 'Treat yourself with kindness and reduce self-criticism',
+                color: Colors.purple,
+                onTap: () => _navigate(context, const SelfCompassionScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.explore,
+                title: 'Values Clarification',
+                description: 'Identify what matters most and guide meaningful action',
+                color: Colors.amber,
+                onTap: () => _navigate(context, const ValuesClarificationScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.route,
+                title: 'Implementation Intentions',
+                description: 'If-then plans to achieve your goals',
+                color: Colors.orange,
+                onTap: () => _navigate(context, const ImplementationIntentionsScreen()),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Behavioral Activation
-          _buildFeatureCard(
-            context,
-            icon: Icons.directions_run,
-            title: 'Behavioral Activation',
-            description: 'Schedule pleasant activities to improve mood',
-            color: Colors.green,
-            onTap: () => _navigate(context, const BehavioralActivationScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Mindfulness & Meditation
-          _buildFeatureCard(
-            context,
-            icon: Icons.self_improvement,
-            title: 'Mindfulness & Meditation',
-            description: 'Breathing exercises, body scan, and guided meditation',
-            color: Colors.teal,
-            onTap: () => _navigate(context, const MeditationScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Gratitude
-          _buildFeatureCard(
-            context,
-            icon: Icons.favorite,
-            title: 'Gratitude Practice',
-            description: 'Three good things journal for positive focus',
-            color: Colors.pink,
-            onTap: () => _navigate(context, const GratitudeJournalScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Worry Time
-          _buildFeatureCard(
-            context,
-            icon: Icons.schedule,
-            title: 'Worry Time',
-            description: 'Contain anxiety with designated worry practice',
-            color: Colors.deepPurple,
-            onTap: () => _navigate(context, const WorryTimeScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Urge Surfing
-          _buildFeatureCard(
-            context,
-            icon: Icons.waves,
-            title: 'Urge Surfing',
-            description: 'Manage cravings and impulses with mindfulness techniques',
-            color: Colors.cyan,
-            onTap: () => _navigate(context, const UrgeSurfingScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Digital Wellness
-          _buildFeatureCard(
-            context,
-            icon: Icons.phone_android,
-            title: 'Digital Wellness',
-            description: 'Mindful technology use with intentional unplugging',
-            color: Colors.indigo,
-            onTap: () => _navigate(context, const DigitalWellnessScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Self-Compassion
-          _buildFeatureCard(
-            context,
-            icon: Icons.self_improvement,
-            title: 'Self-Compassion',
-            description: 'Treat yourself with kindness and reduce self-criticism',
-            color: Colors.purple,
-            onTap: () => _navigate(context, const SelfCompassionScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Values
-          _buildFeatureCard(
-            context,
-            icon: Icons.explore,
-            title: 'Values Clarification',
-            description: 'Identify what matters most and guide meaningful action',
-            color: Colors.amber,
-            onTap: () => _navigate(context, const ValuesClarificationScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Implementation Intentions
-          _buildFeatureCard(
-            context,
-            icon: Icons.route,
-            title: 'Implementation Intentions',
-            description: 'If-then plans to achieve your goals',
-            color: Colors.orange,
-            onTap: () => _navigate(context, const ImplementationIntentionsScreen()),
-          ),
-          const SizedBox(height: AppSpacing.xl),
 
           // Physical Wellness Section
-          Text(
-            'Physical Wellness',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          _buildCollapsibleSection(
+            title: 'Physical Wellness',
+            icon: Icons.fitness_center_outlined,
+            isExpanded: _physicalExpanded,
+            onExpansionChanged: (expanded) {
+              setState(() => _physicalExpanded = expanded);
+              _saveSectionState('wellness_physical_expanded', expanded);
+            },
+            children: [
+              _buildFeatureCard(
+                context,
+                icon: Icons.monitor_weight,
+                title: 'Weight Tracking',
+                description: 'Log weight, set goals, and track your progress over time',
+                color: Colors.blue,
+                onTap: () => _navigate(context, const WeightTrackingScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.restaurant_menu,
+                title: 'Food Log',
+                description: 'Track meals with AI-powered nutrition estimation',
+                color: Colors.orange,
+                onTap: () => _navigate(context, const FoodLogScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.fitness_center,
+                title: 'Exercise Tracking',
+                description: 'Create workout plans and track your exercise routines',
+                color: Colors.orange,
+                onTap: () => _navigate(context, const ExercisePlansScreen()),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Weight Tracking
-          _buildFeatureCard(
-            context,
-            icon: Icons.monitor_weight,
-            title: 'Weight Tracking',
-            description: 'Log weight, set goals, and track your progress over time',
-            color: Colors.blue,
-            onTap: () => _navigate(context, const WeightTrackingScreen()),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Food Log
-          _buildFeatureCard(
-            context,
-            icon: Icons.restaurant_menu,
-            title: 'Food Log',
-            description: 'Track meals with AI-powered nutrition estimation',
-            color: Colors.orange,
-            onTap: () => _navigate(context, const FoodLogScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Exercise Tracking
-          _buildFeatureCard(
-            context,
-            icon: Icons.fitness_center,
-            title: 'Exercise Tracking',
-            description: 'Create workout plans and track your exercise routines',
-            color: Colors.orange,
-            onTap: () => _navigate(context, const ExercisePlansScreen()),
-          ),
-          const SizedBox(height: AppSpacing.xl),
 
           // Health Tracking Section
-          Text(
-            'Health Tracking',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          _buildCollapsibleSection(
+            title: 'Health Tracking',
+            icon: Icons.healing_outlined,
+            isExpanded: _healthExpanded,
+            onExpansionChanged: (expanded) {
+              setState(() => _healthExpanded = expanded);
+              _saveSectionState('wellness_health_expanded', expanded);
+            },
+            children: [
+              _buildFeatureCard(
+                context,
+                icon: Icons.medication,
+                title: 'Medication Tracker',
+                description: 'Log medications, track adherence, and manage your prescriptions',
+                color: Colors.purple,
+                onTap: () => _navigate(context, const MedicationScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.healing,
+                title: 'Symptom Tracker',
+                description: 'Track symptoms, identify triggers, and monitor patterns',
+                color: Colors.deepOrange,
+                onTap: () => _navigate(context, const SymptomTrackerScreen()),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
 
-          // Medication Tracking
-          _buildFeatureCard(
-            context,
-            icon: Icons.medication,
-            title: 'Medication Tracker',
-            description: 'Log medications, track adherence, and manage your prescriptions',
-            color: Colors.purple,
-            onTap: () => _navigate(context, const MedicationScreen()),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          // Symptom Tracking
-          _buildFeatureCard(
-            context,
-            icon: Icons.healing,
-            title: 'Symptom Tracker',
-            description: 'Track symptoms, identify triggers, and monitor patterns',
-            color: Colors.deepOrange,
-            onTap: () => _navigate(context, const SymptomTrackerScreen()),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-
-          // Analytics Section
-          Text(
-            'Insights & Progress',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-
-          // Analytics Link
-          _buildFeatureCard(
-            context,
+          // Insights & Progress Section
+          _buildCollapsibleSection(
+            title: 'Insights & Progress',
             icon: Icons.analytics_outlined,
-            title: 'Analytics & Trends',
-            description: 'View your progress, patterns, and wellness insights',
-            color: Colors.blueGrey,
-            onTap: () => _navigate(context, const AnalyticsScreen()),
+            isExpanded: _insightsExpanded,
+            onExpansionChanged: (expanded) {
+              setState(() => _insightsExpanded = expanded);
+              _saveSectionState('wellness_insights_expanded', expanded);
+            },
+            children: [
+              _buildFeatureCard(
+                context,
+                icon: Icons.analytics_outlined,
+                title: 'Analytics & Trends',
+                description: 'View your progress, patterns, and wellness insights',
+                color: Colors.blueGrey,
+                onTap: () => _navigate(context, const AnalyticsScreen()),
+              ),
+            ],
           ),
+
           const SizedBox(height: AppSpacing.lg),
         ],
+      ),
+    );
+  }
+
+  Future<void> _saveAllSectionStates(bool expanded) async {
+    final settings = await _storage.loadSettings();
+    settings['wellness_clinical_expanded'] = expanded;
+    settings['wellness_cognitive_expanded'] = expanded;
+    settings['wellness_practices_expanded'] = expanded;
+    settings['wellness_physical_expanded'] = expanded;
+    settings['wellness_health_expanded'] = expanded;
+    settings['wellness_insights_expanded'] = expanded;
+    await _storage.saveSettings(settings);
+  }
+
+  /// Crisis Support section - always visible, not collapsible for safety
+  Widget _buildCrisisSupportSection() {
+    return Card(
+      color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.emergency_outlined,
+                  color: Theme.of(context).colorScheme.error,
+                  size: 24,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Crisis Support',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildFeatureCard(
+              context,
+              icon: Icons.sos,
+              title: 'Get Help Now',
+              description: 'Emergency contacts and crisis support hotlines',
+              color: Colors.red,
+              onTap: () => _navigate(context, const CrisisResourcesScreen()),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildFeatureCard(
+              context,
+              icon: Icons.shield_outlined,
+              title: 'Safety Plan',
+              description: 'Create your personal crisis management plan',
+              color: Colors.orange,
+              onTap: () => _navigate(context, const SafetyPlanScreen()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleSection({
+    required String title,
+    required IconData icon,
+    required bool isExpanded,
+    required ValueChanged<bool> onExpansionChanged,
+    required List<Widget> children,
+    int? itemCount,
+  }) {
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        // Remove the default divider line from ExpansionTile
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: isExpanded,
+          onExpansionChanged: onExpansionChanged,
+          tilePadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.xs,
+          ),
+          childrenPadding: const EdgeInsets.only(
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            bottom: AppSpacing.md,
+          ),
+          leading: Icon(icon, color: theme.colorScheme.primary),
+          title: Row(
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (itemCount != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$itemCount',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          children: children,
+        ),
       ),
     );
   }
@@ -437,6 +636,7 @@ class WellnessDashboardScreen extends StatelessWidget {
     String? evidenceBase,
   }) {
     return Card(
+      margin: EdgeInsets.zero,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

@@ -82,10 +82,11 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
 
   Future<void> _loadUserName() async {
     final storage = StorageService();
-    final settings = await storage.loadSettings();
+    // Load user name from dedicated storage key (consistent with other profile settings)
+    final name = await storage.loadUserName();
     if (mounted) {
       setState(() {
-        _userName = settings['userName'] as String? ?? 'there';
+        _userName = name ?? 'there';
       });
     }
   }

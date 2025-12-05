@@ -567,9 +567,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _isCreatingHabit = true);
 
     try {
-      // Save name and user selections to settings
+      // Save name to dedicated storage key (consistent with other profile settings)
+      await _storage.saveUserName(name);
+
+      // Save user selections to settings
       final settings = await _storage.loadSettings();
-      settings['userName'] = name;
       settings['userNeeds'] = _selectedNeeds.toList();
       settings['hasCompletedOnboarding'] = true;
       settings['enableClinicalFeatures'] = true; // Enable mental health tools by default

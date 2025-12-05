@@ -45,8 +45,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
 
-    final settings = await _storage.loadSettings();
-    final name = settings['userName'] as String?;
+    // Load user name from dedicated storage key (consistent with other profile settings)
+    final name = await _storage.loadUserName();
 
     if (name != null) {
       _userName = name;

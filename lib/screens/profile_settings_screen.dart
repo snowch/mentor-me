@@ -50,8 +50,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Future<void> _loadSettings() async {
     setState(() => _isLoading = true);
 
-    final settings = await _storage.loadSettings();
-    final name = settings['userName'] as String?;
+    // Load user name from dedicated storage key
+    final name = await _storage.loadUserName();
 
     if (name != null) {
       _userName = name;
@@ -100,10 +100,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // Save to storage
-      final settings = await _storage.loadSettings();
-      settings['userName'] = newName;
-      await _storage.saveSettings(settings);
+      // Save to dedicated storage key (consistent with height/gender)
+      await _storage.saveUserName(newName);
 
       setState(() {
         _userName = newName;

@@ -69,6 +69,7 @@ class StorageService {
   static const String _weightUnitKey = 'weight_unit';
   static const String _heightKey = 'user_height';
   static const String _genderKey = 'user_gender';
+  static const String _userNameKey = 'user_name';
 
   // Exercise tracking
   static const String _customExercisesKey = 'custom_exercises';
@@ -498,6 +499,46 @@ class StorageService {
     return prefs.getString(_genderKey);
   }
 
+  // Save/Load User Name
+  Future<void> saveUserName(String? userName) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userName != null && userName.isNotEmpty) {
+      await prefs.setString(_userNameKey, userName);
+    } else {
+      await prefs.remove(_userNameKey);
+    }
+    await _notifyPersistence('userName');
+  }
+
+  Future<String?> loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    // First check the dedicated key
+    final userName = prefs.getString(_userNameKey);
+    if (userName != null) {
+      return userName;
+    }
+
+    // Migration: Check if name exists in old settings map
+    final settingsJson = prefs.getString(_settingsKey);
+    if (settingsJson != null) {
+      try {
+        final settings = json.decode(settingsJson) as Map<String, dynamic>;
+        final oldName = settings['userName'] as String?;
+        if (oldName != null && oldName.isNotEmpty) {
+          // Migrate to dedicated key
+          await prefs.setString(_userNameKey, oldName);
+          // Remove from settings map
+          settings.remove('userName');
+          await prefs.setString(_settingsKey, json.encode(settings));
+          return oldName;
+        }
+      } catch (_) {
+        // Ignore parsing errors
+      }
+    }
+    return null;
+  }
+
   // ============================================================================
   // Exercise Tracking
   // ============================================================================
@@ -871,6 +912,7 @@ class StorageService {
       'weightUnit': (await loadWeightUnit()).name,
       'height': await loadHeight(),
       'gender': await loadGender(),
+      'userName': await loadUserName(),
       'customExercises': await loadCustomExercises(),
       'exercisePlans': await loadExercisePlans(),
       'workoutLogs': await loadWorkoutLogs(),
@@ -960,6 +1002,10 @@ class StorageService {
 
     if (data['gender'] != null) {
       await saveGender(data['gender'] as String);
+    }
+
+    if (data['userName'] != null) {
+      await saveUserName(data['userName'] as String);
     }
 
     if (data['customExercises'] != null) {
