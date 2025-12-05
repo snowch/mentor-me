@@ -40,6 +40,7 @@ void main() {
         'journal_templates_custom': 'custom_templates',  // different name
         'structured_journaling_sessions': 'sessions',  // shorter name
         'user_height': 'height',  // simpler name
+        'user_gender': 'gender',  // simpler name
       };
 
       final missingKeys = <String>[];
@@ -87,6 +88,7 @@ void main() {
         'custom_templates': 'journal_templates_custom',
         'sessions': 'structured_journaling_sessions',
         'height': 'user_height',
+        'gender': 'user_gender',
       };
 
       final orphanedKeys = <String>[];

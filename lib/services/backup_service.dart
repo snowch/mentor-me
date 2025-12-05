@@ -109,6 +109,7 @@ class BackupService {
     final weightGoal = await _storage.loadWeightGoal();
     final weightUnit = await _storage.loadWeightUnit();
     final height = await _storage.loadHeight();
+    final gender = await _storage.loadGender();
 
     // Exercise tracking data
     final customExercises = await _storage.loadCustomExercises();
@@ -204,6 +205,7 @@ class BackupService {
       'weight_goal': weightGoal != null ? json.encode(weightGoal.toJson()) : null,
       'weight_unit': weightUnit.name,
       'height': height,
+      'gender': gender,
 
       // Exercise tracking
       'custom_exercises': json.encode(customExercises.map((e) => e.toJson()).toList()),
@@ -1884,6 +1886,38 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Height',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import gender (for BMR/TDEE calculations)
+    try {
+      if (data.containsKey('gender') && data['gender'] != null) {
+        final gender = data['gender'] as String;
+        await _storage.saveGender(gender);
+        await _debug.info('BackupService', 'Imported gender: $gender');
+        results.add(ImportItemResult(
+          dataType: 'Gender',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Gender',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import gender: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Gender',
         success: false,
         count: 0,
         errorMessage: e.toString(),
