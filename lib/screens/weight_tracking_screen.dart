@@ -41,13 +41,29 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     }
   }
 
+  /// Format weight change for stone unit (shows lbs change)
+  String _formatChangeForStone(double changeLbs) {
+    final sign = changeLbs > 0 ? '+' : '';
+    return '$sign${changeLbs.round()} lbs';
+  }
+
   /// Format weight value for display based on unit
-  String _formatWeight(double weight, WeightUnit unit) {
+  /// For stone: weight is stored as total pounds when stones/pounds fields are set
+  String _formatWeight(double weight, WeightUnit unit, {WeightEntry? entry}) {
     if (unit == WeightUnit.stone) {
-      // Show in "X st Y lbs" format
-      final totalLbs = weight * 14.0;
-      final stones = (totalLbs / 14).floor();
-      final remainingLbs = (totalLbs % 14).round();
+      // Use exact integers from entry if available
+      if (entry != null) {
+        final st = entry.exactStones;
+        final lbs = entry.exactPounds;
+        if (lbs == 0) {
+          return '$st st';
+        }
+        return '$st st $lbs lbs';
+      }
+      // Fall back to calculation (for goal display, etc.)
+      final totalLbs = weight.round();
+      final stones = totalLbs ~/ 14;
+      final remainingLbs = totalLbs % 14;
       if (remainingLbs == 0) {
         return '$stones st';
       }
@@ -151,7 +167,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                       ),
                       if (currentWeight != null)
                         Text(
-                          _formatWeight(currentWeight, unit),
+                          _formatWeight(currentWeight, unit, entry: provider.latestEntry),
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -789,7 +805,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         title: Row(
           children: [
             Text(
-              _formatWeight(weight, unit),
+              _formatWeight(weight, unit, entry: entry),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -797,7 +813,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
             if (change != null && change != 0) ...[
               const SizedBox(width: 8),
               Text(
-                '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)}',
+                unit == WeightUnit.stone
+                    ? _formatChangeForStone(change)
+                    : '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: change < 0 ? Colors.green : Colors.orange,
                   fontWeight: FontWeight.w500,
@@ -866,6 +884,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   void _logWeight(BuildContext context, WeightProvider provider) {
     final unit = provider.preferredUnit;
     double? weight;
+    int? stonesValue;
+    int? poundsValue;
 
     if (unit == WeightUnit.stone) {
       // Parse stone and lbs separately
@@ -879,18 +899,18 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         return;
       }
 
-      final stones = int.tryParse(stoneText) ?? 0;
-      final lbs = int.tryParse(lbsText) ?? 0;
+      stonesValue = int.tryParse(stoneText) ?? 0;
+      poundsValue = int.tryParse(lbsText) ?? 0;
 
-      if (stones < 0 || lbs < 0 || lbs >= 14 || (stones == 0 && lbs == 0)) {
+      if (stonesValue < 0 || poundsValue < 0 || poundsValue >= 14 || (stonesValue == 0 && poundsValue == 0)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please enter valid stone/lbs values (lbs should be 0-13)')),
         );
         return;
       }
 
-      // Convert to decimal stone for storage
-      weight = stones + (lbs / 14.0);
+      // Store as total pounds for calculations, but also pass exact integers
+      weight = (stonesValue * 14 + poundsValue).toDouble();
     } else {
       // Parse kg or lbs
       final weightText = _weightController.text.trim();
@@ -916,6 +936,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           ? _noteController.text.trim()
           : null,
       timestamp: _selectedDate,
+      stones: stonesValue,
+      pounds: poundsValue,
     );
 
     _weightController.clear();
@@ -1308,10 +1330,21 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     WeightProvider provider,
     WeightEntry entry,
   ) {
-    final weightController = TextEditingController(
-      text: entry.weightIn(provider.preferredUnit).toStringAsFixed(1),
-    );
+    final unit = provider.preferredUnit;
     final noteController = TextEditingController(text: entry.note ?? '');
+
+    // For stone, use exact integers from entry
+    final stoneController = TextEditingController(
+      text: unit == WeightUnit.stone ? entry.exactStones.toString() : '',
+    );
+    final lbsEditController = TextEditingController(
+      text: unit == WeightUnit.stone ? entry.exactPounds.toString() : '',
+    );
+    final weightController = TextEditingController(
+      text: unit != WeightUnit.stone
+          ? entry.weightIn(unit).toStringAsFixed(1)
+          : '',
+    );
 
     showDialog(
       context: context,
@@ -1320,19 +1353,50 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: weightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Weight',
-                suffixText: provider.preferredUnit.displayName,
+            if (unit == WeightUnit.stone)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: stoneController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Stone',
+                        suffixText: 'st',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: lbsEditController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Pounds',
+                        suffixText: 'lbs',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              TextField(
+                controller: weightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Weight',
+                  suffixText: unit.displayName,
+                  border: const OutlineInputBorder(),
+                ),
               ),
-            ),
             AppSpacing.gapMd,
             TextField(
               controller: noteController,
               decoration: const InputDecoration(
                 labelText: 'Note',
+                border: OutlineInputBorder(),
               ),
             ),
           ],
@@ -1344,15 +1408,31 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
           ),
           FilledButton(
             onPressed: () {
-              final weight = double.tryParse(weightController.text);
+              double? weight;
+              int? stonesValue;
+              int? poundsValue;
+
+              if (unit == WeightUnit.stone) {
+                stonesValue = int.tryParse(stoneController.text) ?? 0;
+                poundsValue = int.tryParse(lbsEditController.text) ?? 0;
+                if (stonesValue >= 0 && poundsValue >= 0 && poundsValue < 14 &&
+                    (stonesValue > 0 || poundsValue > 0)) {
+                  weight = (stonesValue * 14 + poundsValue).toDouble();
+                }
+              } else {
+                weight = double.tryParse(weightController.text);
+              }
+
               if (weight != null && weight > 0) {
                 provider.updateEntry(
                   entry.copyWith(
                     weight: weight,
-                    unit: provider.preferredUnit,
+                    unit: unit,
                     note: noteController.text.trim().isNotEmpty
                         ? noteController.text.trim()
                         : null,
+                    stones: stonesValue,
+                    pounds: poundsValue,
                   ),
                 );
                 Navigator.of(dialogContext).pop();
@@ -1381,12 +1461,21 @@ class _WeightHistoryScreen extends StatelessWidget {
   const _WeightHistoryScreen({required this.provider});
 
   /// Format weight value for display based on unit
-  String _formatWeight(double weight, WeightUnit unit) {
+  String _formatWeight(double weight, WeightUnit unit, {WeightEntry? entry}) {
     if (unit == WeightUnit.stone) {
-      // Show in "X st Y lbs" format
-      final totalLbs = weight * 14.0;
-      final stones = (totalLbs / 14).floor();
-      final remainingLbs = (totalLbs % 14).round();
+      // Use exact integers from entry if available
+      if (entry != null) {
+        final st = entry.exactStones;
+        final lbs = entry.exactPounds;
+        if (lbs == 0) {
+          return '$st st';
+        }
+        return '$st st $lbs lbs';
+      }
+      // Fall back to calculation
+      final totalLbs = weight.round();
+      final stones = totalLbs ~/ 14;
+      final remainingLbs = totalLbs % 14;
       if (remainingLbs == 0) {
         return '$stones st';
       }
@@ -1428,7 +1517,7 @@ class _WeightHistoryScreen extends StatelessWidget {
                 return Card(
                   child: ListTile(
                     title: Text(
-                      _formatWeight(entry.weightIn(unit), unit),
+                      _formatWeight(entry.weightIn(unit), unit, entry: entry),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -1443,7 +1532,9 @@ class _WeightHistoryScreen extends StatelessWidget {
                     ),
                     trailing: change != null
                         ? Text(
-                            '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)}',
+                            unit == WeightUnit.stone
+                                ? '${change > 0 ? '+' : ''}${change.round()} lbs'
+                                : '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)}',
                             style: TextStyle(
                               color: change < 0 ? Colors.green : Colors.orange,
                               fontWeight: FontWeight.w600,

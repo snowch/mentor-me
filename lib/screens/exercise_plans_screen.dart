@@ -517,8 +517,8 @@ class _PlanDetailsSheet extends StatelessWidget {
                     child: Text('${index + 1}'),
                   ),
                   title: Text(exercise.name),
-                  subtitle: Text('${exercise.sets} sets × ${exercise.reps} reps'),
-                  trailing: exercise.weight != null
+                  subtitle: Text(exercise.settingsSummary),
+                  trailing: exercise.exerciseType == ExerciseType.strength && exercise.weight != null
                       ? Text('${exercise.weight!.toStringAsFixed(1)} kg')
                       : null,
                 ),
@@ -722,7 +722,7 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.drag_handle),
                     title: Text(exercise.name),
-                    subtitle: Text('${exercise.sets} sets × ${exercise.reps} reps'),
+                    subtitle: Text(exercise.settingsSummary),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -791,12 +791,43 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                     leading: Text(exercise.category.emoji,
                         style: const TextStyle(fontSize: 20)),
                     title: Text(exercise.name),
-                    subtitle: Text(
-                      '${exercise.defaultSets} sets × ${exercise.defaultReps} reps',
+                    subtitle: Row(
+                      children: [
+                        Expanded(child: Text(exercise.defaultSettingsSummary)),
+                        if (exercise.isCustom)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Custom',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    trailing: isInCategory
-                        ? const Icon(Icons.star, color: Colors.amber, size: 16)
-                        : null,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isInCategory)
+                          const Icon(Icons.star, color: Colors.amber, size: 16),
+                        if (exercise.isCustom) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(Icons.delete_outline,
+                              size: 20,
+                              color: Colors.red.shade400),
+                            onPressed: () => _confirmDeleteExercise(context, exercise),
+                            tooltip: 'Delete',
+                          ),
+                        ],
+                      ],
+                    ),
                     onTap: () {
                       Navigator.pop(context);
                       _addExercise(exercise);
@@ -835,9 +866,11 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
       _exercises.add(PlanExercise(
         exerciseId: exercise.id,
         name: exercise.name,
+        exerciseType: exercise.exerciseType,
         sets: exercise.defaultSets,
         reps: exercise.defaultReps,
         weight: exercise.defaultWeight,
+        durationMinutes: exercise.defaultDurationMinutes,
         notes: exercise.notes,
         order: _exercises.length,
       ));
@@ -846,10 +879,23 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
 
   void _editExercise(int index) {
     final exercise = _exercises[index];
+
+    // Strength fields
     final setsController = TextEditingController(text: '${exercise.sets}');
     final repsController = TextEditingController(text: '${exercise.reps}');
     final weightController = TextEditingController(
       text: exercise.weight?.toStringAsFixed(1) ?? '',
+    );
+
+    // Cardio/timed fields
+    final durationController = TextEditingController(
+      text: '${exercise.durationMinutes ?? 30}',
+    );
+    final levelController = TextEditingController(
+      text: '${exercise.level ?? 5}',
+    );
+    final distanceController = TextEditingController(
+      text: exercise.targetDistance?.toStringAsFixed(1) ?? '',
     );
 
     showDialog(
@@ -859,26 +905,68 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: setsController,
-              decoration: const InputDecoration(labelText: 'Sets'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: repsController,
-              decoration: const InputDecoration(labelText: 'Reps'),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: weightController,
-              decoration: const InputDecoration(
-                labelText: 'Weight (optional)',
-                suffixText: 'kg',
+            // Strength exercise fields
+            if (exercise.exerciseType == ExerciseType.strength) ...[
+              TextField(
+                controller: setsController,
+                decoration: const InputDecoration(labelText: 'Sets'),
+                keyboardType: TextInputType.number,
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: repsController,
+                decoration: const InputDecoration(labelText: 'Reps'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: weightController,
+                decoration: const InputDecoration(
+                  labelText: 'Weight (optional)',
+                  suffixText: 'kg',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
+            // Timed exercise fields
+            if (exercise.exerciseType == ExerciseType.timed) ...[
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duration',
+                  suffixText: 'min',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+            // Cardio exercise fields
+            if (exercise.exerciseType == ExerciseType.cardio) ...[
+              TextField(
+                controller: durationController,
+                decoration: const InputDecoration(
+                  labelText: 'Duration',
+                  suffixText: 'min',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: levelController,
+                decoration: const InputDecoration(
+                  labelText: 'Level/Resistance (1-20)',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: distanceController,
+                decoration: const InputDecoration(
+                  labelText: 'Target Distance (optional)',
+                  suffixText: 'km',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+            ],
           ],
         ),
         actions: [
@@ -888,15 +976,31 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
           ),
           FilledButton(
             onPressed: () {
-              final sets = int.tryParse(setsController.text) ?? exercise.sets;
-              final reps = int.tryParse(repsController.text) ?? exercise.reps;
-              final weight = double.tryParse(weightController.text);
               setState(() {
-                _exercises[index] = exercise.copyWith(
-                  sets: sets,
-                  reps: reps,
-                  weight: weight,
-                );
+                if (exercise.exerciseType == ExerciseType.strength) {
+                  final sets = int.tryParse(setsController.text) ?? exercise.sets;
+                  final reps = int.tryParse(repsController.text) ?? exercise.reps;
+                  final weight = double.tryParse(weightController.text);
+                  _exercises[index] = exercise.copyWith(
+                    sets: sets,
+                    reps: reps,
+                    weight: weight,
+                  );
+                } else if (exercise.exerciseType == ExerciseType.timed) {
+                  final duration = int.tryParse(durationController.text) ?? 30;
+                  _exercises[index] = exercise.copyWith(
+                    durationMinutes: duration,
+                  );
+                } else if (exercise.exerciseType == ExerciseType.cardio) {
+                  final duration = int.tryParse(durationController.text) ?? 30;
+                  final level = int.tryParse(levelController.text);
+                  final distance = double.tryParse(distanceController.text);
+                  _exercises[index] = exercise.copyWith(
+                    durationMinutes: duration,
+                    level: level,
+                    targetDistance: distance,
+                  );
+                }
               });
               Navigator.pop(context);
             },
@@ -910,6 +1014,7 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
   void _showCreateCustomExerciseDialog() {
     final nameController = TextEditingController();
     ExerciseCategory category = _category;
+    ExerciseType exerciseType = _getDefaultExerciseType(_category);
 
     showDialog(
       context: context,
@@ -949,7 +1054,36 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                 }).toList(),
                 onChanged: (value) {
                   if (value != null) {
-                    setDialogState(() => category = value);
+                    setDialogState(() {
+                      category = value;
+                      // Auto-select appropriate exercise type based on category
+                      exerciseType = _getDefaultExerciseType(value);
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<ExerciseType>(
+                value: exerciseType,
+                decoration: const InputDecoration(
+                  labelText: 'Tracking Type',
+                  border: OutlineInputBorder(),
+                ),
+                items: ExerciseType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Row(
+                      children: [
+                        Text(type.emoji),
+                        const SizedBox(width: 8),
+                        Text(type.displayName),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => exerciseType = value);
                   }
                 },
               ),
@@ -968,6 +1102,7 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
                   id: _uuid.v4(),
                   name: nameController.text.trim(),
                   category: category,
+                  exerciseType: exerciseType,
                   isCustom: true,
                 );
 
@@ -982,6 +1117,53 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
         ),
       ),
     );
+  }
+
+  void _confirmDeleteExercise(BuildContext dialogContext, Exercise exercise) {
+    showDialog(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Exercise'),
+        content: Text('Delete "${exercise.name}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final provider = this.context.read<ExerciseProvider>();
+              provider.deleteExercise(exercise.id);
+              Navigator.pop(context); // Close confirmation dialog
+              Navigator.pop(dialogContext); // Close exercise picker
+              ScaffoldMessenger.of(this.context).showSnackBar(
+                SnackBar(
+                  content: Text('"${exercise.name}" deleted'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Returns the default exercise type based on category
+  ExerciseType _getDefaultExerciseType(ExerciseCategory category) {
+    switch (category) {
+      case ExerciseCategory.cardio:
+        return ExerciseType.cardio;
+      case ExerciseCategory.flexibility:
+        return ExerciseType.timed;
+      case ExerciseCategory.upperBody:
+      case ExerciseCategory.lowerBody:
+      case ExerciseCategory.core:
+      case ExerciseCategory.fullBody:
+      case ExerciseCategory.other:
+        return ExerciseType.strength;
+    }
   }
 
   void _savePlan() {
@@ -1135,6 +1317,16 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                     fontWeight: FontWeight.bold,
                   ),
             ),
+            if (exercise.notes != null && exercise.notes!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                exercise.notes!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+            ],
             const SizedBox(height: 12),
             // Completed sets
             if (exercise.completedSets.isNotEmpty) ...[
@@ -1180,13 +1372,20 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   ) {
     final repsController = TextEditingController(text: '10');
     final weightController = TextEditingController();
+    final notesController = TextEditingController(text: exercise.notes ?? '');
 
-    // Pre-fill from last set if available
+    // Pre-fill from last set in current workout if available
     if (exercise.completedSets.isNotEmpty) {
       final lastSet = exercise.completedSets.last;
       repsController.text = '${lastSet.reps}';
       if (lastSet.weight != null) {
         weightController.text = lastSet.weight!.toStringAsFixed(1);
+      }
+    } else {
+      // Pre-fill weight from previous workout session
+      final lastWeight = provider.lastWeight(exercise.exerciseId);
+      if (lastWeight != null) {
+        weightController.text = lastWeight.toStringAsFixed(1);
       }
     }
 
@@ -1194,29 +1393,45 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Log Set - ${exercise.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: repsController,
-              decoration: const InputDecoration(
-                labelText: 'Reps',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: repsController,
+                decoration: const InputDecoration(
+                  labelText: 'Reps',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                autofocus: true,
               ),
-              keyboardType: TextInputType.number,
-              autofocus: true,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: weightController,
-              decoration: const InputDecoration(
-                labelText: 'Weight (optional)',
-                border: OutlineInputBorder(),
-                suffixText: 'kg',
+              const SizedBox(height: 16),
+              TextField(
+                controller: weightController,
+                decoration: InputDecoration(
+                  labelText: 'Weight (optional)',
+                  border: const OutlineInputBorder(),
+                  suffixText: 'kg',
+                  helperText: provider.personalBest(exercise.exerciseId) != null
+                      ? 'PB: ${provider.personalBest(exercise.exerciseId)!.toStringAsFixed(1)} kg'
+                      : null,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (optional)',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g., felt strong, adjust form...',
+                ),
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -1229,11 +1444,18 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               if (reps <= 0) return;
 
               final weight = double.tryParse(weightController.text);
+              final notes = notesController.text.trim().isEmpty
+                  ? null
+                  : notesController.text.trim();
               provider.logSet(
                 exerciseId: exercise.exerciseId,
                 reps: reps,
                 weight: weight,
               );
+              // Update exercise notes if provided
+              if (notes != null && notes != exercise.notes) {
+                provider.setExerciseNotes(exercise.exerciseId, notes);
+              }
               Navigator.pop(context);
             },
             child: const Text('Log'),

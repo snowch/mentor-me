@@ -2,6 +2,10 @@
 ///
 /// JSON Schema: lib/schemas/v2.json#definitions/exercise_v2
 
+import 'package:json_annotation/json_annotation.dart';
+
+part 'exercise.g.dart';
+
 /// Types of exercises based on how they're measured
 enum ExerciseType {
   strength, // Measured by sets × reps × weight (e.g., bench press)
@@ -27,6 +31,17 @@ enum ExerciseType {
         return 'Duration';
       case ExerciseType.cardio:
         return 'Duration + Level/Distance';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case ExerciseType.strength:
+        return '🏋️';
+      case ExerciseType.timed:
+        return '⏱️';
+      case ExerciseType.cardio:
+        return '🏃';
     }
   }
 }
@@ -81,10 +96,13 @@ enum ExerciseCategory {
 }
 
 /// An individual exercise definition
+@JsonSerializable()
 class Exercise {
   final String id;
   final String name;
+  @JsonKey(unknownEnumValue: ExerciseCategory.other)
   final ExerciseCategory category;
+  @JsonKey(unknownEnumValue: ExerciseType.strength)
   final ExerciseType exerciseType; // How this exercise is measured
   final String? notes;
 
@@ -114,6 +132,23 @@ class Exercise {
     this.defaultDistance,
     this.isCustom = true,
   });
+
+  /// Format default settings for display based on exercise type
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  String get defaultSettingsSummary {
+    switch (exerciseType) {
+      case ExerciseType.strength:
+        final weightStr = defaultWeight != null ? ' @ ${defaultWeight!.toStringAsFixed(1)}' : '';
+        return '$defaultSets × $defaultReps$weightStr';
+      case ExerciseType.timed:
+        return defaultSets > 1 ? '$defaultSets × ${defaultDurationMinutes}m' : '${defaultDurationMinutes ?? 0}m';
+      case ExerciseType.cardio:
+        final parts = <String>['${defaultDurationMinutes ?? 0}m'];
+        if (defaultLevel != null) parts.add('L$defaultLevel');
+        if (defaultDistance != null) parts.add('${defaultDistance!.toStringAsFixed(1)}km');
+        return parts.join(' · ');
+    }
+  }
 
   Exercise copyWith({
     String? id,
@@ -145,45 +180,9 @@ class Exercise {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'category': category.name,
-      'exerciseType': exerciseType.name,
-      'notes': notes,
-      'defaultSets': defaultSets,
-      'defaultReps': defaultReps,
-      'defaultWeight': defaultWeight,
-      'defaultDurationMinutes': defaultDurationMinutes,
-      'defaultLevel': defaultLevel,
-      'defaultDistance': defaultDistance,
-      'isCustom': isCustom,
-    };
-  }
-
-  factory Exercise.fromJson(Map<String, dynamic> json) {
-    return Exercise(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      category: ExerciseCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => ExerciseCategory.other,
-      ),
-      exerciseType: ExerciseType.values.firstWhere(
-        (e) => e.name == json['exerciseType'],
-        orElse: () => ExerciseType.strength,
-      ),
-      notes: json['notes'] as String?,
-      defaultSets: json['defaultSets'] as int? ?? 3,
-      defaultReps: json['defaultReps'] as int? ?? 10,
-      defaultWeight: (json['defaultWeight'] as num?)?.toDouble(),
-      defaultDurationMinutes: json['defaultDurationMinutes'] as int?,
-      defaultLevel: json['defaultLevel'] as int?,
-      defaultDistance: (json['defaultDistance'] as num?)?.toDouble(),
-      isCustom: json['isCustom'] as bool? ?? true,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Exercise.fromJson(Map<String, dynamic> json) => _$ExerciseFromJson(json);
+  Map<String, dynamic> toJson() => _$ExerciseToJson(this);
 
   /// Preset exercises for common workouts
   static List<Exercise> get presets => [
@@ -458,6 +457,25 @@ class Exercise {
       notes: 'Great for intervals',
       isCustom: false,
     ),
+    const Exercise(
+      id: 'preset_skiing',
+      name: 'Skiing',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 60,
+      notes: 'Downhill or cross-country',
+      isCustom: false,
+    ),
+    const Exercise(
+      id: 'preset_cross_country_skiing',
+      name: 'Cross-Country Skiing',
+      category: ExerciseCategory.cardio,
+      exerciseType: ExerciseType.cardio,
+      defaultDurationMinutes: 45,
+      defaultDistance: 5.0,
+      notes: 'Great full-body workout',
+      isCustom: false,
+    ),
     // Flexibility - Timed
     const Exercise(
       id: 'preset_stretching',
@@ -489,10 +507,12 @@ class Exercise {
 }
 
 /// A workout plan containing multiple exercises
+@JsonSerializable()
 class ExercisePlan {
   final String id;
   final String name;
   final String? description;
+  @JsonKey(unknownEnumValue: ExerciseCategory.other)
   final ExerciseCategory primaryCategory;
   final List<PlanExercise> exercises; // Exercises with their plan-specific settings
   final DateTime createdAt;
@@ -532,45 +552,17 @@ class ExercisePlan {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'primaryCategory': primaryCategory.name,
-      'exercises': exercises.map((e) => e.toJson()).toList(),
-      'createdAt': createdAt.toIso8601String(),
-      'lastUsed': lastUsed?.toIso8601String(),
-      'isPreset': isPreset,
-    };
-  }
-
-  factory ExercisePlan.fromJson(Map<String, dynamic> json) {
-    return ExercisePlan(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      primaryCategory: ExerciseCategory.values.firstWhere(
-        (e) => e.name == json['primaryCategory'],
-        orElse: () => ExerciseCategory.other,
-      ),
-      exercises: (json['exercises'] as List<dynamic>?)
-              ?.map((e) => PlanExercise.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastUsed: json['lastUsed'] != null
-          ? DateTime.parse(json['lastUsed'] as String)
-          : null,
-      isPreset: json['isPreset'] as bool? ?? false,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ExercisePlan.fromJson(Map<String, dynamic> json) => _$ExercisePlanFromJson(json);
+  Map<String, dynamic> toJson() => _$ExercisePlanToJson(this);
 }
 
 /// An exercise within a plan, with plan-specific settings
+@JsonSerializable()
 class PlanExercise {
   final String exerciseId;
   final String name; // Denormalized for display
+  @JsonKey(unknownEnumValue: ExerciseType.strength)
   final ExerciseType exerciseType; // Type of exercise for UI rendering
   final int order; // Order in the plan
   final String? notes;
@@ -691,42 +683,12 @@ class PlanExercise {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'exerciseId': exerciseId,
-      'name': name,
-      'exerciseType': exerciseType.name,
-      'order': order,
-      'notes': notes,
-      'sets': sets,
-      'reps': reps,
-      'weight': weight,
-      'durationMinutes': durationMinutes,
-      'level': level,
-      'targetDistance': targetDistance,
-    };
-  }
-
-  factory PlanExercise.fromJson(Map<String, dynamic> json) {
-    return PlanExercise(
-      exerciseId: json['exerciseId'] as String,
-      name: json['name'] as String,
-      exerciseType: ExerciseType.values.firstWhere(
-        (e) => e.name == json['exerciseType'],
-        orElse: () => ExerciseType.strength,
-      ),
-      order: json['order'] as int? ?? 0,
-      notes: json['notes'] as String?,
-      sets: json['sets'] as int? ?? 3,
-      reps: json['reps'] as int? ?? 10,
-      weight: (json['weight'] as num?)?.toDouble(),
-      durationMinutes: json['durationMinutes'] as int?,
-      level: json['level'] as int?,
-      targetDistance: (json['targetDistance'] as num?)?.toDouble(),
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory PlanExercise.fromJson(Map<String, dynamic> json) => _$PlanExerciseFromJson(json);
+  Map<String, dynamic> toJson() => _$PlanExerciseToJson(this);
 
   /// Format settings for display based on exercise type
+  @JsonKey(includeFromJson: false, includeToJson: false)
   String get settingsSummary {
     switch (exerciseType) {
       case ExerciseType.strength:
@@ -744,6 +706,7 @@ class PlanExercise {
 }
 
 /// A logged workout session
+@JsonSerializable()
 class WorkoutLog {
   final String id;
   final String? planId; // null for freestyle workouts
@@ -765,15 +728,18 @@ class WorkoutLog {
     this.rating,
   });
 
+  @JsonKey(includeFromJson: false, includeToJson: false)
   Duration? get duration {
     if (endTime == null) return null;
     return endTime!.difference(startTime);
   }
 
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get totalSetsCompleted {
     return exercises.fold(0, (sum, ex) => sum + ex.completedSets.length);
   }
 
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get totalRepsCompleted {
     return exercises.fold(
       0,
@@ -803,39 +769,13 @@ class WorkoutLog {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'planId': planId,
-      'planName': planName,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime?.toIso8601String(),
-      'exercises': exercises.map((e) => e.toJson()).toList(),
-      'notes': notes,
-      'rating': rating,
-    };
-  }
-
-  factory WorkoutLog.fromJson(Map<String, dynamic> json) {
-    return WorkoutLog(
-      id: json['id'] as String,
-      planId: json['planId'] as String?,
-      planName: json['planName'] as String?,
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: json['endTime'] != null
-          ? DateTime.parse(json['endTime'] as String)
-          : null,
-      exercises: (json['exercises'] as List<dynamic>?)
-              ?.map((e) => LoggedExercise.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      notes: json['notes'] as String?,
-      rating: json['rating'] as int?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory WorkoutLog.fromJson(Map<String, dynamic> json) => _$WorkoutLogFromJson(json);
+  Map<String, dynamic> toJson() => _$WorkoutLogToJson(this);
 }
 
 /// A logged exercise within a workout
+@JsonSerializable()
 class LoggedExercise {
   final String exerciseId;
   final String name;
@@ -863,33 +803,22 @@ class LoggedExercise {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'exerciseId': exerciseId,
-      'name': name,
-      'completedSets': completedSets.map((s) => s.toJson()).toList(),
-      'notes': notes,
-    };
-  }
-
-  factory LoggedExercise.fromJson(Map<String, dynamic> json) {
-    return LoggedExercise(
-      exerciseId: json['exerciseId'] as String,
-      name: json['name'] as String,
-      completedSets: (json['completedSets'] as List<dynamic>?)
-              ?.map((s) => ExerciseSet.fromJson(s as Map<String, dynamic>))
-              .toList() ??
-          [],
-      notes: json['notes'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory LoggedExercise.fromJson(Map<String, dynamic> json) => _$LoggedExerciseFromJson(json);
+  Map<String, dynamic> toJson() => _$LoggedExerciseToJson(this);
 }
 
 /// A single set within an exercise
+@JsonSerializable()
 class ExerciseSet {
   final int reps; // For strength exercises
   final double? weight; // For strength exercises (in user's preferred unit)
   final bool completed;
+  @JsonKey(
+    name: 'durationSeconds',
+    fromJson: _durationFromSeconds,
+    toJson: _durationToSeconds,
+  )
   final Duration? duration; // For timed/cardio exercises
   final int? level; // Resistance level for cardio machines (1-20)
   final double? distance; // For cardio exercises (in km)
@@ -960,29 +889,9 @@ class ExerciseSet {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'reps': reps,
-      'weight': weight,
-      'completed': completed,
-      'durationSeconds': duration?.inSeconds,
-      'level': level,
-      'distance': distance,
-    };
-  }
-
-  factory ExerciseSet.fromJson(Map<String, dynamic> json) {
-    return ExerciseSet(
-      reps: json['reps'] as int? ?? 0,
-      weight: (json['weight'] as num?)?.toDouble(),
-      completed: json['completed'] as bool? ?? true,
-      duration: json['durationSeconds'] != null
-          ? Duration(seconds: json['durationSeconds'] as int)
-          : null,
-      level: json['level'] as int?,
-      distance: (json['distance'] as num?)?.toDouble(),
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ExerciseSet.fromJson(Map<String, dynamic> json) => _$ExerciseSetFromJson(json);
+  Map<String, dynamic> toJson() => _$ExerciseSetToJson(this);
 
   /// Format for display based on exercise type
   String formatForDisplay(ExerciseType type) {
@@ -1012,3 +921,9 @@ class ExerciseSet {
     return seconds > 0 ? '$minutes:${seconds.toString().padLeft(2, '0')}' : '${minutes}m';
   }
 }
+
+// Helper functions for Duration serialization
+Duration? _durationFromSeconds(int? seconds) =>
+    seconds != null ? Duration(seconds: seconds) : null;
+
+int? _durationToSeconds(Duration? duration) => duration?.inSeconds;

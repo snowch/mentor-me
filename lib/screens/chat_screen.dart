@@ -13,10 +13,12 @@ import '../providers/pulse_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/food_log_provider.dart';
+import '../providers/win_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
 import '../models/ai_provider.dart';
+import '../models/win.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 import '../services/feature_discovery_service.dart';
@@ -614,8 +616,74 @@ class _ChatScreenState extends State<ChatScreen> {
         break;
       case MentorActionType.quickAction:
         // Handle quick actions based on context
-        // This can be extended as needed
+        final actionType = action.context?['action'] as String?;
+        if (actionType == 'record_win') {
+          _handleRecordWin(context, action.context!);
+        }
         break;
+    }
+  }
+
+  /// Handle the record_win quick action
+  Future<void> _handleRecordWin(BuildContext context, Map<String, dynamic> winContext) async {
+    final description = winContext['description'] as String? ?? '';
+    final category = winContext['category'] as String? ?? 'personal';
+
+    // Show confirmation dialog to let user edit the win description
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _RecordWinDialog(
+        initialDescription: description,
+        initialCategory: category,
+      ),
+    );
+
+    if (result != null && mounted) {
+      try {
+        final winProvider = context.read<WinProvider>();
+
+        // Parse category
+        WinCategory? winCategory;
+        try {
+          winCategory = WinCategory.values.firstWhere(
+            (c) => c.name.toLowerCase() == (result['category'] as String).toLowerCase(),
+          );
+        } catch (e) {
+          winCategory = WinCategory.personal;
+        }
+
+        await winProvider.recordWin(
+          description: result['description'] as String,
+          source: WinSource.manual, // From chat, treated as manual
+          category: winCategory,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Win recorded!'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'View Wins',
+                textColor: Theme.of(context).colorScheme.onPrimary,
+                onPressed: () {
+                  Navigator.pushNamed(context, '/wins');
+                },
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to record win: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -850,6 +918,125 @@ class _AnimatedDotState extends State<_AnimatedDot>
           ),
         );
       },
+    );
+  }
+}
+
+/// Dialog for recording a win from chat
+class _RecordWinDialog extends StatefulWidget {
+  final String initialDescription;
+  final String initialCategory;
+
+  const _RecordWinDialog({
+    required this.initialDescription,
+    required this.initialCategory,
+  });
+
+  @override
+  State<_RecordWinDialog> createState() => _RecordWinDialogState();
+}
+
+class _RecordWinDialogState extends State<_RecordWinDialog> {
+  late TextEditingController _descriptionController;
+  late String _selectedCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _descriptionController = TextEditingController(text: widget.initialDescription);
+    _selectedCategory = widget.initialCategory;
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            Icons.emoji_events,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          AppSpacing.gapHorizontalMd,
+          const Text('Record Win'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Describe your accomplishment:',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            AppSpacing.gapSm,
+            TextField(
+              controller: _descriptionController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'What did you achieve?',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            AppSpacing.gapLg,
+            Text(
+              'Category:',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            AppSpacing.gapSm,
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'personal', child: Text('Personal')),
+                DropdownMenuItem(value: 'health', child: Text('Health')),
+                DropdownMenuItem(value: 'fitness', child: Text('Fitness')),
+                DropdownMenuItem(value: 'career', child: Text('Career')),
+                DropdownMenuItem(value: 'learning', child: Text('Learning')),
+                DropdownMenuItem(value: 'relationships', child: Text('Relationships')),
+                DropdownMenuItem(value: 'finance', child: Text('Finance')),
+                DropdownMenuItem(value: 'habit', child: Text('Habit')),
+                DropdownMenuItem(value: 'other', child: Text('Other')),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedCategory = value);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final description = _descriptionController.text.trim();
+            if (description.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a description')),
+              );
+              return;
+            }
+            Navigator.pop(context, {
+              'description': description,
+              'category': _selectedCategory,
+            });
+          },
+          child: const Text('Record Win'),
+        ),
+      ],
     );
   }
 }

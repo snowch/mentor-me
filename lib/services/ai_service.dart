@@ -1135,18 +1135,18 @@ Goals:''';
 Food: $foodDescription
 
 Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
-{"calories": 450, "protein": 35, "carbs": 20, "fat": 28, "saturatedFat": 8, "unsaturatedFat": 18, "transFat": 0, "fiber": 4, "sugar": 3, "confidence": "medium", "notes": "Estimated based on typical caesar salad with grilled chicken"}
+{"calories": 450, "proteinGrams": 35, "carbsGrams": 20, "fatGrams": 28, "saturatedFatGrams": 8, "unsaturatedFatGrams": 18, "transFatGrams": 0, "fiberGrams": 4, "sugarGrams": 3, "confidence": "medium", "notes": "Estimated based on typical caesar salad with grilled chicken"}
 
 Guidelines:
 - calories: total estimated calories (integer)
-- protein: grams of protein (integer)
-- carbs: grams of carbohydrates (integer)
-- fat: total grams of fat (integer)
-- saturatedFat: grams of saturated fat (integer) - from animal products, butter, cheese
-- unsaturatedFat: grams of unsaturated fat (integer) - from olive oil, nuts, fish
-- transFat: grams of trans fat (integer) - typically 0 for whole foods
-- fiber: grams of dietary fiber (integer)
-- sugar: grams of sugar (integer)
+- proteinGrams: grams of protein (integer)
+- carbsGrams: grams of carbohydrates (integer)
+- fatGrams: total grams of fat (integer)
+- saturatedFatGrams: grams of saturated fat (integer) - from animal products, butter, cheese
+- unsaturatedFatGrams: grams of unsaturated fat (integer) - from olive oil, nuts, fish
+- transFatGrams: grams of trans fat (integer) - typically 0 for whole foods
+- fiberGrams: grams of dietary fiber (integer)
+- sugarGrams: grams of sugar (integer)
 - confidence: "high" for common foods with clear portions, "medium" for typical meals, "low" for vague descriptions
 - notes: brief explanation of your estimate (optional)
 
@@ -1155,7 +1155,8 @@ JSON:''';
       final response = await getCoachingResponse(prompt: prompt);
 
       // Try to parse the JSON from the response
-      final jsonMatch = RegExp(r'\{[^}]+\}').firstMatch(response);
+      // Use a more robust regex that handles nested content and quotes
+      final jsonMatch = RegExp(r'\{[^{}]*\}').firstMatch(response);
       if (jsonMatch == null) {
         await _debug.warning('AIService', 'No JSON found in nutrition response', metadata: {
           'response': response,
@@ -1166,7 +1167,33 @@ JSON:''';
       final jsonString = jsonMatch.group(0)!;
       final Map<String, dynamic> parsed = json.decode(jsonString);
 
-      final estimate = NutritionEstimate.fromJson(parsed);
+      // Helper to safely parse numbers from various formats
+      int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+        if (value == null) return defaultValue;
+        if (value is int) return value;
+        if (value is double) return value.toInt();
+        if (value is String) return int.tryParse(value) ?? defaultValue;
+        return defaultValue;
+      }
+
+      // Normalize field names - map old names to new names if needed
+      // Handle both old field names (protein) and new field names (proteinGrams)
+      // Also handle string vs numeric values from AI response
+      final normalized = <String, dynamic>{
+        'calories': parseIntSafe(parsed['calories'] ?? parsed['cal']),
+        'proteinGrams': parseIntSafe(parsed['proteinGrams'] ?? parsed['protein']),
+        'carbsGrams': parseIntSafe(parsed['carbsGrams'] ?? parsed['carbs']),
+        'fatGrams': parseIntSafe(parsed['fatGrams'] ?? parsed['fat']),
+        'saturatedFatGrams': parseIntSafe(parsed['saturatedFatGrams'] ?? parsed['saturatedFat']),
+        'unsaturatedFatGrams': parseIntSafe(parsed['unsaturatedFatGrams'] ?? parsed['unsaturatedFat']),
+        'transFatGrams': parseIntSafe(parsed['transFatGrams'] ?? parsed['transFat']),
+        'fiberGrams': parseIntSafe(parsed['fiberGrams'] ?? parsed['fiber']),
+        'sugarGrams': parseIntSafe(parsed['sugarGrams'] ?? parsed['sugar']),
+        'confidence': parsed['confidence']?.toString(),
+        'notes': parsed['notes']?.toString(),
+      };
+
+      final estimate = NutritionEstimate.fromJson(normalized);
 
       await _debug.info('AIService', 'Nutrition estimated successfully', metadata: {
         'calories': estimate.calories,

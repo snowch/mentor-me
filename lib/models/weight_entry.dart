@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'weight_entry.g.dart';
 
 /// Supported weight units
 enum WeightUnit {
@@ -30,12 +33,17 @@ enum WeightUnit {
 }
 
 /// Represents a single weight log entry
+@JsonSerializable()
 class WeightEntry {
   final String id;
   final DateTime timestamp;
-  final double weight; // Stored in the user's preferred unit
+  final double weight; // Stored in the user's preferred unit (or total lbs for stone)
   final WeightUnit unit;
   final String? note;
+
+  // For stone unit: store exact integer values to avoid floating point rounding
+  final int? stones; // Exact stone value (e.g., 10 for "10 st 7 lbs")
+  final int? pounds; // Exact remaining pounds (0-13, e.g., 7 for "10 st 7 lbs")
 
   WeightEntry({
     String? id,
@@ -43,11 +51,36 @@ class WeightEntry {
     required this.weight,
     required this.unit,
     this.note,
+    this.stones,
+    this.pounds,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
+  /// Get total weight in pounds (exact for stone entries)
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  double get _totalLbs {
+    // For stone entries with exact integers, use those for precision
+    if (unit == WeightUnit.stone && stones != null) {
+      return ((stones! * 14) + (pounds ?? 0)).toDouble();
+    }
+    // Fall back to conversion
+    switch (unit) {
+      case WeightUnit.lbs:
+        return weight;
+      case WeightUnit.kg:
+        return weight * 2.20462;
+      case WeightUnit.stone:
+        return weight * 14.0;
+    }
+  }
+
   /// Convert weight to kilograms
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get weightInKg {
+    // For stone entries with exact integers, convert via pounds for precision
+    if (unit == WeightUnit.stone && stones != null) {
+      return _totalLbs * 0.453592;
+    }
     switch (unit) {
       case WeightUnit.kg:
         return weight;
@@ -59,19 +92,18 @@ class WeightEntry {
   }
 
   /// Convert weight to pounds
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get weightInLbs {
-    switch (unit) {
-      case WeightUnit.lbs:
-        return weight;
-      case WeightUnit.kg:
-        return weight * 2.20462;
-      case WeightUnit.stone:
-        return weight * 14.0;
-    }
+    return _totalLbs;
   }
 
   /// Convert weight to stone (decimal)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get weightInStone {
+    // For stone entries with exact integers, compute from integers
+    if (unit == WeightUnit.stone && stones != null) {
+      return stones! + ((pounds ?? 0) / 14.0);
+    }
     switch (unit) {
       case WeightUnit.stone:
         return weight;
@@ -82,9 +114,29 @@ class WeightEntry {
     }
   }
 
+  /// Get exact stone value (integer) for stone entries
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  int get exactStones {
+    if (unit == WeightUnit.stone && stones != null) {
+      return stones!;
+    }
+    // Fall back to calculation from pounds
+    return (_totalLbs / 14).floor();
+  }
+
+  /// Get exact remaining pounds (integer, 0-13) for stone entries
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  int get exactPounds {
+    if (unit == WeightUnit.stone && pounds != null) {
+      return pounds!;
+    }
+    // Fall back to calculation from total pounds
+    return (_totalLbs % 14).round();
+  }
+
   /// Get weight in specified unit
   double weightIn(WeightUnit targetUnit) {
-    if (unit == targetUnit) return weight;
+    if (unit == targetUnit && targetUnit != WeightUnit.stone) return weight;
     switch (targetUnit) {
       case WeightUnit.kg:
         return weightInKg;
@@ -96,38 +148,20 @@ class WeightEntry {
   }
 
   /// Format weight in stone as "X st Y lbs" (commonly used in UK)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   String get weightInStoneFormatted {
-    final totalLbs = weightInLbs;
-    final stones = (totalLbs / 14).floor();
-    final remainingLbs = (totalLbs % 14).round();
-    if (remainingLbs == 0) {
-      return '$stones st';
+    // Use exact integers if available
+    final st = exactStones;
+    final lbs = exactPounds;
+    if (lbs == 0) {
+      return '$st st';
     }
-    return '$stones st $remainingLbs lbs';
+    return '$st st $lbs lbs';
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'timestamp': timestamp.toIso8601String(),
-      'weight': weight,
-      'unit': unit.name,
-      'note': note,
-    };
-  }
-
-  factory WeightEntry.fromJson(Map<String, dynamic> json) {
-    return WeightEntry(
-      id: json['id'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      weight: (json['weight'] as num).toDouble(),
-      unit: WeightUnit.values.firstWhere(
-        (u) => u.name == json['unit'],
-        orElse: () => WeightUnit.kg,
-      ),
-      note: json['note'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory WeightEntry.fromJson(Map<String, dynamic> json) => _$WeightEntryFromJson(json);
+  Map<String, dynamic> toJson() => _$WeightEntryToJson(this);
 
   WeightEntry copyWith({
     String? id,
@@ -135,6 +169,8 @@ class WeightEntry {
     double? weight,
     WeightUnit? unit,
     String? note,
+    int? stones,
+    int? pounds,
   }) {
     return WeightEntry(
       id: id ?? this.id,
@@ -142,11 +178,14 @@ class WeightEntry {
       weight: weight ?? this.weight,
       unit: unit ?? this.unit,
       note: note ?? this.note,
+      stones: stones ?? this.stones,
+      pounds: pounds ?? this.pounds,
     );
   }
 }
 
 /// Represents a weight goal
+@JsonSerializable()
 class WeightGoal {
   final String id;
   final double targetWeight;
@@ -168,9 +207,11 @@ class WeightGoal {
         startDate = startDate ?? DateTime.now();
 
   /// Whether this is a weight loss goal
+  @JsonKey(includeFromJson: false, includeToJson: false)
   bool get isWeightLoss => targetWeight < startWeight;
 
   /// Total weight change needed (positive = loss, negative = gain)
+  @JsonKey(includeFromJson: false, includeToJson: false)
   double get totalChange => startWeight - targetWeight;
 
   /// Calculate progress given current weight (0.0 to 1.0+)
@@ -198,34 +239,9 @@ class WeightGoal {
     }
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'targetWeight': targetWeight,
-      'startWeight': startWeight,
-      'unit': unit.name,
-      'startDate': startDate.toIso8601String(),
-      'targetDate': targetDate?.toIso8601String(),
-      'isActive': isActive,
-    };
-  }
-
-  factory WeightGoal.fromJson(Map<String, dynamic> json) {
-    return WeightGoal(
-      id: json['id'] as String,
-      targetWeight: (json['targetWeight'] as num).toDouble(),
-      startWeight: (json['startWeight'] as num).toDouble(),
-      unit: WeightUnit.values.firstWhere(
-        (u) => u.name == json['unit'],
-        orElse: () => WeightUnit.kg,
-      ),
-      startDate: DateTime.parse(json['startDate'] as String),
-      targetDate: json['targetDate'] != null
-          ? DateTime.parse(json['targetDate'] as String)
-          : null,
-      isActive: json['isActive'] as bool? ?? true,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory WeightGoal.fromJson(Map<String, dynamic> json) => _$WeightGoalFromJson(json);
+  Map<String, dynamic> toJson() => _$WeightGoalToJson(this);
 
   WeightGoal copyWith({
     String? id,
@@ -249,6 +265,7 @@ class WeightGoal {
 }
 
 /// Weekly weight summary for trend analysis
+/// Note: This is a computed summary, not persisted, so no serialization needed
 class WeeklyWeightSummary {
   final DateTime weekStart;
   final List<WeightEntry> entries;

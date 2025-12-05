@@ -16,6 +16,8 @@ import '../models/weight_entry.dart';
 import '../models/win.dart';
 import '../models/exercise.dart';
 import '../models/food_entry.dart';
+import '../models/medication.dart';
+import '../models/symptom.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -66,6 +68,7 @@ class StorageService {
   static const String _weightGoalKey = 'weight_goal';
   static const String _weightUnitKey = 'weight_unit';
   static const String _heightKey = 'user_height';
+  static const String _genderKey = 'user_gender';
 
   // Exercise tracking
   static const String _customExercisesKey = 'custom_exercises';
@@ -75,6 +78,97 @@ class StorageService {
   // Food logging
   static const String _foodEntriesKey = 'food_entries';
   static const String _nutritionGoalKey = 'nutrition_goal';
+
+  // Medication tracking
+  static const String _medicationsKey = 'medications';
+  static const String _medicationLogsKey = 'medication_logs';
+
+  // Symptom tracking
+  static const String _symptomTypesKey = 'symptom_types';
+  static const String _symptomEntriesKey = 'symptom_entries';
+
+  /// All storage keys that contain USER DATA and should be backed up.
+  /// This is the SINGLE SOURCE OF TRUTH for backup coverage.
+  ///
+  /// When adding a new data type:
+  /// 1. Add the private key constant above
+  /// 2. Add it to this list
+  /// 3. Implement load/save methods
+  /// 4. Add to BackupService.createBackupJson() and _importData()
+  ///
+  /// The backup_coverage_test.dart will FAIL if this list doesn't match BackupService exports.
+  static const Set<String> userDataKeys = {
+    // Core data types
+    'goals',
+    'journal_entries',
+    'checkin',
+    'habits',
+    'pulse_entries',
+    'pulse_types',
+    'settings',
+    'conversations',
+    'journal_templates_custom',  // custom_templates in backup
+    'structured_journaling_sessions',  // sessions in backup
+    'enabled_templates',
+    'checkin_templates',
+    'checkin_responses',
+
+    // Clinical/wellness data
+    'clinical_assessments',
+    'intervention_attempts',
+    'activities',
+    'scheduled_activities',
+    'gratitude_entries',
+    'worries',
+    'worry_sessions',
+    'self_compassion_entries',
+    'personal_values',
+    'implementation_intentions',
+    'meditation_sessions',
+    'urge_surfing_sessions',
+    'hydration_entries',
+    'hydration_goal',
+    'unplug_sessions',
+    'device_boundaries',
+    'user_context_summary',
+    'wins',
+
+    // Weight tracking
+    'weight_entries',
+    'weight_goal',
+    'weight_unit',
+    'user_height',  // height in backup
+    'user_gender',  // gender in backup
+
+    // Exercise tracking
+    'custom_exercises',
+    'exercise_plans',
+    'workout_logs',
+
+    // Food logging
+    'food_entries',
+    'nutrition_goal',
+
+    // Medication tracking
+    'medications',
+    'medication_logs',
+
+    // Symptom tracking
+    'symptom_types',
+    'symptom_entries',
+
+    // Safety plan
+    'safety_plan',
+  };
+
+  /// Keys that are explicitly NOT backed up (security/internal).
+  static const Set<String> excludedFromBackupKeys = {
+    'schema_version',  // Internal metadata
+    'api_key',  // Security - never backup
+    'claudeApiKey',  // Security - never backup
+    'huggingfaceToken',  // Security - never backup
+    'autoBackupSafUri',  // Installation-specific permission
+  };
 
   // Lazy initialization of dependencies to avoid eager construction
   MigrationService? _migrationServiceInstance;
@@ -111,7 +205,17 @@ class StorageService {
   ///
   /// IMPORTANT: This MUST be called at the end of every save method.
   /// Tests will fail if any save method doesn't call this.
+  ///
+  /// Also validates that the dataType is registered in userDataKeys or excludedFromBackupKeys.
+  /// This catches unregistered storage keys at runtime.
   Future<void> _notifyPersistence(String dataType) async {
+    // Validate that this key is registered (catches missing backup coverage at runtime)
+    assert(
+      userDataKeys.contains(dataType) || excludedFromBackupKeys.contains(dataType),
+      'Storage key "$dataType" is not registered in userDataKeys or excludedFromBackupKeys. '
+      'Add it to StorageService.userDataKeys to ensure backup coverage.',
+    );
+
     for (final listener in _persistenceListeners) {
       try {
         await listener(dataType);
@@ -377,6 +481,23 @@ class StorageService {
     return prefs.getDouble(_heightKey);
   }
 
+  // Save/Load Gender (for BMR calculations, etc.)
+  // Values: 'male', 'female', 'other', or null if not set
+  Future<void> saveGender(String? gender) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (gender != null) {
+      await prefs.setString(_genderKey, gender);
+    } else {
+      await prefs.remove(_genderKey);
+    }
+    await _notifyPersistence('gender');
+  }
+
+  Future<String?> loadGender() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_genderKey);
+  }
+
   // ============================================================================
   // Exercise Tracking
   // ============================================================================
@@ -502,6 +623,106 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_nutritionGoalKey);
     await _notifyPersistence('nutrition_goal');
+  }
+
+  // ============================================================================
+  // Medication Tracking
+  // ============================================================================
+
+  // Save/Load Medications
+  Future<void> saveMedications(List<Medication> medications) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = medications.map((m) => m.toJson()).toList();
+    await prefs.setString(_medicationsKey, json.encode(jsonList));
+    await _notifyPersistence('medications');
+  }
+
+  Future<List<Medication>> loadMedications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_medicationsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => Medication.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted medications data, returning empty list. Error: $e');
+      await prefs.remove(_medicationsKey);
+      return [];
+    }
+  }
+
+  // Save/Load Medication Logs
+  Future<void> saveMedicationLogs(List<MedicationLog> logs) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = logs.map((l) => l.toJson()).toList();
+    await prefs.setString(_medicationLogsKey, json.encode(jsonList));
+    await _notifyPersistence('medication_logs');
+  }
+
+  Future<List<MedicationLog>> loadMedicationLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_medicationLogsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => MedicationLog.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted medication logs data, returning empty list. Error: $e');
+      await prefs.remove(_medicationLogsKey);
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // Symptom Tracking
+  // ============================================================================
+
+  // Save/Load Symptom Types
+  Future<void> saveSymptomTypes(List<SymptomType> types) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = types.map((t) => t.toJson()).toList();
+    await prefs.setString(_symptomTypesKey, json.encode(jsonList));
+    await _notifyPersistence('symptom_types');
+  }
+
+  Future<List<SymptomType>> loadSymptomTypes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_symptomTypesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => SymptomType.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted symptom types data, returning empty list. Error: $e');
+      await prefs.remove(_symptomTypesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Symptom Entries
+  Future<void> saveSymptomEntries(List<SymptomEntry> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = entries.map((e) => e.toJson()).toList();
+    await prefs.setString(_symptomEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('symptom_entries');
+  }
+
+  Future<List<SymptomEntry>> loadSymptomEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_symptomEntriesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => SymptomEntry.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted symptom entries data, returning empty list. Error: $e');
+      await prefs.remove(_symptomEntriesKey);
+      return [];
+    }
   }
 
   // Save/Load User Context Summary (rolling AI-generated profile)
@@ -649,6 +870,7 @@ class StorageService {
       'weightGoal': await loadWeightGoal(),
       'weightUnit': (await loadWeightUnit()).name,
       'height': await loadHeight(),
+      'gender': await loadGender(),
       'customExercises': await loadCustomExercises(),
       'exercisePlans': await loadExercisePlans(),
       'workoutLogs': await loadWorkoutLogs(),
@@ -734,6 +956,10 @@ class StorageService {
 
     if (data['height'] != null) {
       await saveHeight((data['height'] as num).toDouble());
+    }
+
+    if (data['gender'] != null) {
+      await saveGender(data['gender'] as String);
     }
 
     if (data['customExercises'] != null) {

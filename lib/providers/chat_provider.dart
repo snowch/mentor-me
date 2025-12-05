@@ -125,6 +125,9 @@ class ChatProvider extends ChangeNotifier {
       await startNewConversation();
     }
 
+    // Store for win detection
+    _lastUserMessage = content;
+
     final userMessage = ChatMessage(
       sender: MessageSender.user,
       content: content,
@@ -159,7 +162,11 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Track last user message for win detection
+  String? _lastUserMessage;
+
   /// Detect suggested actions from AI response text
+  /// Also considers the last user message for win detection
   List<MentorAction> _detectSuggestedActions(String response) {
     final actions = <MentorAction>[];
     final lowerResponse = response.toLowerCase();
@@ -213,8 +220,105 @@ class ChatProvider extends ChangeNotifier {
       ));
     }
 
+    // Detect wins from user's message or AI's celebration
+    // Check if user mentioned an accomplishment OR AI is celebrating/acknowledging one
+    final winDetected = _detectWinInConversation(lowerResponse);
+    if (winDetected != null && _lastUserMessage != null) {
+      actions.add(MentorAction.quickAction(
+        label: 'Record as Win',
+        context: {
+          'action': 'record_win',
+          'description': _lastUserMessage,
+          'category': winDetected,
+        },
+      ));
+    }
+
     // Limit to 2 actions to avoid clutter
     return actions.take(2).toList();
+  }
+
+  /// Detect if conversation indicates a win was shared
+  /// Returns the detected category or null if no win detected
+  String? _detectWinInConversation(String aiResponse) {
+    if (_lastUserMessage == null) return null;
+
+    final lowerUserMsg = _lastUserMessage!.toLowerCase();
+    final lowerAiResponse = aiResponse.toLowerCase();
+
+    // Win indicator patterns in user message
+    final userWinPatterns = [
+      'i did it',
+      'i completed',
+      'i finished',
+      'i achieved',
+      'i accomplished',
+      'i managed to',
+      'i finally',
+      'i succeeded',
+      'i hit my',
+      'i reached my',
+      'i made it',
+      'i got it done',
+      'i nailed',
+      'i crushed',
+      'i smashed',
+      'proud of',
+      'i\'m proud',
+      'i am proud',
+    ];
+
+    // AI celebration patterns (confirms user shared something positive)
+    final aiCelebrationPatterns = [
+      'congratulations',
+      'well done',
+      'great job',
+      'amazing',
+      'fantastic',
+      'excellent work',
+      'proud of you',
+      'that\'s wonderful',
+      'that\'s great',
+      'awesome',
+      'incredible',
+      'celebrate',
+      'accomplishment',
+      'achievement',
+    ];
+
+    // Check if user mentioned a win
+    bool userMentionedWin = userWinPatterns.any((p) => lowerUserMsg.contains(p));
+
+    // Check if AI is celebrating (confirms it understood as a win)
+    bool aiIsCelebrating = aiCelebrationPatterns.any((p) => lowerAiResponse.contains(p));
+
+    // Only suggest recording if both indicators are present
+    // (user shared something AND AI recognized it as positive)
+    if (userMentionedWin || aiIsCelebrating) {
+      // Try to detect category from content
+      if (lowerUserMsg.contains('workout') || lowerUserMsg.contains('exercise') ||
+          lowerUserMsg.contains('run') || lowerUserMsg.contains('gym')) {
+        return 'fitness';
+      }
+      if (lowerUserMsg.contains('weight') || lowerUserMsg.contains('diet') ||
+          lowerUserMsg.contains('healthy') || lowerUserMsg.contains('sleep')) {
+        return 'health';
+      }
+      if (lowerUserMsg.contains('work') || lowerUserMsg.contains('project') ||
+          lowerUserMsg.contains('meeting') || lowerUserMsg.contains('job')) {
+        return 'career';
+      }
+      if (lowerUserMsg.contains('learn') || lowerUserMsg.contains('study') ||
+          lowerUserMsg.contains('course') || lowerUserMsg.contains('book')) {
+        return 'learning';
+      }
+      if (lowerUserMsg.contains('habit') || lowerUserMsg.contains('streak')) {
+        return 'habit';
+      }
+      return 'personal'; // Default category
+    }
+
+    return null;
   }
 
   /// Generate AI response based on user message and context

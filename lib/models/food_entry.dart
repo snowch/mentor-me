@@ -4,7 +4,10 @@
 /// AI-powered nutrition estimates.
 library;
 
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'food_entry.g.dart';
 
 /// Types of meals for categorization
 enum MealType {
@@ -41,6 +44,7 @@ enum MealType {
 }
 
 /// AI-estimated nutrition information
+@JsonSerializable()
 class NutritionEstimate {
   final int calories;
   final int proteinGrams;
@@ -68,38 +72,9 @@ class NutritionEstimate {
     this.notes,
   });
 
-  /// Create from AI response JSON
-  factory NutritionEstimate.fromJson(Map<String, dynamic> json) {
-    return NutritionEstimate(
-      calories: json['calories'] as int? ?? 0,
-      proteinGrams: json['proteinGrams'] as int? ?? json['protein'] as int? ?? 0,
-      carbsGrams: json['carbsGrams'] as int? ?? json['carbs'] as int? ?? 0,
-      fatGrams: json['fatGrams'] as int? ?? json['fat'] as int? ?? 0,
-      saturatedFatGrams: json['saturatedFatGrams'] as int? ?? json['saturatedFat'] as int?,
-      unsaturatedFatGrams: json['unsaturatedFatGrams'] as int? ?? json['unsaturatedFat'] as int?,
-      transFatGrams: json['transFatGrams'] as int? ?? json['transFat'] as int?,
-      fiberGrams: json['fiberGrams'] as int? ?? json['fiber'] as int?,
-      sugarGrams: json['sugarGrams'] as int? ?? json['sugar'] as int?,
-      confidence: json['confidence'] as String?,
-      notes: json['notes'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'calories': calories,
-      'proteinGrams': proteinGrams,
-      'carbsGrams': carbsGrams,
-      'fatGrams': fatGrams,
-      if (saturatedFatGrams != null) 'saturatedFatGrams': saturatedFatGrams,
-      if (unsaturatedFatGrams != null) 'unsaturatedFatGrams': unsaturatedFatGrams,
-      if (transFatGrams != null) 'transFatGrams': transFatGrams,
-      if (fiberGrams != null) 'fiberGrams': fiberGrams,
-      if (sugarGrams != null) 'sugarGrams': sugarGrams,
-      if (confidence != null) 'confidence': confidence,
-      if (notes != null) 'notes': notes,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory NutritionEstimate.fromJson(Map<String, dynamic> json) => _$NutritionEstimateFromJson(json);
+  Map<String, dynamic> toJson() => _$NutritionEstimateToJson(this);
 
   NutritionEstimate copyWith({
     int? calories,
@@ -130,6 +105,7 @@ class NutritionEstimate {
   }
 
   /// Format as a brief summary string
+  @JsonKey(includeFromJson: false, includeToJson: false)
   String get summary {
     final parts = <String>[
       '${proteinGrams}g P',
@@ -146,6 +122,7 @@ class NutritionEstimate {
   }
 
   /// Detailed summary including fat breakdown
+  @JsonKey(includeFromJson: false, includeToJson: false)
   String get detailedSummary {
     final buffer = StringBuffer();
     buffer.write('$calories cal · ${proteinGrams}g protein · ${carbsGrams}g carbs');
@@ -176,6 +153,7 @@ class NutritionEstimate {
 }
 
 /// A food log entry representing a meal or snack
+@JsonSerializable()
 class FoodEntry {
   final String id;
   final DateTime timestamp;
@@ -200,38 +178,9 @@ class FoodEntry {
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
-  factory FoodEntry.fromJson(Map<String, dynamic> json) {
-    return FoodEntry(
-      id: json['id'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      mealType: MealType.values.firstWhere(
-        (m) => m.name == json['mealType'],
-        orElse: () => MealType.snack,
-      ),
-      description: json['description'] as String,
-      nutrition: json['nutrition'] != null
-          ? NutritionEstimate.fromJson(json['nutrition'] as Map<String, dynamic>)
-          : null,
-      notes: json['notes'] as String?,
-      energyAfterMeal: json['energyAfterMeal'] as int?,
-      isManualEntry: json['isManualEntry'] as bool? ?? false,
-      imagePath: json['imagePath'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'timestamp': timestamp.toIso8601String(),
-      'mealType': mealType.name,
-      'description': description,
-      if (nutrition != null) 'nutrition': nutrition!.toJson(),
-      if (notes != null) 'notes': notes,
-      if (energyAfterMeal != null) 'energyAfterMeal': energyAfterMeal,
-      'isManualEntry': isManualEntry,
-      if (imagePath != null) 'imagePath': imagePath,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory FoodEntry.fromJson(Map<String, dynamic> json) => _$FoodEntryFromJson(json);
+  Map<String, dynamic> toJson() => _$FoodEntryToJson(this);
 
   FoodEntry copyWith({
     String? id,
@@ -258,10 +207,12 @@ class FoodEntry {
   }
 
   /// Get the date portion for grouping
+  @JsonKey(includeFromJson: false, includeToJson: false)
   DateTime get date => DateTime(timestamp.year, timestamp.month, timestamp.day);
 }
 
 /// Daily nutrition goal for tracking
+@JsonSerializable()
 class NutritionGoal {
   final int targetCalories;
   final int? targetProteinGrams;
@@ -275,23 +226,9 @@ class NutritionGoal {
     this.targetFatGrams,
   });
 
-  factory NutritionGoal.fromJson(Map<String, dynamic> json) {
-    return NutritionGoal(
-      targetCalories: json['targetCalories'] as int,
-      targetProteinGrams: json['targetProteinGrams'] as int?,
-      targetCarbsGrams: json['targetCarbsGrams'] as int?,
-      targetFatGrams: json['targetFatGrams'] as int?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'targetCalories': targetCalories,
-      if (targetProteinGrams != null) 'targetProteinGrams': targetProteinGrams,
-      if (targetCarbsGrams != null) 'targetCarbsGrams': targetCarbsGrams,
-      if (targetFatGrams != null) 'targetFatGrams': targetFatGrams,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory NutritionGoal.fromJson(Map<String, dynamic> json) => _$NutritionGoalFromJson(json);
+  Map<String, dynamic> toJson() => _$NutritionGoalToJson(this);
 
   /// Default goal based on general guidelines
   static const NutritionGoal defaultGoal = NutritionGoal(
@@ -303,6 +240,7 @@ class NutritionGoal {
 }
 
 /// Summary of nutrition for a time period
+/// Note: This is computed at runtime, not persisted, so no serialization needed
 class NutritionSummary {
   final int totalCalories;
   final int totalProtein;

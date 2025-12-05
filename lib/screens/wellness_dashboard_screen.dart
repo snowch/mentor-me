@@ -24,6 +24,8 @@ import 'exposure_ladder_screen.dart';
 import 'weight_tracking_screen.dart';
 import 'food_log_screen.dart';
 import 'exercise_plans_screen.dart';
+import 'medication_screen.dart';
+import 'symptom_tracker_screen.dart';
 
 class WellnessDashboardScreen extends StatelessWidget {
   const WellnessDashboardScreen({super.key});
@@ -367,6 +369,37 @@ class WellnessDashboardScreen extends StatelessWidget {
             description: 'Create workout plans and track your exercise routines',
             color: Colors.orange,
             onTap: () => _navigate(context, const ExercisePlansScreen()),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+
+          // Health Tracking Section
+          Text(
+            'Health Tracking',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Medication Tracking
+          _buildFeatureCard(
+            context,
+            icon: Icons.medication,
+            title: 'Medication Tracker',
+            description: 'Log medications, track adherence, and manage your prescriptions',
+            color: Colors.purple,
+            onTap: () => _navigate(context, const MedicationScreen()),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          // Symptom Tracking
+          _buildFeatureCard(
+            context,
+            icon: Icons.healing,
+            title: 'Symptom Tracker',
+            description: 'Track symptoms, identify triggers, and monitor patterns',
+            color: Colors.deepOrange,
+            onTap: () => _navigate(context, const SymptomTrackerScreen()),
           ),
           const SizedBox(height: AppSpacing.xl),
 

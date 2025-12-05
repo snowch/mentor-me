@@ -745,10 +745,13 @@ class ContextManagementService {
     );
   }
 
-  /// Format date helper
+  /// Format date helper - uses calendar day comparison, not 24-hour periods
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    final diff = now.difference(date).inDays;
+    // Normalize both dates to midnight for proper calendar day comparison
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final dateStart = DateTime(date.year, date.month, date.day);
+    final diff = todayStart.difference(dateStart).inDays;
 
     if (diff == 0) return 'Today';
     if (diff == 1) return 'Yesterday';
