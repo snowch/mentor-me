@@ -619,7 +619,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                               ),
                         ),
                       // Show external folder path when using external storage
-                      if (_autoBackupEnabled && _backupLocation == BackupLocation.downloads && _externalFolderName != null && _externalFolderName!.isNotEmpty)
+                      if (_autoBackupEnabled && _backupLocation == BackupLocation.downloads)
                         InkWell(
                           onTap: _changeExternalFolder,
                           borderRadius: BorderRadius.circular(4),
@@ -629,27 +629,41 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.folder,
+                                  (_externalFolderName?.isNotEmpty == true)
+                                      ? Icons.folder
+                                      : Icons.warning_amber,
                                   size: 14,
-                                  color: Colors.blue.shade600,
+                                  color: (_externalFolderName?.isNotEmpty == true)
+                                      ? Colors.blue.shade600
+                                      : Colors.orange.shade700,
                                 ),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    _externalFolderName!,
+                                    (_externalFolderName?.isNotEmpty == true)
+                                        ? _externalFolderName!
+                                        : 'Tap to select folder',
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Colors.blue.shade600,
+                                          color: (_externalFolderName?.isNotEmpty == true)
+                                              ? Colors.blue.shade600
+                                              : Colors.orange.shade700,
                                           decoration: TextDecoration.underline,
-                                          decorationColor: Colors.blue.shade600,
+                                          decorationColor: (_externalFolderName?.isNotEmpty == true)
+                                              ? Colors.blue.shade600
+                                              : Colors.orange.shade700,
                                         ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 Icon(
-                                  Icons.edit,
+                                  (_externalFolderName?.isNotEmpty == true)
+                                      ? Icons.edit
+                                      : Icons.folder_open,
                                   size: 12,
-                                  color: Colors.blue.shade400,
+                                  color: (_externalFolderName?.isNotEmpty == true)
+                                      ? Colors.blue.shade400
+                                      : Colors.orange.shade600,
                                 ),
                               ],
                             ),
