@@ -48,7 +48,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 
   /// Format weight value for display based on unit
-  /// For stone: weight is stored as total pounds when stones/pounds fields are set
+  /// For stone: weight is stored as decimal stones (e.g., 17.5 = 17 st 7 lbs)
   String _formatWeight(double weight, WeightUnit unit, {WeightEntry? entry}) {
     if (unit == WeightUnit.stone) {
       // Use exact integers from entry if available
@@ -60,8 +60,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         }
         return '$st st $lbs lbs';
       }
-      // Fall back to calculation (for goal display, etc.)
-      final totalLbs = weight.round();
+      // Fall back to calculation from decimal stone value
+      // weight is in decimal stones (e.g., 17.214 = 17 st 3 lbs)
+      final totalLbs = (weight * 14).round();  // Convert decimal stones to total pounds
       final stones = totalLbs ~/ 14;
       final remainingLbs = totalLbs % 14;
       if (remainingLbs == 0) {
@@ -287,11 +288,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   Widget _buildGoalProgressCard(BuildContext context, WeightProvider provider) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final goal = provider.goal!;
     final progress = provider.goalProgress ?? 0;
-    final remaining = provider.remainingToGoal ?? 0;
     final isAchieved = provider.isGoalAchieved;
     final unit = provider.preferredUnit;
+    // Use converted values for display in user's preferred unit
+    final remaining = provider.remainingToGoalInPreferredUnit ?? 0;
+    final startWeight = provider.startWeightInPreferredUnit ?? 0;
+    final targetWeight = provider.targetWeightInPreferredUnit ?? 0;
+    final goal = provider.goal!;
 
     return Card(
       elevation: 0,
@@ -353,12 +357,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 _buildStatItem(
                   context,
                   'Start',
-                  _formatWeight(goal.startWeight, unit),
+                  _formatWeight(startWeight, unit),
                 ),
                 _buildStatItem(
                   context,
                   'Target',
-                  _formatWeight(goal.targetWeight, unit),
+                  _formatWeight(targetWeight, unit),
                 ),
                 _buildStatItem(
                   context,
@@ -1024,8 +1028,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 leading: const Icon(Icons.flag),
                 title: const Text('Weight Goal'),
                 subtitle: Text(
-                  provider.goal != null
-                      ? _formatWeight(provider.goal!.targetWeight, provider.preferredUnit)
+                  provider.targetWeightInPreferredUnit != null
+                      ? _formatWeight(provider.targetWeightInPreferredUnit!, provider.preferredUnit)
                       : 'Not set',
                 ),
                 trailing: const Icon(Icons.chevron_right),
@@ -1187,12 +1191,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
 
   void _showGoalDialog(BuildContext context, WeightProvider provider) {
     final unit = provider.preferredUnit;
+    // Use converted weight for display in user's preferred unit
+    final targetInPreferredUnit = provider.targetWeightInPreferredUnit;
 
     // For stone, split into st and lbs
     int goalStone = 0;
     int goalLbs = 0;
-    if (unit == WeightUnit.stone && provider.goal != null) {
-      final totalLbs = provider.goal!.targetWeight * 14.0;
+    if (unit == WeightUnit.stone && targetInPreferredUnit != null) {
+      final totalLbs = targetInPreferredUnit * 14.0;
       goalStone = (totalLbs / 14).floor();
       goalLbs = (totalLbs % 14).round();
     }
@@ -1200,7 +1206,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final targetController = TextEditingController(
       text: unit == WeightUnit.stone
           ? goalStone.toString()
-          : (provider.goal?.targetWeight.toStringAsFixed(1) ?? ''),
+          : (targetInPreferredUnit?.toStringAsFixed(1) ?? ''),
     );
     final lbsController = TextEditingController(
       text: unit == WeightUnit.stone ? goalLbs.toString() : '',
@@ -1461,6 +1467,7 @@ class _WeightHistoryScreen extends StatelessWidget {
   const _WeightHistoryScreen({required this.provider});
 
   /// Format weight value for display based on unit
+  /// For stone: weight is stored as decimal stones (e.g., 17.5 = 17 st 7 lbs)
   String _formatWeight(double weight, WeightUnit unit, {WeightEntry? entry}) {
     if (unit == WeightUnit.stone) {
       // Use exact integers from entry if available
@@ -1472,8 +1479,9 @@ class _WeightHistoryScreen extends StatelessWidget {
         }
         return '$st st $lbs lbs';
       }
-      // Fall back to calculation
-      final totalLbs = weight.round();
+      // Fall back to calculation from decimal stone value
+      // weight is in decimal stones (e.g., 17.214 = 17 st 3 lbs)
+      final totalLbs = (weight * 14).round();  // Convert decimal stones to total pounds
       final stones = totalLbs ~/ 14;
       final remainingLbs = totalLbs % 14;
       if (remainingLbs == 0) {

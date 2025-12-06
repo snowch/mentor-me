@@ -175,21 +175,86 @@ class WeightProvider extends ChangeNotifier {
   }
 
   /// Get progress toward goal (0.0 to 1.0+)
+  /// Note: Converts current weight to goal's unit for accurate comparison
   double? get goalProgress {
-    if (_goal == null || currentWeight == null) return null;
-    return _goal!.progressWith(currentWeight!);
+    if (_goal == null || latestEntry == null) return null;
+    // Convert current weight to the goal's unit for accurate comparison
+    final currentInGoalUnit = latestEntry!.weightIn(_goal!.unit);
+    return _goal!.progressWith(currentInGoalUnit);
   }
 
-  /// Get remaining weight to goal
+  /// Get remaining weight to goal (in the goal's unit, for calculations)
+  /// Note: Converts current weight to goal's unit for accurate comparison
   double? get remainingToGoal {
-    if (_goal == null || currentWeight == null) return null;
-    return _goal!.remainingWith(currentWeight!);
+    if (_goal == null || latestEntry == null) return null;
+    // Convert current weight to the goal's unit for accurate comparison
+    final currentInGoalUnit = latestEntry!.weightIn(_goal!.unit);
+    return _goal!.remainingWith(currentInGoalUnit);
+  }
+
+  /// Get remaining weight to goal converted to user's preferred display unit
+  /// Use this for UI display to show in user's preferred unit
+  double? get remainingToGoalInPreferredUnit {
+    final remaining = remainingToGoal;
+    if (remaining == null || _goal == null) return null;
+
+    // If goal unit matches preferred, no conversion needed
+    if (_goal!.unit == _preferredUnit) return remaining;
+
+    // Convert remaining from goal's unit to preferred unit
+    return _convertWeight(remaining, _goal!.unit, _preferredUnit);
+  }
+
+  /// Get target weight converted to user's preferred display unit
+  double? get targetWeightInPreferredUnit {
+    if (_goal == null) return null;
+    if (_goal!.unit == _preferredUnit) return _goal!.targetWeight;
+    return _convertWeight(_goal!.targetWeight, _goal!.unit, _preferredUnit);
+  }
+
+  /// Get start weight converted to user's preferred display unit
+  double? get startWeightInPreferredUnit {
+    if (_goal == null) return null;
+    if (_goal!.unit == _preferredUnit) return _goal!.startWeight;
+    return _convertWeight(_goal!.startWeight, _goal!.unit, _preferredUnit);
+  }
+
+  /// Convert weight between units
+  double _convertWeight(double weight, WeightUnit from, WeightUnit to) {
+    if (from == to) return weight;
+
+    // Convert to kg first
+    double weightInKg;
+    switch (from) {
+      case WeightUnit.kg:
+        weightInKg = weight;
+        break;
+      case WeightUnit.lbs:
+        weightInKg = weight * 0.453592;
+        break;
+      case WeightUnit.stone:
+        weightInKg = weight * 6.35029;
+        break;
+    }
+
+    // Convert from kg to target unit
+    switch (to) {
+      case WeightUnit.kg:
+        return weightInKg;
+      case WeightUnit.lbs:
+        return weightInKg / 0.453592;
+      case WeightUnit.stone:
+        return weightInKg / 6.35029;
+    }
   }
 
   /// Check if goal is achieved
+  /// Note: Converts current weight to goal's unit for accurate comparison
   bool get isGoalAchieved {
-    if (_goal == null || currentWeight == null) return false;
-    return _goal!.isAchievedWith(currentWeight!);
+    if (_goal == null || latestEntry == null) return false;
+    // Convert current weight to the goal's unit for accurate comparison
+    final currentInGoalUnit = latestEntry!.weightIn(_goal!.unit);
+    return _goal!.isAchievedWith(currentInGoalUnit);
   }
 
   /// Get entries for a specific date

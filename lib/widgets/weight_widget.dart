@@ -227,10 +227,11 @@ class WeightWidget extends StatelessWidget {
 
   Widget _buildGoalSummary(BuildContext context, WeightProvider provider) {
     final theme = Theme.of(context);
-    final goal = provider.goal!;
-    final remaining = provider.remainingToGoal ?? 0;
     final isAchieved = provider.isGoalAchieved;
     final unit = provider.preferredUnit;
+    // Use the converted values for display in user's preferred unit
+    final remaining = provider.remainingToGoalInPreferredUnit ?? 0;
+    final targetWeight = provider.targetWeightInPreferredUnit ?? 0;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -251,8 +252,8 @@ class WeightWidget extends StatelessWidget {
           Expanded(
             child: Text(
               isAchieved
-                  ? 'Goal of ${_formatWeight(goal.targetWeight, unit)} achieved!'
-                  : '${_formatWeight(remaining, unit)} to goal (${_formatWeight(goal.targetWeight, unit)})',
+                  ? 'Goal of ${_formatWeight(targetWeight, unit)} achieved!'
+                  : '${_formatWeight(remaining, unit)} to goal (${_formatWeight(targetWeight, unit)})',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: isAchieved
                     ? Colors.green.shade700

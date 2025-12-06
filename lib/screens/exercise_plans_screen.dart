@@ -5,6 +5,7 @@ import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/weight_provider.dart';
 import '../services/ai_service.dart';
+import 'workout_history_screen.dart';
 
 class ExercisePlansScreen extends StatelessWidget {
   const ExercisePlansScreen({super.key});
@@ -18,6 +19,16 @@ class ExercisePlansScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Exercise Plans'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WorkoutHistoryScreen(),
+              ),
+            ),
+            tooltip: 'Workout History',
+          ),
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: () => _showCreatePlanDialog(context),
