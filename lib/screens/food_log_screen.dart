@@ -613,7 +613,14 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             ),
             AppSpacing.gapVerticalMd,
 
-            // Meal type selector
+            // Meal type selector with label
+            Text(
+              'Meal Type: ${_selectedMealType.displayName}',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            AppSpacing.gapVerticalSm,
             SegmentedButton<MealType>(
               segments: MealType.values
                   .map((type) => ButtonSegment(
