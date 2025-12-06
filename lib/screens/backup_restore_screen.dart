@@ -673,6 +673,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Text(
+                                  'Folder: ',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: (_externalFolderName?.isNotEmpty == true)
+                                            ? Colors.blue.shade600
+                                            : Colors.orange.shade700,
+                                      ),
+                                ),
                                 Icon(
                                   (_externalFolderName?.isNotEmpty == true)
                                       ? Icons.folder
