@@ -166,6 +166,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       folderName = await _safService.getFolderDisplayName();
     }
 
+    // Check if folder reauthorization is needed (e.g., backup failed due to missing permissions)
+    final needsReauth = await _autoBackupService.checkNeedsFolderReauthorization();
+
     if (mounted) {
       setState(() {
         _autoBackupEnabled = settings['autoBackupEnabled'] as bool? ?? false;
@@ -173,6 +176,15 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         _backupLocation = location;
         _externalFolderName = folderName;
       });
+
+      // Show prompt if reauthorization is needed and auto-backup is enabled
+      if (needsReauth && _autoBackupEnabled && location == BackupLocation.downloads) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showFolderReauthorizationPrompt();
+          }
+        });
+      }
     }
   }
 
@@ -395,6 +407,39 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               Navigator.pop(dialogContext);
               // Update location to downloads to trigger folder picker
               await _updateBackupLocation(BackupLocation.downloads);
+            },
+            child: const Text('Select Folder'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show prompt when auto-backup failed due to missing folder permissions
+  void _showFolderReauthorizationPrompt() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          Icons.warning_amber,
+          color: Theme.of(dialogContext).colorScheme.error,
+          size: 48,
+        ),
+        title: const Text('Backup Folder Access Lost'),
+        content: const Text(
+          'Auto-backup was unable to save to your external folder because permissions are missing.\n\n'
+          'This can happen after reinstalling the app or restoring a backup.\n\n'
+          'Please re-select your backup folder to continue automatic backups.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Later'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await _changeExternalFolder();
             },
             child: const Text('Select Folder'),
           ),
@@ -936,6 +981,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       }
       return;
     }
+
+    // Clear the reauthorization flag since user has re-selected a folder
+    await _autoBackupService.clearFolderReauthorization();
 
     // Get the new folder display name
     final folderName = await _safService.getFolderDisplayName();

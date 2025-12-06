@@ -11,7 +11,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/backup_location.dart';
 import '../models/backup_destination.dart';
 import 'storage_service.dart';
@@ -35,6 +34,7 @@ class AutoBackupService extends ChangeNotifier {
   bool _isBackingUp = false;
   bool _isScheduled = false;
   bool _lastBackupFellBack = false;
+  bool _needsFolderReauthorization = false;
 
   static const _debounceDelay = Duration(seconds: 30);
   static const _maxAutoBackups = 7; // Keep last week of auto-backups
@@ -43,6 +43,7 @@ class AutoBackupService extends ChangeNotifier {
   bool get isBackingUp => _isBackingUp;
   bool get lastBackupFellBack => _lastBackupFellBack;
   bool get isScheduled => _isScheduled;
+  bool get needsFolderReauthorization => _needsFolderReauthorization;
 
   // Test helpers - only use in tests to simulate state changes
   @visibleForTesting
@@ -151,38 +152,50 @@ class AutoBackupService extends ChangeNotifier {
         // Validate permissions are still valid (may be invalid after fresh install/restore)
         final hasValidPermissions = await _safService.validateFolderPermissions();
         if (hasValidPermissions) {
+          _needsFolderReauthorization = false;
           await _performSAFBackup();
           return;
-        } else {
-          await _debug.warning(
-            'AutoBackupService',
-            'SAF permissions invalid, falling back to internal storage. User must re-select folder.',
-          );
-          // Fall through to internal storage fallback
         }
       }
-      // No valid SAF access - fall through to fallback
+
+      // SAF permissions are invalid or missing - don't fall back silently!
+      // Set flag so UI can prompt user to re-select folder
+      _needsFolderReauthorization = true;
+      _lastBackupFellBack = true;
+      notifyListeners();
+
+      await _debug.warning(
+        'AutoBackupService',
+        'External folder not accessible - backup SKIPPED. User must re-select folder in Backup settings.',
+        metadata: {
+          'requestedLocation': location.name,
+          'action': 'backup_skipped',
+          'reason': 'saf_permissions_lost',
+        },
+      );
+
+      // Store the flag persistently so it survives app restart
+      settings['needsFolderReauthorization'] = true;
+      await _storage.saveSettings(settings);
+
+      // Don't fall back to internal - user explicitly wanted external storage
+      return;
     }
 
-    // Get directory for selected location (only for internal storage)
+    // For internal storage, proceed normally
     final autoBackupDir = await location.getDirectory();
 
     if (autoBackupDir == null) {
-      await _debug.warning(
+      await _debug.error(
         'AutoBackupService',
-        'External folder not accessible. SAF permissions may need to be re-granted. Falling back to internal storage.',
-        metadata: {'requestedLocation': location.name, 'actualLocation': 'internal'},
+        'Failed to get internal backup directory',
+        metadata: {'location': location.name},
       );
-      // Fallback to internal storage - but this means the backup won't be where user expects!
-      final fallbackDir = await getApplicationDocumentsDirectory();
-      final internalDir = Directory('${fallbackDir.path}/auto_backups');
-      await _performBackupToDirectory(internalDir, location);
-      // Mark that we fell back so UI can show warning
-      _lastBackupFellBack = true;
-      notifyListeners();
       return;
     }
+
     _lastBackupFellBack = false;
+    _needsFolderReauthorization = false;
 
     await _performBackupToDirectory(autoBackupDir, location);
   }
@@ -500,6 +513,24 @@ class AutoBackupService extends ChangeNotifier {
     }
   }
 
+  /// Check if folder reauthorization is needed (loads from persistent storage)
+  Future<bool> checkNeedsFolderReauthorization() async {
+    final settings = await _storage.loadSettings();
+    final needsReauth = settings['needsFolderReauthorization'] as bool? ?? false;
+    _needsFolderReauthorization = needsReauth;
+    return needsReauth;
+  }
+
+  /// Clear the folder reauthorization flag (call after user re-selects folder)
+  Future<void> clearFolderReauthorization() async {
+    _needsFolderReauthorization = false;
+    _lastBackupFellBack = false;
+    final settings = await _storage.loadSettings();
+    settings['needsFolderReauthorization'] = false;
+    await _storage.saveSettings(settings);
+    notifyListeners();
+  }
+
   /// Get diagnostic information about auto-backup state
   /// Useful for debugging why backups might not be triggering
   Future<Map<String, dynamic>> getDiagnostics() async {
@@ -520,6 +551,7 @@ class AutoBackupService extends ChangeNotifier {
           : null,
       'hasPendingTimer': _debounceTimer != null && _debounceTimer!.isActive,
       'lastBackupFellBack': _lastBackupFellBack,
+      'needsFolderReauthorization': _needsFolderReauthorization,
     };
   }
 
