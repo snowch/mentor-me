@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../screens/exercise_plans_screen.dart';
+import '../screens/workout_history_screen.dart';
 import '../theme/app_spacing.dart';
 
 class ExerciseWidget extends StatelessWidget {
@@ -175,35 +176,47 @@ class ExerciseWidget extends StatelessWidget {
                   else
                     // Show last 2 workouts
                     Column(
-                      children: recentWorkouts.take(2).map((workout) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                size: 16,
-                                color: Colors.green,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  workout.planName ?? 'Freestyle',
-                                  style: theme.textTheme.bodyMedium,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                      children: [
+                        ...recentWorkouts.take(2).map((workout) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: Colors.green,
                                 ),
-                              ),
-                              Text(
-                                _formatDate(workout.startTime),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    workout.planName ?? 'Freestyle',
+                                    style: theme.textTheme.bodyMedium,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                Text(
+                                  _formatDate(workout.startTime),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        if (provider.workoutLogs.length > 2)
+                          TextButton(
+                            onPressed: () => _openHistoryScreen(context),
+                            child: Text(
+                              'View all ${provider.workoutLogs.length} workouts',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.primary,
                               ),
-                            ],
+                            ),
                           ),
-                        );
-                      }).toList(),
+                      ],
                     ),
                 ],
               ),
@@ -228,6 +241,13 @@ class ExerciseWidget extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ExercisePlansScreen()),
+    );
+  }
+
+  void _openHistoryScreen(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const WorkoutHistoryScreen()),
     );
   }
 

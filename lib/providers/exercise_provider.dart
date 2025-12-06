@@ -358,6 +358,25 @@ class ExerciseProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update an existing workout log
+  Future<void> updateWorkoutLog(WorkoutLog updatedLog) async {
+    final index = _workoutLogs.indexWhere((w) => w.id == updatedLog.id);
+    if (index == -1) return;
+
+    _workoutLogs[index] = updatedLog;
+    await _storage.saveWorkoutLogs(_workoutLogs);
+    notifyListeners();
+  }
+
+  /// Get a specific workout log by ID
+  WorkoutLog? getWorkoutLog(String logId) {
+    try {
+      return _workoutLogs.firstWhere((w) => w.id == logId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ==================== Statistics ====================
 
   /// Get workout logs for a specific plan

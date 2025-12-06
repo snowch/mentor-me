@@ -287,11 +287,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   Widget _buildGoalProgressCard(BuildContext context, WeightProvider provider) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final goal = provider.goal!;
     final progress = provider.goalProgress ?? 0;
-    final remaining = provider.remainingToGoal ?? 0;
     final isAchieved = provider.isGoalAchieved;
     final unit = provider.preferredUnit;
+    // Use converted values for display in user's preferred unit
+    final remaining = provider.remainingToGoalInPreferredUnit ?? 0;
+    final startWeight = provider.startWeightInPreferredUnit ?? 0;
+    final targetWeight = provider.targetWeightInPreferredUnit ?? 0;
+    final goal = provider.goal!;
 
     return Card(
       elevation: 0,
@@ -353,12 +356,12 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 _buildStatItem(
                   context,
                   'Start',
-                  _formatWeight(goal.startWeight, unit),
+                  _formatWeight(startWeight, unit),
                 ),
                 _buildStatItem(
                   context,
                   'Target',
-                  _formatWeight(goal.targetWeight, unit),
+                  _formatWeight(targetWeight, unit),
                 ),
                 _buildStatItem(
                   context,
@@ -1024,8 +1027,8 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                 leading: const Icon(Icons.flag),
                 title: const Text('Weight Goal'),
                 subtitle: Text(
-                  provider.goal != null
-                      ? _formatWeight(provider.goal!.targetWeight, provider.preferredUnit)
+                  provider.targetWeightInPreferredUnit != null
+                      ? _formatWeight(provider.targetWeightInPreferredUnit!, provider.preferredUnit)
                       : 'Not set',
                 ),
                 trailing: const Icon(Icons.chevron_right),
@@ -1187,12 +1190,14 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
 
   void _showGoalDialog(BuildContext context, WeightProvider provider) {
     final unit = provider.preferredUnit;
+    // Use converted weight for display in user's preferred unit
+    final targetInPreferredUnit = provider.targetWeightInPreferredUnit;
 
     // For stone, split into st and lbs
     int goalStone = 0;
     int goalLbs = 0;
-    if (unit == WeightUnit.stone && provider.goal != null) {
-      final totalLbs = provider.goal!.targetWeight * 14.0;
+    if (unit == WeightUnit.stone && targetInPreferredUnit != null) {
+      final totalLbs = targetInPreferredUnit * 14.0;
       goalStone = (totalLbs / 14).floor();
       goalLbs = (totalLbs % 14).round();
     }
@@ -1200,7 +1205,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final targetController = TextEditingController(
       text: unit == WeightUnit.stone
           ? goalStone.toString()
-          : (provider.goal?.targetWeight.toStringAsFixed(1) ?? ''),
+          : (targetInPreferredUnit?.toStringAsFixed(1) ?? ''),
     );
     final lbsController = TextEditingController(
       text: unit == WeightUnit.stone ? goalLbs.toString() : '',
