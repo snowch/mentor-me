@@ -692,6 +692,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.edit,
+                                  size: 12,
+                                  color: (_externalFolderName?.isNotEmpty == true)
+                                      ? Colors.blue.shade400
+                                      : Colors.orange.shade600,
+                                ),
                               ],
                             ),
                           ),
