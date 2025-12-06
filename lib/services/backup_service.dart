@@ -110,6 +110,7 @@ class BackupService {
     final weightUnit = await _storage.loadWeightUnit();
     final height = await _storage.loadHeight();
     final gender = await _storage.loadGender();
+    final age = await _storage.loadAge();
 
     // Exercise tracking data
     final customExercises = await _storage.loadCustomExercises();
@@ -206,6 +207,7 @@ class BackupService {
       'weight_unit': weightUnit.name,
       'height': height,
       'gender': gender,
+      'user_age': age,
 
       // Exercise tracking
       'custom_exercises': json.encode(customExercises.map((e) => e.toJson()).toList()),
@@ -260,6 +262,7 @@ class BackupService {
         'hasWeightGoal': weightGoal != null,
         'weightUnit': weightUnit.name,
         'hasHeight': height != null,
+        'hasAge': age != null,
         // Exercise tracking
         'totalCustomExercises': customExercises.length,
         'totalExercisePlans': exercisePlans.length,
@@ -1918,6 +1921,38 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Gender',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import age (for BMR/TDEE calculations)
+    try {
+      if (data.containsKey('user_age') && data['user_age'] != null) {
+        final age = data['user_age'] as int;
+        await _storage.saveAge(age);
+        await _debug.info('BackupService', 'Imported age: $age');
+        results.add(ImportItemResult(
+          dataType: 'Age',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Age',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import age: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Age',
         success: false,
         count: 0,
         errorMessage: e.toString(),
