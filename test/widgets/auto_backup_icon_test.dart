@@ -302,14 +302,21 @@ void main() {
     late AutoBackupService service;
 
     setUp(() async {
+      // Settings are stored as a JSON-encoded string under the 'settings' key
       SharedPreferences.setMockInitialValues({
-        'autoBackupEnabled': true,
+        'settings': '{"autoBackupEnabled": true}',
       });
       service = AutoBackupService();
+      // Reset singleton state for clean tests
+      service.setScheduledForTest(false);
+      service.setBackingUpForTest(false);
+      service.cancelPendingBackup();
     });
 
     tearDown(() {
       service.cancelPendingBackup();
+      service.setScheduledForTest(false);
+      service.setBackingUpForTest(false);
     });
 
     test('isScheduled should be true after scheduleAutoBackup() called', () async {

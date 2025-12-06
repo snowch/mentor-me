@@ -23,6 +23,7 @@ import '../models/user_context_summary.dart';
 import '../models/exercise.dart';
 import '../models/weight_entry.dart';
 import '../models/food_entry.dart';
+import '../models/win.dart';
 
 /// Result of context building containing the formatted context string and metadata
 class ContextBuildResult {
@@ -79,6 +80,7 @@ class ContextManagementService {
     WeightGoal? weightGoal,
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
+    List<Win>? wins,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -289,7 +291,22 @@ class ContextManagementService {
       addSection(foodSection.toString(), 'food_entries', foodCount);
     }
 
-    // 8. Conversation History (last 20 messages for multi-turn context)
+    // 8. Recent Wins (last 10 wins for positive reinforcement)
+    if (wins != null && wins.isNotEmpty) {
+      final winsSection = StringBuffer('\n**Recent Wins & Accomplishments:**\n');
+      int winCount = 0;
+      final recentWins = wins.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      for (final win in recentWins.take(10)) {
+        final categoryStr = win.category != null ? ' (${win.category!.displayName})' : '';
+        winsSection.writeln('- ${_formatDate(win.createdAt)}: ${win.description}$categoryStr');
+        winCount++;
+      }
+      winsSection.writeln();
+      addSection(winsSection.toString(), 'wins', winCount);
+    }
+
+    // 9. Conversation History (last 20 messages for multi-turn context)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\n**Recent Conversation:**\n');
       int msgCount = 0;
@@ -332,6 +349,7 @@ class ContextManagementService {
     List<WorkoutLog>? workoutLogs,
     List<WeightEntry>? weightEntries,
     List<FoodEntry>? foodEntries,
+    List<Win>? wins,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -470,7 +488,23 @@ class ContextManagementService {
       }
     }
 
-    // 8. Last 2 Conversation Messages ONLY (very brief for tiny context window)
+    // 8. Most Recent Win (very brief for context)
+    if (wins != null && wins.isNotEmpty) {
+      final recentWins = wins.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final latestWin = recentWins.first;
+      final desc = latestWin.description.length > 50
+          ? '${latestWin.description.substring(0, 50)}...'
+          : latestWin.description;
+      final winsSection = '\nRecent win: $desc\n';
+      if (canAdd(winsSection)) {
+        buffer.write(winsSection);
+        currentTokens += estimateTokens(winsSection);
+        itemCounts['wins'] = 1;
+      }
+    }
+
+    // 9. Last 2 Conversation Messages ONLY (very brief for tiny context window)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\nRecent:\n');
       for (final msg in conversationHistory.reversed.take(2).toList().reversed) {
@@ -509,6 +543,7 @@ class ContextManagementService {
     WeightGoal? weightGoal,
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
+    List<Win>? wins,
   }) {
     if (provider == AIProvider.cloud) {
       return buildCloudContext(
@@ -523,6 +558,7 @@ class ContextManagementService {
         weightGoal: weightGoal,
         foodEntries: foodEntries,
         nutritionGoal: nutritionGoal,
+        wins: wins,
       );
     } else {
       return buildLocalContext(
@@ -534,6 +570,7 @@ class ContextManagementService {
         workoutLogs: workoutLogs,
         weightEntries: weightEntries,
         foodEntries: foodEntries,
+        wins: wins,
       );
     }
   }
@@ -558,6 +595,7 @@ class ContextManagementService {
     WeightGoal? weightGoal,
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
+    List<Win>? wins,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -720,6 +758,24 @@ class ContextManagementService {
       }
       buffer.writeln();
       itemCounts['food_entries'] = recentFood.take(10).length;
+    }
+
+    // LAYER 3e: Recent Wins (since summary cutoff)
+    if (wins != null && wins.isNotEmpty) {
+      final cutoffDate = summary?.generatedAt ?? DateTime(2000);
+      final recentWins = wins
+          .where((w) => w.createdAt.isAfter(cutoffDate))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (recentWins.isNotEmpty) {
+        buffer.writeln('## Recent Wins & Accomplishments');
+        for (final win in recentWins.take(10)) {
+          final categoryStr = win.category != null ? ' (${win.category!.displayName})' : '';
+          buffer.writeln('- ${_formatDate(win.createdAt)}: ${win.description}$categoryStr');
+        }
+        buffer.writeln();
+        itemCounts['wins'] = recentWins.take(10).length;
+      }
     }
 
     // LAYER 4: Conversation History

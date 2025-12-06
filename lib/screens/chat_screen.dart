@@ -78,6 +78,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final habitProvider = context.read<HabitProvider>();
     final journalProvider = context.read<JournalProvider>();
     final pulseProvider = context.read<PulseProvider>();
+    final winProvider = context.read<WinProvider>();
     final exerciseProvider = context.read<ExerciseProvider>();
     final weightProvider = context.read<WeightProvider>();
     final foodLogProvider = context.read<FoodLogProvider>();
@@ -100,6 +101,7 @@ class _ChatScreenState extends State<ChatScreen> {
         weightGoal: weightProvider.goal,
         foodEntries: foodLogProvider.entries,
         nutritionGoal: foodLogProvider.goal,
+        wins: winProvider.wins,
       );
 
       await chatProvider.addMentorMessage(response);

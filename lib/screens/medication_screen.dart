@@ -131,6 +131,12 @@ class _TodayTab extends StatelessWidget {
           _buildSummaryCard(context, provider),
           AppSpacing.gapMd,
 
+          // Overdue medications alert
+          if (provider.hasOverdueMedications) ...[
+            _buildOverdueAlert(context, provider),
+            AppSpacing.gapMd,
+          ],
+
           // Pending medications
           if (provider.pendingMedications.isNotEmpty) ...[
             Text(
@@ -219,6 +225,88 @@ class _TodayTab extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverdueAlert(BuildContext context, MedicationProvider provider) {
+    final theme = Theme.of(context);
+    final overdue = provider.overdueMedications;
+
+    return Card(
+      elevation: 0,
+      color: Colors.red.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.red.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.red.shade700,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    overdue.length == 1
+                        ? 'Medication Overdue'
+                        : '${overdue.length} Medications Overdue',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...overdue.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.medication.displayString,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'Scheduled ${item.scheduledTime} · ${item.overdueDisplay}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.red.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: () => _logMedication(
+                      context,
+                      item.medication,
+                      MedicationLogStatus.taken,
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.green.shade100,
+                      foregroundColor: Colors.green.shade800,
+                    ),
+                    child: const Text('Take Now'),
+                  ),
+                ],
+              ),
+            )),
           ],
         ),
       ),

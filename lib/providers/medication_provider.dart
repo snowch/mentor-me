@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show TimeOfDay;
 import '../models/medication.dart';
 import '../services/storage_service.dart';
 
@@ -287,5 +288,150 @@ class MedicationProvider extends ChangeNotifier {
         .map((l) => l.medicationId)
         .toSet()
         .length;
+  }
+
+  // ============================================================================
+  // Overdue Medication Detection
+  // ============================================================================
+
+  /// Get medications that are overdue (past their reminder time and not yet taken today)
+  ///
+  /// A medication is considered overdue if:
+  /// - It has reminder times set
+  /// - At least one reminder time has passed today
+  /// - The medication hasn't been logged as taken today after that time
+  List<OverdueMedication> get overdueMedications {
+    final now = DateTime.now();
+    final currentTime = TimeOfDay(hour: now.hour, minute: now.minute);
+    final todayLogsSet = todayLogs
+        .where((l) => l.status == MedicationLogStatus.taken)
+        .toList();
+
+    final overdueList = <OverdueMedication>[];
+
+    for (final medication in activeMedications) {
+      // Skip medications without reminder times
+      if (medication.reminderTimes == null || medication.reminderTimes!.isEmpty) {
+        continue;
+      }
+
+      // Skip "as needed" medications
+      if (medication.frequency == MedicationFrequency.asNeeded) {
+        continue;
+      }
+
+      // Get the medication's logs for today
+      final medTodayLogs = todayLogsSet
+          .where((l) => l.medicationId == medication.id)
+          .toList();
+
+      // Check each reminder time
+      for (final timeStr in medication.reminderTimes!) {
+        final reminderTime = _parseTimeString(timeStr);
+        if (reminderTime == null) continue;
+
+        // Check if this reminder time has passed
+        if (_isTimeBefore(reminderTime, currentTime)) {
+          // Check if medication was taken after this reminder time today
+          final wasTakenAfterReminder = medTodayLogs.any((log) {
+            final logTime = TimeOfDay(
+              hour: log.timestamp.hour,
+              minute: log.timestamp.minute,
+            );
+            // Log is valid if it was after the reminder time (or within 30 min before)
+            return _minutesSinceMidnight(logTime) >=
+                   _minutesSinceMidnight(reminderTime) - 30;
+          });
+
+          if (!wasTakenAfterReminder) {
+            // Calculate how overdue
+            final overdueMinutes = _minutesSinceMidnight(currentTime) -
+                                   _minutesSinceMidnight(reminderTime);
+
+            overdueList.add(OverdueMedication(
+              medication: medication,
+              scheduledTime: timeStr,
+              overdueMinutes: overdueMinutes,
+            ));
+            break; // Only report once per medication
+          }
+        }
+      }
+    }
+
+    // Sort by how overdue (most overdue first)
+    overdueList.sort((a, b) => b.overdueMinutes.compareTo(a.overdueMinutes));
+
+    return overdueList;
+  }
+
+  /// Check if there are any overdue medications
+  bool get hasOverdueMedications => overdueMedications.isNotEmpty;
+
+  /// Parse a time string like "08:00" or "8:00 AM" into TimeOfDay
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      // Handle 24-hour format: "08:00", "14:30"
+      if (timeStr.contains(':') && !timeStr.toLowerCase().contains('am') &&
+          !timeStr.toLowerCase().contains('pm')) {
+        final parts = timeStr.split(':');
+        return TimeOfDay(
+          hour: int.parse(parts[0]),
+          minute: int.parse(parts[1]),
+        );
+      }
+
+      // Handle 12-hour format: "8:00 AM", "2:30 PM"
+      final lowerTime = timeStr.toLowerCase().trim();
+      final isPM = lowerTime.contains('pm');
+      final cleanTime = lowerTime.replaceAll('am', '').replaceAll('pm', '').trim();
+      final parts = cleanTime.split(':');
+
+      int hour = int.parse(parts[0]);
+      final minute = parts.length > 1 ? int.parse(parts[1]) : 0;
+
+      if (isPM && hour != 12) hour += 12;
+      if (!isPM && hour == 12) hour = 0;
+
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Check if time1 is before time2
+  bool _isTimeBefore(TimeOfDay time1, TimeOfDay time2) {
+    return _minutesSinceMidnight(time1) < _minutesSinceMidnight(time2);
+  }
+
+  /// Convert TimeOfDay to minutes since midnight for comparison
+  int _minutesSinceMidnight(TimeOfDay time) {
+    return time.hour * 60 + time.minute;
+  }
+}
+
+/// Represents a medication that is overdue
+class OverdueMedication {
+  final Medication medication;
+  final String scheduledTime;
+  final int overdueMinutes;
+
+  const OverdueMedication({
+    required this.medication,
+    required this.scheduledTime,
+    required this.overdueMinutes,
+  });
+
+  /// Get human-readable overdue duration
+  String get overdueDisplay {
+    if (overdueMinutes < 60) {
+      return '$overdueMinutes min overdue';
+    }
+    final hours = overdueMinutes ~/ 60;
+    final mins = overdueMinutes % 60;
+    if (mins == 0) {
+      return '$hours hr overdue';
+    }
+    return '${hours}h ${mins}m overdue';
   }
 }

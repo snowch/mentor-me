@@ -716,6 +716,7 @@ class WorkoutLog {
   final List<LoggedExercise> exercises;
   final String? notes;
   final int? rating; // 1-5 how the workout felt
+  final int? caloriesBurned; // Estimated calories burned
 
   const WorkoutLog({
     required this.id,
@@ -726,6 +727,7 @@ class WorkoutLog {
     required this.exercises,
     this.notes,
     this.rating,
+    this.caloriesBurned,
   });
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -756,6 +758,7 @@ class WorkoutLog {
     List<LoggedExercise>? exercises,
     String? notes,
     int? rating,
+    int? caloriesBurned,
   }) {
     return WorkoutLog(
       id: id ?? this.id,
@@ -766,6 +769,7 @@ class WorkoutLog {
       exercises: exercises ?? this.exercises,
       notes: notes ?? this.notes,
       rating: rating ?? this.rating,
+      caloriesBurned: caloriesBurned ?? this.caloriesBurned,
     );
   }
 

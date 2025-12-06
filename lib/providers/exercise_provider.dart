@@ -319,13 +319,14 @@ class ExerciseProvider extends ChangeNotifier {
   }
 
   /// Finish and save the current workout
-  Future<void> finishWorkout({String? notes, int? rating}) async {
+  Future<void> finishWorkout({String? notes, int? rating, int? caloriesBurned}) async {
     if (_activeWorkout == null) return;
 
     final completedWorkout = _activeWorkout!.copyWith(
       endTime: DateTime.now(),
       notes: notes,
       rating: rating,
+      caloriesBurned: caloriesBurned,
     );
 
     _workoutLogs.insert(0, completedWorkout);
