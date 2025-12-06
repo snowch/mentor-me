@@ -981,6 +981,8 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
               _buildDiagnosticRow('Backup location', _backupLocation == BackupLocation.downloads ? '📁 External' : '🔒 Internal'),
               if (_backupLocation == BackupLocation.downloads)
                 _buildDiagnosticRow('External folder', _externalFolderName ?? '❌ Not set'),
+              if (diagnostics['lastBackupFellBack'] == true)
+                _buildDiagnosticRow('⚠️ Last backup', 'Fell back to internal (SAF issue)'),
               _buildDiagnosticRow('Backup scheduled', diagnostics['isScheduled'] ? '⏰ Yes' : 'No'),
               _buildDiagnosticRow('Backup in progress', diagnostics['isBackingUp'] ? '🔄 Yes' : 'No'),
               _buildDiagnosticRow('Pending timer active', diagnostics['hasPendingTimer'] ? '⏲️  Yes' : 'No'),

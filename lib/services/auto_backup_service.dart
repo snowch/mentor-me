@@ -34,12 +34,14 @@ class AutoBackupService extends ChangeNotifier {
   Timer? _debounceTimer;
   bool _isBackingUp = false;
   bool _isScheduled = false;
+  bool _lastBackupFellBack = false;
 
   static const _debounceDelay = Duration(seconds: 30);
   static const _maxAutoBackups = 7; // Keep last week of auto-backups
 
   // Public getters for UI
   bool get isBackingUp => _isBackingUp;
+  bool get lastBackupFellBack => _lastBackupFellBack;
   bool get isScheduled => _isScheduled;
 
   // Test helpers - only use in tests to simulate state changes
@@ -166,17 +168,21 @@ class AutoBackupService extends ChangeNotifier {
     final autoBackupDir = await location.getDirectory();
 
     if (autoBackupDir == null) {
-      await _debug.error(
+      await _debug.warning(
         'AutoBackupService',
-        'Failed to get backup directory for location: ${location.name}. SAF may not be configured.',
-        metadata: {'location': location.name},
+        'External folder not accessible. SAF permissions may need to be re-granted. Falling back to internal storage.',
+        metadata: {'requestedLocation': location.name, 'actualLocation': 'internal'},
       );
-      // Fallback to internal storage
+      // Fallback to internal storage - but this means the backup won't be where user expects!
       final fallbackDir = await getApplicationDocumentsDirectory();
       final internalDir = Directory('${fallbackDir.path}/auto_backups');
       await _performBackupToDirectory(internalDir, location);
+      // Mark that we fell back so UI can show warning
+      _lastBackupFellBack = true;
+      notifyListeners();
       return;
     }
+    _lastBackupFellBack = false;
 
     await _performBackupToDirectory(autoBackupDir, location);
   }
@@ -513,6 +519,7 @@ class AutoBackupService extends ChangeNotifier {
           ? DateTime.now().difference(lastBackupTime).inMinutes
           : null,
       'hasPendingTimer': _debounceTimer != null && _debounceTimer!.isActive,
+      'lastBackupFellBack': _lastBackupFellBack,
     };
   }
 
