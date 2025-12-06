@@ -206,6 +206,64 @@ class SAFService {
     }
   }
 
+  /// Test write access by creating, reading, and deleting a temp file
+  /// Returns true if all operations succeed, indicating the folder is writable
+  /// This is more thorough than validateFolderPermissions as it tests actual I/O
+  Future<bool> testWriteAccess() async {
+    if (kIsWeb) return false;
+
+    final uri = await getSavedFolderUri();
+    if (uri == null || uri.isEmpty) {
+      await _debug.warning('SAFService', 'Cannot test write access: no folder URI');
+      return false;
+    }
+
+    final testFileName = '.mentorme_write_test_${DateTime.now().millisecondsSinceEpoch}.tmp';
+    final testContent = 'MentorMe write test ${DateTime.now().toIso8601String()}';
+
+    try {
+      await _debug.info('SAFService', 'Testing write access with temp file', metadata: {
+        'testFile': testFileName,
+      });
+
+      // 1. Write test file
+      final fileUri = await writeFile(uri, testFileName, testContent);
+      if (fileUri == null) {
+        await _debug.warning('SAFService', 'Write test failed: could not create file');
+        return false;
+      }
+
+      // 2. Read it back to verify
+      final readContent = await readFile(fileUri);
+      if (readContent != testContent) {
+        await _debug.warning('SAFService', 'Write test failed: content mismatch', metadata: {
+          'expected': testContent,
+          'actual': readContent,
+        });
+        // Try to clean up
+        await deleteFile(fileUri);
+        return false;
+      }
+
+      // 3. Delete the test file
+      final deleted = await deleteFile(fileUri);
+      if (!deleted) {
+        await _debug.warning('SAFService', 'Write test: file created but could not delete test file');
+        // Still return true - write worked, delete is not critical
+      }
+
+      await _debug.info('SAFService', 'Write access test PASSED');
+      return true;
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'SAFService',
+        'Write access test failed: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      return false;
+    }
+  }
+
   /// Validate that the saved SAF folder URI still has valid permissions
   /// Returns true if permissions are valid, false if expired/invalid
   /// This is important after fresh install when URI may be restored from backup
