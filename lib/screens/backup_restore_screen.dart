@@ -573,11 +573,35 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Auto-Backup',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                      Row(
+                        children: [
+                          Text(
+                            'Auto-Backup',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          if (_autoBackupEnabled) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _backupLocation == BackupLocation.downloads
+                                    ? Colors.blue.shade50
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _backupLocation == BackupLocation.downloads ? 'External' : 'Internal',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: _backupLocation == BackupLocation.downloads
+                                          ? Colors.blue.shade700
+                                          : Colors.grey.shade700,
+                                    ),
+                              ),
                             ),
+                          ],
+                        ],
                       ),
                       if (_lastAutoBackupTime != null)
                         Text(
