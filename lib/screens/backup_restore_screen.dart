@@ -616,12 +616,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             // Header with toggle
             Row(
               children: [
-                Icon(
-                  Icons.sync,
-                  color: _autoBackupEnabled ? Colors.green : Theme.of(context).colorScheme.outline,
-                  size: 20,
-                ),
-                AppSpacing.gapHorizontalSm,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -681,16 +675,6 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                                             : Colors.orange.shade700,
                                       ),
                                 ),
-                                Icon(
-                                  (_externalFolderName?.isNotEmpty == true)
-                                      ? Icons.folder
-                                      : Icons.warning_amber,
-                                  size: 14,
-                                  color: (_externalFolderName?.isNotEmpty == true)
-                                      ? Colors.blue.shade600
-                                      : Colors.orange.shade700,
-                                ),
-                                const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     (_externalFolderName?.isNotEmpty == true)
@@ -710,9 +694,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                                 ),
                                 const SizedBox(width: 4),
                                 Icon(
-                                  (_externalFolderName?.isNotEmpty == true)
-                                      ? Icons.edit
-                                      : Icons.folder_open,
+                                  Icons.edit,
                                   size: 12,
                                   color: (_externalFolderName?.isNotEmpty == true)
                                       ? Colors.blue.shade400
@@ -945,6 +927,23 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         }
         return;
       }
+
+      // Test write access immediately to verify permissions work
+      final canWrite = await _safService.testWriteAccess();
+      if (!canWrite) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot write to selected folder. Please try a different folder.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        // Clear the invalid folder selection
+        await _safService.clearFolderUri();
+        return;
+      }
     }
 
     // Save the new location to settings
@@ -956,6 +955,11 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
     String? folderName;
     if (newLocation == BackupLocation.downloads) {
       folderName = await _safService.getFolderDisplayName();
+    }
+
+    // Clear any reauthorization flag since we just verified access works
+    if (newLocation == BackupLocation.downloads) {
+      await _autoBackupService.clearFolderReauthorization();
     }
 
     setState(() {
@@ -990,7 +994,24 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       return;
     }
 
-    // Clear the reauthorization flag since user has re-selected a folder
+    // Test write access immediately to verify permissions work
+    final canWrite = await _safService.testWriteAccess();
+    if (!canWrite) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot write to selected folder. Please try a different folder.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      // Clear the invalid folder selection
+      await _safService.clearFolderUri();
+      return;
+    }
+
+    // Clear the reauthorization flag since user has re-selected a folder and it works
     await _autoBackupService.clearFolderReauthorization();
 
     // Get the new folder display name

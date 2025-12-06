@@ -262,28 +262,83 @@ class ContextManagementService {
         if (nutritionGoal.targetProteinGrams != null) {
           foodSection.writeln('Macros target: ${nutritionGoal.targetProteinGrams}g protein, ${nutritionGoal.targetCarbsGrams ?? 0}g carbs, ${nutritionGoal.targetFatGrams ?? 0}g fat');
         }
+        // Include detailed nutrition targets if set
+        if (nutritionGoal.hasFatBreakdownTargets) {
+          final fatParts = <String>[];
+          if (nutritionGoal.maxSaturatedFatGrams != null) fatParts.add('max ${nutritionGoal.maxSaturatedFatGrams}g saturated');
+          if (nutritionGoal.maxTransFatGrams != null) fatParts.add('max ${nutritionGoal.maxTransFatGrams}g trans');
+          if (nutritionGoal.minUnsaturatedFatGrams != null) fatParts.add('min ${nutritionGoal.minUnsaturatedFatGrams}g unsaturated');
+          if (fatParts.isNotEmpty) foodSection.writeln('Fat targets: ${fatParts.join(', ')}');
+        }
+        if (nutritionGoal.hasMicronutrientTargets) {
+          final microParts = <String>[];
+          if (nutritionGoal.maxSodiumMg != null) microParts.add('max ${nutritionGoal.maxSodiumMg}mg sodium');
+          if (nutritionGoal.maxSugarGrams != null) microParts.add('max ${nutritionGoal.maxSugarGrams}g sugar');
+          if (nutritionGoal.minFiberGrams != null) microParts.add('min ${nutritionGoal.minFiberGrams}g fiber');
+          if (nutritionGoal.maxCholesterolMg != null) microParts.add('max ${nutritionGoal.maxCholesterolMg}mg cholesterol');
+          if (nutritionGoal.minPotassiumMg != null) microParts.add('min ${nutritionGoal.minPotassiumMg}mg potassium');
+          if (microParts.isNotEmpty) foodSection.writeln('Micronutrient targets: ${microParts.join(', ')}');
+        }
+        if (nutritionGoal.healthConcerns != null && nutritionGoal.healthConcerns!.isNotEmpty) {
+          foodSection.writeln('Health concerns: ${nutritionGoal.healthConcerns}');
+        }
+        if (nutritionGoal.activityLevel != null) {
+          foodSection.writeln('Activity level: ${nutritionGoal.activityLevel}');
+        }
       }
-      // Group today's entries
+      // Group today's entries with detailed nutrition
       final today = DateTime.now();
       final todayStart = DateTime(today.year, today.month, today.day);
       final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
       if (todayEntries.isNotEmpty) {
         int totalCal = 0;
         int totalProtein = 0;
+        int totalCarbs = 0;
+        int totalFat = 0;
+        int totalFiber = 0;
+        int totalSugar = 0;
+        int totalSodium = 0;
+        int totalSaturatedFat = 0;
         for (final entry in todayEntries) {
           if (entry.nutrition != null) {
             totalCal += entry.nutrition!.calories;
             totalProtein += entry.nutrition!.proteinGrams;
+            totalCarbs += entry.nutrition!.carbsGrams;
+            totalFat += entry.nutrition!.fatGrams;
+            totalFiber += entry.nutrition!.fiberGrams ?? 0;
+            totalSugar += entry.nutrition!.sugarGrams ?? 0;
+            totalSodium += entry.nutrition!.sodiumMg ?? 0;
+            totalSaturatedFat += entry.nutrition!.saturatedFatGrams ?? 0;
           }
         }
-        foodSection.writeln('Today so far: $totalCal cal, ${totalProtein}g protein (${todayEntries.length} meals)');
+        foodSection.writeln('Today so far: $totalCal cal, ${totalProtein}g protein, ${totalCarbs}g carbs, ${totalFat}g fat (${todayEntries.length} meals)');
+        // Add detailed breakdown if we have the data
+        if (totalFiber > 0 || totalSugar > 0 || totalSodium > 0 || totalSaturatedFat > 0) {
+          final details = <String>[];
+          if (totalFiber > 0) details.add('${totalFiber}g fiber');
+          if (totalSugar > 0) details.add('${totalSugar}g sugar');
+          if (totalSodium > 0) details.add('${totalSodium}mg sodium');
+          if (totalSaturatedFat > 0) details.add('${totalSaturatedFat}g saturated fat');
+          foodSection.writeln('Details: ${details.join(', ')}');
+        }
       }
-      // Recent food entries
+      // Recent food entries with detailed nutrition
       int foodCount = 0;
       for (final entry in foodEntries.take(10)) {
-        final nutrition = entry.nutrition != null
-            ? ' (${entry.nutrition!.calories} cal, ${entry.nutrition!.proteinGrams}g protein)'
-            : '';
+        final nutritionParts = <String>[];
+        if (entry.nutrition != null) {
+          nutritionParts.add('${entry.nutrition!.calories} cal');
+          nutritionParts.add('${entry.nutrition!.proteinGrams}g P');
+          nutritionParts.add('${entry.nutrition!.carbsGrams}g C');
+          nutritionParts.add('${entry.nutrition!.fatGrams}g F');
+          if (entry.nutrition!.fiberGrams != null && entry.nutrition!.fiberGrams! > 0) {
+            nutritionParts.add('${entry.nutrition!.fiberGrams}g fiber');
+          }
+          if (entry.nutrition!.sugarGrams != null && entry.nutrition!.sugarGrams! > 0) {
+            nutritionParts.add('${entry.nutrition!.sugarGrams}g sugar');
+          }
+        }
+        final nutrition = nutritionParts.isNotEmpty ? ' (${nutritionParts.join(', ')})' : '';
         foodSection.writeln('- ${_formatDate(entry.timestamp)} ${entry.mealType.displayName}: ${entry.description}$nutrition');
         foodCount++;
       }

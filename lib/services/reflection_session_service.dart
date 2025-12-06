@@ -655,12 +655,44 @@ Keep it genuine and warm.''';
           break;
 
         case ActionType.createCheckInTemplate:
+          // Safely convert questions list - LLM may provide in various formats
+          final rawQuestions = proposedAction.parameters['questions'];
+          List<Map<String, dynamic>> questionsList = [];
+          if (rawQuestions is List) {
+            for (final q in rawQuestions) {
+              if (q is Map<String, dynamic>) {
+                questionsList.add(q);
+              } else if (q is Map) {
+                questionsList.add(Map<String, dynamic>.from(q));
+              }
+            }
+          }
+
+          // Safely convert schedule - LLM may provide in various formats
+          final rawSchedule = proposedAction.parameters['schedule'];
+          Map<String, dynamic> scheduleMap;
+          if (rawSchedule is Map<String, dynamic>) {
+            scheduleMap = rawSchedule;
+          } else if (rawSchedule is Map) {
+            scheduleMap = Map<String, dynamic>.from(rawSchedule);
+          } else {
+            // Default schedule if not provided
+            scheduleMap = {
+              'frequency': 'daily',
+              'time': {'hour': 9, 'minute': 0},
+            };
+            await _debug.warning(
+              'ReflectionSessionService',
+              'Invalid schedule format, using default',
+              metadata: {'rawSchedule': rawSchedule?.toString()},
+            );
+          }
+
           result = await _actionService!.createCheckInTemplate(
-            name: proposedAction.parameters['name'] as String,
+            name: proposedAction.parameters['name'] as String? ?? 'Check-In',
             description: proposedAction.parameters['description'] as String?,
-            questions: (proposedAction.parameters['questions'] as List)
-                .cast<Map<String, dynamic>>(),
-            schedule: proposedAction.parameters['schedule'] as Map<String, dynamic>,
+            questions: questionsList,
+            schedule: scheduleMap,
             emoji: proposedAction.parameters['emoji'] as String?,
           );
           break;

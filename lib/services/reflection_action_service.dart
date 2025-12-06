@@ -888,26 +888,94 @@ class ReflectionActionService {
         },
       );
 
-      // Parse questions
-      final parsedQuestions = questions.map((q) {
-        return CheckInQuestion(
+      // Parse questions with robust error handling
+      final parsedQuestions = <CheckInQuestion>[];
+      for (int i = 0; i < questions.length; i++) {
+        final q = questions[i];
+        final questionText = q['text'] as String?;
+        if (questionText == null || questionText.isEmpty) {
+          await _debug.warning(
+            'ReflectionActionService',
+            'Skipping question $i: missing text',
+          );
+          continue;
+        }
+
+        // Parse question type with fallback
+        CheckInQuestionType questionType = CheckInQuestionType.freeform;
+        final typeStr = q['type'] as String?;
+        if (typeStr != null) {
+          try {
+            questionType = CheckInQuestionTypeExtension.fromJson(typeStr);
+          } catch (e) {
+            await _debug.warning(
+              'ReflectionActionService',
+              'Invalid question type "$typeStr", defaulting to freeform',
+            );
+          }
+        }
+
+        parsedQuestions.add(CheckInQuestion(
           id: _uuid.v4(),
-          text: q['text'] as String,
-          questionType: CheckInQuestionTypeExtension.fromJson(q['type'] as String),
+          text: questionText,
+          questionType: questionType,
           options: q['options'] != null ? List<String>.from(q['options'] as List) : null,
           isRequired: q['isRequired'] as bool? ?? true,
-        );
-      }).toList();
+        ));
+      }
 
-      // Parse schedule
-      final timeMap = schedule['time'] as Map<String, dynamic>;
+      if (parsedQuestions.isEmpty) {
+        return ActionResult.failure('No valid questions found in template');
+      }
+
+      // Parse schedule with robust handling of various LLM output formats
+      final frequencyStr = schedule['frequency'] as String? ?? 'daily';
+      final frequency = TemplateFrequencyExtension.fromJson(frequencyStr);
+
+      // Parse time - handle various formats the LLM might provide
+      TimeOfDay time;
+      final timeValue = schedule['time'];
+      if (timeValue is Map<String, dynamic>) {
+        // Expected format: {"hour": 9, "minute": 0}
+        final hour = (timeValue['hour'] as num?)?.toInt() ?? 9;
+        final minute = (timeValue['minute'] as num?)?.toInt() ?? 0;
+        time = TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+      } else if (timeValue is String) {
+        // Handle string format like "09:00" or "9:00 AM"
+        time = _parseTimeString(timeValue) ?? const TimeOfDay(hour: 9, minute: 0);
+      } else if (timeValue is int) {
+        // Handle simple hour like 9 for 9:00 AM
+        time = TimeOfDay(hour: timeValue.clamp(0, 23), minute: 0);
+      } else {
+        // Default to 9:00 AM
+        await _debug.warning(
+          'ReflectionActionService',
+          'Invalid time format, defaulting to 9:00 AM',
+          metadata: {'timeValue': timeValue?.toString()},
+        );
+        time = const TimeOfDay(hour: 9, minute: 0);
+      }
+
+      // Parse daysOfWeek
+      List<int>? daysOfWeek;
+      if (schedule['daysOfWeek'] != null) {
+        try {
+          daysOfWeek = List<int>.from(
+            (schedule['daysOfWeek'] as List).map((e) => (e as num).toInt()),
+          );
+        } catch (e) {
+          await _debug.warning(
+            'ReflectionActionService',
+            'Failed to parse daysOfWeek: $e',
+          );
+        }
+      }
+
       final parsedSchedule = TemplateSchedule(
-        frequency: TemplateFrequencyExtension.fromJson(schedule['frequency'] as String),
-        time: TimeOfDay(hour: timeMap['hour'] as int, minute: timeMap['minute'] as int),
-        daysOfWeek: schedule['daysOfWeek'] != null
-            ? List<int>.from(schedule['daysOfWeek'] as List)
-            : null,
-        customDayInterval: schedule['customDayInterval'] as int?,
+        frequency: frequency,
+        time: time,
+        daysOfWeek: daysOfWeek,
+        customDayInterval: (schedule['customDayInterval'] as num?)?.toInt(),
       );
 
       final template = CheckInTemplate(
@@ -929,7 +997,7 @@ class ReflectionActionService {
       await _debug.info(
         'ReflectionActionService',
         'Created check-in template: $name',
-        metadata: {'templateId': template.id},
+        metadata: {'templateId': template.id, 'questionCount': parsedQuestions.length},
       );
 
       return ActionResult.success(
@@ -941,11 +1009,46 @@ class ReflectionActionService {
       await _debug.error(
         'ReflectionActionService',
         'Failed to create check-in template',
-        metadata: {'error': e.toString()},
+        metadata: {
+          'error': e.toString(),
+          'name': name,
+          'schedule': schedule.toString(),
+        },
         stackTrace: stackTrace.toString(),
       );
       return ActionResult.failure('Failed to create check-in template: $e');
     }
+  }
+
+  /// Parse time string in various formats
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      // Try "HH:MM" format
+      final colonMatch = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(timeStr);
+      if (colonMatch != null) {
+        var hour = int.parse(colonMatch.group(1)!);
+        final minute = int.parse(colonMatch.group(2)!);
+
+        // Handle AM/PM
+        final lowerTime = timeStr.toLowerCase();
+        if (lowerTime.contains('pm') && hour < 12) {
+          hour += 12;
+        } else if (lowerTime.contains('am') && hour == 12) {
+          hour = 0;
+        }
+
+        return TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+      }
+
+      // Try parsing as just an hour
+      final hourOnly = int.tryParse(timeStr.replaceAll(RegExp(r'[^\d]'), ''));
+      if (hourOnly != null) {
+        return TimeOfDay(hour: hourOnly.clamp(0, 23), minute: 0);
+      }
+    } catch (e) {
+      // Fall through to return null
+    }
+    return null;
   }
 
   /// Schedule a check-in reminder
