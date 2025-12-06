@@ -48,7 +48,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
   }
 
   /// Format weight value for display based on unit
-  /// For stone: weight is stored as total pounds when stones/pounds fields are set
+  /// For stone: weight is stored as decimal stones (e.g., 17.5 = 17 st 7 lbs)
   String _formatWeight(double weight, WeightUnit unit, {WeightEntry? entry}) {
     if (unit == WeightUnit.stone) {
       // Use exact integers from entry if available
@@ -60,8 +60,9 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
         }
         return '$st st $lbs lbs';
       }
-      // Fall back to calculation (for goal display, etc.)
-      final totalLbs = weight.round();
+      // Fall back to calculation from decimal stone value
+      // weight is in decimal stones (e.g., 17.214 = 17 st 3 lbs)
+      final totalLbs = (weight * 14).round();  // Convert decimal stones to total pounds
       final stones = totalLbs ~/ 14;
       final remainingLbs = totalLbs % 14;
       if (remainingLbs == 0) {
@@ -1466,6 +1467,7 @@ class _WeightHistoryScreen extends StatelessWidget {
   const _WeightHistoryScreen({required this.provider});
 
   /// Format weight value for display based on unit
+  /// For stone: weight is stored as decimal stones (e.g., 17.5 = 17 st 7 lbs)
   String _formatWeight(double weight, WeightUnit unit, {WeightEntry? entry}) {
     if (unit == WeightUnit.stone) {
       // Use exact integers from entry if available
@@ -1477,8 +1479,9 @@ class _WeightHistoryScreen extends StatelessWidget {
         }
         return '$st st $lbs lbs';
       }
-      // Fall back to calculation
-      final totalLbs = weight.round();
+      // Fall back to calculation from decimal stone value
+      // weight is in decimal stones (e.g., 17.214 = 17 st 3 lbs)
+      final totalLbs = (weight * 14).round();  // Convert decimal stones to total pounds
       final stones = totalLbs ~/ 14;
       final remainingLbs = totalLbs % 14;
       if (remainingLbs == 0) {
