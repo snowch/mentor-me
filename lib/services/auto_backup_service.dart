@@ -35,6 +35,7 @@ class AutoBackupService extends ChangeNotifier {
   bool _isScheduled = false;
   bool _lastBackupFellBack = false;
   bool _needsFolderReauthorization = false;
+  String? _lastBackupError; // Error message from last failed backup
 
   static const _debounceDelay = Duration(seconds: 30);
   static const _maxAutoBackups = 7; // Keep last week of auto-backups
@@ -44,6 +45,16 @@ class AutoBackupService extends ChangeNotifier {
   bool get lastBackupFellBack => _lastBackupFellBack;
   bool get isScheduled => _isScheduled;
   bool get needsFolderReauthorization => _needsFolderReauthorization;
+
+  /// Returns the last backup error message, or null if last backup succeeded.
+  /// UI should call [clearLastBackupError] after displaying the error.
+  String? get lastBackupError => _lastBackupError;
+
+  /// Clear the last backup error after it has been shown to the user
+  void clearLastBackupError() {
+    _lastBackupError = null;
+    // Don't notify - this is just cleanup after UI has already shown the error
+  }
 
   // Test helpers - only use in tests to simulate state changes
   @visibleForTesting
@@ -123,12 +134,18 @@ class AutoBackupService extends ChangeNotifier {
       } else {
         await _performLocalBackup(settings);
       }
+
+      // Success - clear any previous error
+      _lastBackupError = null;
     } catch (e, stackTrace) {
       await _debug.error(
         'AutoBackupService',
         'Auto-backup failed: ${e.toString()}',
         stackTrace: stackTrace.toString(),
       );
+
+      // Set error for UI to display
+      _lastBackupError = 'Auto-backup failed: ${e.toString()}';
     } finally {
       _isBackingUp = false;
       notifyListeners();

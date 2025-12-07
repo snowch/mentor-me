@@ -401,6 +401,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 value: AutoBackupService(),
                 child: Consumer<AutoBackupService>(
                   builder: (context, autoBackup, child) {
+                    // Show error toast if backup failed
+                    if (autoBackup.lastBackupError != null) {
+                      // Schedule toast after build completes
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.white),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      autoBackup.lastBackupError!,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 5),
+                              action: SnackBarAction(
+                                label: 'Settings',
+                                textColor: Colors.white,
+                                onPressed: () {
+                                  Navigator.pushNamed(context, '/backup-restore');
+                                },
+                              ),
+                            ),
+                          );
+                          autoBackup.clearLastBackupError();
+                        }
+                      });
+                    }
+
                     if (autoBackup.isBackingUp) {
                       return Tooltip(
                         message: 'Auto-backup in progress...',
