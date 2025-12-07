@@ -2155,6 +2155,9 @@ class _QuickLogBottomSheetState extends State<_QuickLogBottomSheet> {
   double? _distance;
   int? _level;
   bool _isSaving = false;
+  bool _isEstimatingCalories = false;
+  int? _estimatedCalories;
+  String? _calorieConfidence;
 
   // For preset selection
   Exercise? _selectedPreset;
@@ -2369,7 +2372,96 @@ class _QuickLogBottomSheetState extends State<_QuickLogBottomSheet> {
               ),
               maxLines: 2,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // AI Calorie Estimation
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.local_fire_department,
+                          color: theme.colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Calorie Estimate',
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        const Spacer(),
+                        if (_estimatedCalories != null)
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () => setState(() {
+                              _estimatedCalories = null;
+                              _calorieConfidence = null;
+                            }),
+                            tooltip: 'Clear estimate',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_estimatedCalories != null) ...[
+                      Row(
+                        children: [
+                          Text(
+                            '$_estimatedCalories',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'cal',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                          if (_calorieConfidence != null) ...[
+                            const Spacer(),
+                            Chip(
+                              label: Text(_calorieConfidence!),
+                              labelStyle: theme.textTheme.labelSmall,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ] else ...[
+                      Text(
+                        'Get an AI-powered estimate based on activity, duration, and your profile',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _isEstimatingCalories || _nameController.text.trim().isEmpty
+                            ? null
+                            : _estimateCalories,
+                        icon: _isEstimatingCalories
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_awesome, size: 18),
+                        label: Text(_isEstimatingCalories ? 'Estimating...' : 'Estimate Calories'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Save button
             FilledButton.icon(
@@ -2388,6 +2480,82 @@ class _QuickLogBottomSheetState extends State<_QuickLogBottomSheet> {
         ),
       ),
     );
+  }
+
+  Future<void> _estimateCalories() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an activity name first')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isEstimatingCalories = true;
+    });
+
+    try {
+      // Get user profile data for more accurate estimation
+      double? userWeightKg;
+      double? userHeightCm;
+      int? userAge;
+      String? userGender;
+      try {
+        final weightProvider = context.read<WeightProvider>();
+        userWeightKg = weightProvider.latestEntry?.weightInKg;
+        userHeightCm = weightProvider.height;
+        userAge = weightProvider.age;
+        userGender = weightProvider.gender;
+      } catch (_) {
+        // Provider not available
+      }
+
+      // Build exercise data for AI
+      final exerciseData = <Map<String, dynamic>>[
+        {
+          'name': name,
+          'type': _exerciseType.name,
+          'duration_minutes': _durationMinutes,
+          'distance_km': _distance,
+          'intensity_level': _level,
+        },
+      ];
+
+      final estimate = await AIService().estimateExerciseCalories(
+        exercises: exerciseData,
+        durationMinutes: _durationMinutes,
+        userWeightKg: userWeightKg,
+        userHeightCm: userHeightCm,
+        userAge: userAge,
+        userGender: userGender,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isEstimatingCalories = false;
+          if (estimate != null) {
+            _estimatedCalories = estimate.calories;
+            _calorieConfidence = estimate.confidence;
+          }
+        });
+
+        if (estimate == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not estimate calories. Check AI settings.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isEstimatingCalories = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _saveQuickLog(ExerciseProvider provider) async {
@@ -2413,13 +2581,15 @@ class _QuickLogBottomSheetState extends State<_QuickLogBottomSheet> {
         notes: _notesController.text.trim().isNotEmpty
             ? _notesController.text.trim()
             : null,
+        caloriesBurned: _estimatedCalories,
       );
 
       if (mounted) {
         Navigator.pop(context);
+        final calText = _estimatedCalories != null ? ' • $_estimatedCalories cal' : '';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Logged: $name (${_durationMinutes}m)'),
+            content: Text('Logged: $name (${_durationMinutes}m$calText)'),
             action: SnackBarAction(
               label: 'View History',
               onPressed: () {

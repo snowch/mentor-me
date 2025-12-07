@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/weight_provider.dart';
+import '../services/ai_service.dart';
 
 /// Screen to view workout history and performance
 class WorkoutHistoryScreen extends StatefulWidget {
@@ -531,21 +533,27 @@ class WorkoutDetailScreen extends StatefulWidget {
 class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   late WorkoutLog _log;
   late TextEditingController _notesController;
+  late TextEditingController _caloriesController;
   late int _rating;
+  int? _calories;
   bool _isEditing = false;
   bool _hasChanges = false;
+  bool _isEstimatingCalories = false;
 
   @override
   void initState() {
     super.initState();
     _log = widget.workoutLog;
     _notesController = TextEditingController(text: _log.notes ?? '');
+    _calories = _log.caloriesBurned;
+    _caloriesController = TextEditingController(text: _calories?.toString() ?? '');
     _rating = _log.rating ?? 3;
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _caloriesController.dispose();
     super.dispose();
   }
 
@@ -662,6 +670,86 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                           ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Calories Section
+            Text(
+              'Calories Burned',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_isEditing) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _caloriesController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Calories',
+                                suffixText: 'cal',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  _calories = int.tryParse(value);
+                                  _hasChanges = true;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          OutlinedButton.icon(
+                            onPressed: _isEstimatingCalories ? null : _estimateCaloriesWithAI,
+                            icon: _isEstimatingCalories
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.auto_awesome, size: 18),
+                            label: Text(_isEstimatingCalories ? 'Wait...' : 'AI Estimate'),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.local_fire_department,
+                            color: _calories != null ? Colors.orange : Colors.grey,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _calories != null ? '$_calories cal' : 'Not recorded',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: _calories != null ? Colors.orange : Colors.grey,
+                                  fontStyle: _calories == null ? FontStyle.italic : null,
+                                ),
+                          ),
+                          const Spacer(),
+                          if (_calories == null)
+                            TextButton.icon(
+                              onPressed: () => setState(() => _isEditing = true),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add'),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -887,6 +975,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     final updatedLog = _log.copyWith(
       notes: _notesController.text.isNotEmpty ? _notesController.text : null,
       rating: _rating,
+      caloriesBurned: _calories,
     );
     await provider.updateWorkoutLog(updatedLog);
     setState(() {
@@ -898,6 +987,93 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Workout updated')),
       );
+    }
+  }
+
+  Future<void> _estimateCaloriesWithAI() async {
+    setState(() {
+      _isEstimatingCalories = true;
+    });
+
+    try {
+      // Get user profile data for more accurate estimation
+      double? userWeightKg;
+      double? userHeightCm;
+      int? userAge;
+      String? userGender;
+      try {
+        final weightProvider = context.read<WeightProvider>();
+        userWeightKg = weightProvider.latestEntry?.weightInKg;
+        userHeightCm = weightProvider.height;
+        userAge = weightProvider.age;
+        userGender = weightProvider.gender;
+      } catch (_) {
+        // Provider not available
+      }
+
+      // Build exercise data for AI
+      final exercises = _log.exercises.map((e) {
+        final totalSets = e.completedSets.length;
+        final totalReps = e.completedSets.fold(0, (sum, set) => sum + set.reps);
+        final avgWeight = e.completedSets.isNotEmpty
+            ? e.completedSets
+                .where((s) => s.weight != null)
+                .map((s) => s.weight!)
+                .fold(0.0, (sum, w) => sum + w) /
+                e.completedSets.where((s) => s.weight != null).length
+            : null;
+        final totalDuration = e.completedSets.fold<Duration>(
+          Duration.zero,
+          (sum, set) => sum + (set.duration ?? Duration.zero),
+        );
+
+        return {
+          'name': e.name,
+          'sets': totalSets,
+          'reps': totalReps,
+          'weight': avgWeight?.isNaN == true ? null : avgWeight,
+          'duration_minutes': totalDuration.inMinutes > 0 ? totalDuration.inMinutes : null,
+        };
+      }).toList();
+
+      final durationMinutes = _log.duration?.inMinutes ?? 30;
+
+      final estimate = await AIService().estimateExerciseCalories(
+        exercises: exercises,
+        durationMinutes: durationMinutes,
+        totalSets: _log.totalSetsCompleted,
+        totalReps: _log.totalRepsCompleted,
+        userWeightKg: userWeightKg,
+        userHeightCm: userHeightCm,
+        userAge: userAge,
+        userGender: userGender,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isEstimatingCalories = false;
+          if (estimate != null) {
+            _calories = estimate.calories;
+            _caloriesController.text = estimate.calories.toString();
+            _hasChanges = true;
+          }
+        });
+
+        if (estimate == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not estimate calories. Check AI settings.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isEstimatingCalories = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
