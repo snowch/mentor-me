@@ -56,6 +56,7 @@ class StorageService {
   static const String _personalValuesKey = 'personal_values';
   static const String _implementationIntentionsKey = 'implementation_intentions';
   static const String _meditationSessionsKey = 'meditation_sessions';
+  static const String _meditationSettingsKey = 'meditation_settings';
   static const String _urgeSurfingSessionsKey = 'urge_surfing_sessions';
   static const String _hydrationEntriesKey = 'hydration_entries';
   static const String _hydrationGoalKey = 'hydration_goal';
@@ -1481,6 +1482,18 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(_meditationSessionsKey);
     return data != null ? json.decode(data) : null;
+  }
+
+  // Meditation Settings
+  Future<void> saveMeditationSettings(Map<String, dynamic> settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_meditationSettingsKey, json.encode(settings));
+  }
+
+  Future<Map<String, dynamic>?> getMeditationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString(_meditationSettingsKey);
+    return data != null ? json.decode(data) as Map<String, dynamic> : null;
   }
 
   // Urge Surfing Sessions

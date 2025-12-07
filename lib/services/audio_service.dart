@@ -1,5 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'debug_service.dart';
+import '../models/meditation_settings.dart';
 
 /// Service for playing meditation sounds (chimes, bells).
 ///
@@ -14,6 +15,9 @@ class AudioService {
   AudioPlayer? _player;
   bool _isInitialized = false;
   bool _audioAvailable = true;
+
+  /// Delay between bells in a triple bell sequence (milliseconds)
+  static const int _tripleBellDelay = 800;
 
   /// Initialize the audio service
   Future<void> initialize() async {
@@ -73,7 +77,38 @@ class AudioService {
   Future<void> playEndChime() async {
     // Play twice for end (common meditation convention)
     await playChime();
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: _tripleBellDelay));
+    await playChime();
+  }
+
+  /// Play a single bell
+  Future<void> playSingleBell() async {
+    await playChime();
+  }
+
+  /// Play three bells with pauses between
+  Future<void> playTripleBell() async {
+    await playChime();
+    await Future.delayed(const Duration(milliseconds: _tripleBellDelay));
+    await playChime();
+    await Future.delayed(const Duration(milliseconds: _tripleBellDelay));
+    await playChime();
+  }
+
+  /// Play bell based on BellType setting
+  Future<void> playBell(BellType bellType) async {
+    switch (bellType) {
+      case BellType.single:
+        await playSingleBell();
+        break;
+      case BellType.triple:
+        await playTripleBell();
+        break;
+    }
+  }
+
+  /// Play an interval bell (single chime during meditation)
+  Future<void> playIntervalBell() async {
     await playChime();
   }
 

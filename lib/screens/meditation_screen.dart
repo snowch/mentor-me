@@ -5,8 +5,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/meditation_provider.dart';
 import '../models/meditation.dart';
+import '../models/meditation_settings.dart';
 import '../services/audio_service.dart';
 import '../theme/app_spacing.dart';
 
@@ -34,6 +36,11 @@ class _MeditationScreenState extends State<MeditationScreen> {
         title: const Text('Mindfulness & Meditation'),
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Session settings',
+            onPressed: () => _showSettingsDialog(context),
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: _showInfoDialog,
@@ -340,6 +347,13 @@ class _MeditationScreenState extends State<MeditationScreen> {
     );
   }
 
+  void _showSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => const _MeditationSettingsDialog(),
+    );
+  }
+
   void _showInfoDialog() {
     showDialog(
       context: context,
@@ -468,11 +482,23 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
   int _currentInstructionIndex = 0;
   final AudioService _audioService = AudioService();
   final TextEditingController _reflectionController = TextEditingController();
+  late MeditationSettings _settings;
+  int _lastIntervalBellSeconds = 0;
 
   @override
   void initState() {
     super.initState();
-    _selectedDuration = widget.type.defaultDurationSeconds;
+    _settings = context.read<MeditationProvider>().settings;
+
+    // Use settings default duration (in minutes) converted to seconds,
+    // but respect the meditation type's default if it's shorter
+    final settingsDurationSeconds = _settings.defaultDurationMinutes * 60;
+    final typeDurationSeconds = widget.type.defaultDurationSeconds;
+
+    // Use the shorter of the two as default (user can adjust)
+    _selectedDuration = settingsDurationSeconds < typeDurationSeconds
+        ? settingsDurationSeconds
+        : typeDurationSeconds;
     _remainingSeconds = _selectedDuration;
     _audioService.initialize();
   }
@@ -481,24 +507,33 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
   void dispose() {
     _timer?.cancel();
     _reflectionController.dispose();
+    // Ensure wakelock is disabled when leaving
+    WakelockPlus.disable();
     super.dispose();
   }
 
   void _startSession() {
-    if (_moodBefore == null) {
+    // Only check mood if quick start is disabled
+    if (!_settings.quickStartEnabled && _moodBefore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please rate your current mood first')),
       );
       return;
     }
 
-    // Play start chime
-    _audioService.playStartChime();
+    // Enable wakelock if setting is enabled
+    if (_settings.keepScreenOn) {
+      WakelockPlus.enable();
+    }
+
+    // Play start bell based on settings
+    _audioService.playBell(_settings.startingBell);
 
     setState(() {
       _isInSession = true;
       _remainingSeconds = _selectedDuration;
       _elapsedSeconds = 0;
+      _lastIntervalBellSeconds = 0;
     });
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -507,6 +542,9 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
           _remainingSeconds--;
           _elapsedSeconds++;
 
+          // Check for interval bell
+          _checkIntervalBell();
+
           // Update instruction index based on time
           _updateInstructionIndex();
         });
@@ -514,6 +552,22 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
         _completeSession();
       }
     });
+  }
+
+  void _checkIntervalBell() {
+    if (!_settings.intervalBellsEnabled) return;
+
+    final intervalSeconds = _settings.intervalMinutes * 60;
+    final elapsedSinceLastBell = _elapsedSeconds - _lastIntervalBellSeconds;
+
+    // Play interval bell when we've reached the interval
+    // But not at the very start or very end
+    if (elapsedSinceLastBell >= intervalSeconds &&
+        _elapsedSeconds > 5 &&
+        _remainingSeconds > 5) {
+      _audioService.playIntervalBell();
+      _lastIntervalBellSeconds = _elapsedSeconds;
+    }
   }
 
   void _updateInstructionIndex() {
@@ -530,8 +584,11 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
   void _completeSession() {
     _timer?.cancel();
 
-    // Play end chime (double bell)
-    _audioService.playEndChime();
+    // Disable wakelock
+    WakelockPlus.disable();
+
+    // Play end bell based on settings
+    _audioService.playBell(_settings.endingBell);
 
     setState(() {
       _isInSession = false;
@@ -541,6 +598,10 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
 
   void _endEarly() {
     _timer?.cancel();
+
+    // Disable wakelock
+    WakelockPlus.disable();
+
     setState(() {
       _isInSession = false;
       _isComplete = true;
@@ -649,16 +710,46 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
           ),
           const SizedBox(height: AppSpacing.xl),
 
-          // Pre-session mood
-          Text(
-            'How are you feeling right now?',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildMoodSelector(_moodBefore, (value) {
-            setState(() => _moodBefore = value);
-          }),
-          const SizedBox(height: AppSpacing.xl),
+          // Pre-session mood (skip if quick start is enabled)
+          if (!_settings.quickStartEnabled) ...[
+            Text(
+              'How are you feeling right now?',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildMoodSelector(_moodBefore, (value) {
+              setState(() => _moodBefore = value);
+            }),
+            const SizedBox(height: AppSpacing.xl),
+          ] else ...[
+            // Show quick start indicator
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.flash_on,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSecondaryContainer,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Quick Start enabled - mood check skipped',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
 
           // Instructions preview
           Text(
@@ -955,6 +1046,298 @@ class _MeditationSessionScreenState extends State<MeditationSessionScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Dialog for configuring meditation session settings
+class _MeditationSettingsDialog extends StatefulWidget {
+  const _MeditationSettingsDialog();
+
+  @override
+  State<_MeditationSettingsDialog> createState() => _MeditationSettingsDialogState();
+}
+
+class _MeditationSettingsDialogState extends State<_MeditationSettingsDialog> {
+  late MeditationSettings _settings;
+  late double _durationSlider;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = context.read<MeditationProvider>().settings;
+    _durationSlider = _settings.defaultDurationMinutes.toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.settings, color: Colors.teal),
+          SizedBox(width: AppSpacing.sm),
+          Text('Session Settings'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Duration slider
+            Text(
+              'Default Duration',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    value: _durationSlider,
+                    min: 1,
+                    max: 60,
+                    divisions: 59,
+                    label: '${_durationSlider.round()} min',
+                    onChanged: (value) {
+                      setState(() {
+                        _durationSlider = value;
+                        _settings = _settings.copyWith(
+                          defaultDurationMinutes: value.round(),
+                        );
+                      });
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 50,
+                  child: Text(
+                    '${_durationSlider.round()} min',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // Starting sound
+            Text(
+              'Starting Sound',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildBellOption(
+                    label: 'Single Bell',
+                    icon: Icons.notifications_outlined,
+                    selected: _settings.startingBell == BellType.single,
+                    onTap: () {
+                      setState(() {
+                        _settings = _settings.copyWith(startingBell: BellType.single);
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _buildBellOption(
+                    label: 'Three Bells',
+                    icon: Icons.notifications_active,
+                    selected: _settings.startingBell == BellType.triple,
+                    onTap: () {
+                      setState(() {
+                        _settings = _settings.copyWith(startingBell: BellType.triple);
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // Ending sound
+            Text(
+              'Ending Sound',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildBellOption(
+                    label: 'Single Bell',
+                    icon: Icons.notifications_outlined,
+                    selected: _settings.endingBell == BellType.single,
+                    onTap: () {
+                      setState(() {
+                        _settings = _settings.copyWith(endingBell: BellType.single);
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _buildBellOption(
+                    label: 'Three Bells',
+                    icon: Icons.notifications_active,
+                    selected: _settings.endingBell == BellType.triple,
+                    onTap: () {
+                      setState(() {
+                        _settings = _settings.copyWith(endingBell: BellType.triple);
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // Interval bells
+            SwitchListTile(
+              title: const Text('Interval Bells'),
+              subtitle: Text(
+                _settings.intervalBellsEnabled
+                    ? 'Bell every ${_settings.intervalMinutes} minutes'
+                    : 'No bells during session',
+              ),
+              value: _settings.intervalBellsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _settings = _settings.copyWith(intervalBellsEnabled: value);
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+            ),
+
+            // Interval duration (if enabled)
+            if (_settings.intervalBellsEnabled) ...[
+              Row(
+                children: [
+                  const Text('Every '),
+                  DropdownButton<int>(
+                    value: _settings.intervalMinutes,
+                    items: [1, 2, 3, 5, 10, 15].map((minutes) {
+                      return DropdownMenuItem(
+                        value: minutes,
+                        child: Text('$minutes'),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _settings = _settings.copyWith(intervalMinutes: value);
+                        });
+                      }
+                    },
+                  ),
+                  const Text(' minutes'),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+
+            const Divider(),
+
+            // Quick start toggle
+            SwitchListTile(
+              title: const Text('Quick Start'),
+              subtitle: const Text('Skip mood check before session'),
+              value: _settings.quickStartEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _settings = _settings.copyWith(quickStartEnabled: value);
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+            ),
+
+            // Keep screen on toggle
+            SwitchListTile(
+              title: const Text('Keep Screen On'),
+              subtitle: const Text('Prevent screen from turning off'),
+              value: _settings.keepScreenOn,
+              onChanged: (value) {
+                setState(() {
+                  _settings = _settings.copyWith(keepScreenOn: value);
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            context.read<MeditationProvider>().updateSettings(_settings);
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Settings saved')),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBellOption({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: selected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline,
+            width: selected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+          color: selected
+              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
+              : null,
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

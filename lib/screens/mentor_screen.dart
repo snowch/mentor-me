@@ -620,81 +620,25 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
     final settings = context.watch<SettingsProvider>();
     final layout = settings.dashboardLayout;
 
-    // Build widgets based on dashboard layout
+    // Build widgets based on dashboard layout ORDER (not hardcoded)
     final widgets = <Widget>[];
 
-    // Next check-in info (if visible)
-    if (layout.isWidgetVisible('nextCheckin')) {
-      widgets.add(const NextCheckinCard());
-      widgets.add(AppSpacing.gapLg);
-    }
-
-    // Mentor Coaching Card (always visible - core feature)
-    if (layout.isWidgetVisible('mentorCard')) {
-      widgets.add(_buildMentorCoachingCard(
+    // Iterate through visible widgets in their configured order
+    for (final config in layout.visibleWidgets) {
+      final widget = _buildWidgetById(
+        config.id,
         context,
         goalProvider,
         habitProvider,
         journalProvider,
-      ));
-      widgets.add(AppSpacing.gapLg);
+      );
+      if (widget != null) {
+        widgets.add(widget);
+        widgets.add(AppSpacing.gapLg);
+      }
     }
 
-    // Recent Wins Widget (if visible)
-    if (layout.isWidgetVisible('recentWins')) {
-      widgets.add(const RecentWinsWidget());
-      widgets.add(AppSpacing.gapLg);
-    }
-
-    // Action buttons (if visible)
-    if (layout.isWidgetVisible('actionButtons')) {
-      widgets.add(_buildActionButtons(context));
-      widgets.add(AppSpacing.gapLg);
-    }
-
-    // Quick HALT Widget (if visible)
-    if (layout.isWidgetVisible('quickHalt')) {
-      widgets.add(const QuickHaltWidget());
-      widgets.add(AppSpacing.gapMd);
-    }
-
-    // Hydration Tracking Widget (if visible)
-    if (layout.isWidgetVisible('hydration')) {
-      widgets.add(const HydrationWidget());
-      widgets.add(AppSpacing.gapMd);
-    }
-
-    // Weight Tracking Widget (if visible)
-    if (layout.isWidgetVisible('weight')) {
-      widgets.add(const WeightWidget());
-      widgets.add(AppSpacing.gapMd);
-    }
-
-    // Exercise Tracking Widget (if visible)
-    if (layout.isWidgetVisible('exercise')) {
-      widgets.add(const ExerciseWidget());
-      widgets.add(AppSpacing.gapMd);
-    }
-
-    // Food Log Widget (if visible)
-    if (layout.isWidgetVisible('foodLog')) {
-      widgets.add(const FoodLogWidget());
-      widgets.add(AppSpacing.gapLg);
-    }
-
-    // Glanceable Goals Section (if visible)
-    if (layout.isWidgetVisible('goals')) {
-      widgets.add(_buildGlanceableGoals(context, goalProvider));
-      widgets.add(AppSpacing.gapLg);
-    }
-
-    // Today's Habits Section (if visible)
-    if (layout.isWidgetVisible('habits')) {
-      widgets.add(_buildTodaysHabits(context, habitProvider));
-    }
-
-    // Customize dashboard button
-    widgets.add(AppSpacing.gapLg);
+    // Customize dashboard button (always at bottom)
     widgets.add(_buildCustomizeButton(context));
 
     return ListView(
@@ -706,6 +650,47 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
       ),
       children: widgets,
     );
+  }
+
+  /// Build a widget by its ID
+  Widget? _buildWidgetById(
+    String id,
+    BuildContext context,
+    GoalProvider goalProvider,
+    HabitProvider habitProvider,
+    JournalProvider journalProvider,
+  ) {
+    switch (id) {
+      case 'mentorCard':
+        return _buildMentorCoachingCard(
+          context,
+          goalProvider,
+          habitProvider,
+          journalProvider,
+        );
+      case 'actionButtons':
+        return _buildActionButtons(context);
+      case 'nextCheckin':
+        return const NextCheckinCard();
+      case 'quickHalt':
+        return const QuickHaltWidget();
+      case 'recentWins':
+        return const RecentWinsWidget();
+      case 'hydration':
+        return const HydrationWidget();
+      case 'weight':
+        return const WeightWidget();
+      case 'exercise':
+        return const ExerciseWidget();
+      case 'foodLog':
+        return const FoodLogWidget();
+      case 'goals':
+        return _buildGlanceableGoals(context, goalProvider);
+      case 'habits':
+        return _buildTodaysHabits(context, habitProvider);
+      default:
+        return null;
+    }
   }
 
   /// Build action buttons (Chat and Deep Reflection)

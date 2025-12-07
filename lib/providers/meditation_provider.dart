@@ -1,19 +1,23 @@
 import 'package:flutter/foundation.dart';
 import '../models/meditation.dart';
+import '../models/meditation_settings.dart';
 import '../services/storage_service.dart';
 import '../services/debug_service.dart';
 
-/// Provider for managing meditation sessions
+/// Provider for managing meditation sessions and settings
 ///
-/// Tracks meditation practice history and calculates statistics
+/// Tracks meditation practice history, calculates statistics,
+/// and manages user preferences for meditation sessions.
 class MeditationProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
   final DebugService _debug = DebugService();
 
   List<MeditationSession> _sessions = [];
+  MeditationSettings _settings = const MeditationSettings();
   bool _isLoading = false;
 
   List<MeditationSession> get sessions => List.unmodifiable(_sessions);
+  MeditationSettings get settings => _settings;
   bool get isLoading => _isLoading;
 
   /// Get sessions sorted by date (most recent first)
@@ -132,12 +136,13 @@ class MeditationProvider extends ChangeNotifier {
     }
   }
 
-  /// Load sessions from storage
+  /// Load sessions and settings from storage
   Future<void> loadSessions() async {
     try {
       _isLoading = true;
       notifyListeners();
 
+      // Load sessions
       final data = await _storage.getMeditationSessions();
       if (data != null) {
         _sessions = data
@@ -145,9 +150,15 @@ class MeditationProvider extends ChangeNotifier {
             .toList();
       }
 
+      // Load settings
+      final settingsData = await _storage.getMeditationSettings();
+      if (settingsData != null) {
+        _settings = MeditationSettings.fromJson(settingsData);
+      }
+
       await _debug.info(
         'MeditationProvider',
-        'Loaded ${_sessions.length} meditation sessions from storage',
+        'Loaded ${_sessions.length} meditation sessions and settings from storage',
       );
 
       _isLoading = false;
@@ -160,6 +171,32 @@ class MeditationProvider extends ChangeNotifier {
       );
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Update meditation settings
+  Future<void> updateSettings(MeditationSettings newSettings) async {
+    try {
+      _settings = newSettings;
+      await _storage.saveMeditationSettings(newSettings.toJson());
+      notifyListeners();
+
+      await _debug.info(
+        'MeditationProvider',
+        'Meditation settings updated',
+        metadata: {
+          'duration': newSettings.defaultDurationMinutes,
+          'quickStart': newSettings.quickStartEnabled,
+          'intervalBells': newSettings.intervalBellsEnabled,
+        },
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'MeditationProvider',
+        'Failed to save meditation settings',
+        stackTrace: stackTrace.toString(),
+      );
+      rethrow;
     }
   }
 
