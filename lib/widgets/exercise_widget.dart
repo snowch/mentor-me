@@ -22,6 +22,7 @@ class ExerciseWidget extends StatelessWidget {
         final recentWorkouts = provider.recentWorkouts;
         final streak = provider.currentStreak;
         final workoutsThisWeek = provider.workoutsThisWeek;
+        final todayCalories = provider.todayCalories;
         final hasPlans = provider.plans.isNotEmpty;
 
         return Card(
@@ -96,10 +97,49 @@ class ExerciseWidget extends StatelessWidget {
                           ],
                         ),
                       ),
+                      // Today's calories
+                      if (todayCalories > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_fire_department,
+                                size: 16,
+                                color: Colors.red.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$todayCalories',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red.shade600,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                'cal',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.red.shade600,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       // Streak
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
+                          horizontal: 10,
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
@@ -112,8 +152,8 @@ class ExerciseWidget extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.local_fire_department,
-                              size: 18,
+                              Icons.whatshot,
+                              size: 16,
                               color: streak > 0
                                   ? Colors.orange.shade600
                                   : Colors.grey,
@@ -121,20 +161,21 @@ class ExerciseWidget extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               '$streak',
-                              style: theme.textTheme.titleMedium?.copyWith(
+                              style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: streak > 0
                                     ? Colors.orange.shade600
                                     : Colors.grey,
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 2),
                             Text(
-                              'day streak',
+                              'day',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: streak > 0
                                     ? Colors.orange.shade600
                                     : Colors.grey,
+                                fontSize: 11,
                               ),
                             ),
                           ],

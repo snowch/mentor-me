@@ -110,21 +110,25 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
   }
 
   /// Generate a hash of the current state to detect changes
-  /// Only includes significant changes (new items, status changes, major progress)
+  /// Only includes active goals/habits (not backlog) and significant changes
   /// to avoid unnecessary regenerations on minor updates
   String _generateStateHash(
     List<Goal> goals,
     List<Habit> habits,
     List<JournalEntry> journals,
   ) {
+    // Filter to only active goals and habits (same filter used in mentor card generation)
+    final activeGoals = goals.where((g) => g.status == GoalStatus.active).toList();
+    final activeHabits = habits.where((h) => h.status == HabitStatus.active).toList();
+
     // Count items and track status changes only (not minor progress updates)
-    final goalHash = '${goals.length}:${goals.map((g) => '${g.id}:${g.status}').join(',')}';
+    final goalHash = '${activeGoals.length}:${activeGoals.map((g) => '${g.id}:${g.status}').join(',')}';
 
     // For habits, only track if completed today (not streak length)
     // This prevents regeneration every day just because streak increased
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
-    final habitHash = '${habits.length}:${habits.map((h) => '${h.id}:${h.status}:${h.completionDates.any((d) => DateTime(d.year, d.month, d.day) == todayDate)}').join(',')}';
+    final habitHash = '${activeHabits.length}:${activeHabits.map((h) => '${h.id}:${h.status}:${h.completionDates.any((d) => DateTime(d.year, d.month, d.day) == todayDate)}').join(',')}';
 
     // For journals, only track count and most recent entry
     final journalHash = '${journals.length}:${journals.isEmpty ? '' : journals.first.id}';
@@ -189,10 +193,17 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
 
         final valuesProvider = context.read<ValuesProvider>();
         final intelligence = MentorIntelligenceService();
+        // Filter to only active goals and habits for mentor coaching
+        final activeGoals = goalProvider.goals
+            .where((g) => g.status == GoalStatus.active)
+            .toList();
+        final activeHabits = habitProvider.habits
+            .where((h) => h.status == HabitStatus.active)
+            .toList();
         intelligence
             .generateMentorCoachingCard(
-          goals: goalProvider.goals,
-          habits: habitProvider.habits,
+          goals: activeGoals,
+          habits: activeHabits,
           journals: journalProvider.entries,
           values: valuesProvider.values,
         )

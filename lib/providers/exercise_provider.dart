@@ -47,6 +47,19 @@ class ExerciseProvider extends ChangeNotifier {
     return _workoutLogs.where((w) => w.startTime.isAfter(startOfDay)).length;
   }
 
+  /// Total calories burned today
+  int get todayCalories {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    int total = 0;
+    for (final log in _workoutLogs) {
+      if (log.startTime.isAfter(todayStart) && log.caloriesBurned != null) {
+        total += log.caloriesBurned!;
+      }
+    }
+    return total;
+  }
+
   /// Total workouts completed
   int get totalWorkouts => _workoutLogs.length;
 
