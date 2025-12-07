@@ -56,6 +56,47 @@ class AutoBackupService extends ChangeNotifier {
     // Don't notify - this is just cleanup after UI has already shown the error
   }
 
+  /// Reauthorize folder access by prompting user to select a folder
+  /// Returns true if folder was selected successfully, false otherwise
+  /// This directly opens the system folder picker
+  Future<bool> reauthorizeFolder() async {
+    try {
+      await _debug.info('AutoBackupService', 'Requesting folder reauthorization');
+
+      final uri = await _safService.requestFolderAccess();
+
+      if (uri != null && uri.isNotEmpty) {
+        // Successfully got folder access
+        _needsFolderReauthorization = false;
+        _lastBackupError = null;
+        _lastBackupFellBack = false;
+
+        // Clear the persistent flag
+        final settings = await _storage.loadSettings();
+        settings['needsFolderReauthorization'] = false;
+        await _storage.saveSettings(settings);
+
+        notifyListeners();
+
+        await _debug.info('AutoBackupService', 'Folder reauthorization successful', metadata: {
+          'uri': uri,
+        });
+
+        return true;
+      } else {
+        await _debug.warning('AutoBackupService', 'Folder reauthorization cancelled or failed');
+        return false;
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AutoBackupService',
+        'Folder reauthorization failed: $e',
+        stackTrace: stackTrace.toString(),
+      );
+      return false;
+    }
+  }
+
   // Test helpers - only use in tests to simulate state changes
   @visibleForTesting
   void setScheduledForTest(bool value) {

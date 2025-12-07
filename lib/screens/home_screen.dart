@@ -404,6 +404,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     // Show error toast if backup failed
                     if (autoBackup.lastBackupError != null) {
                       // Schedule toast after build completes
+                      final needsReauth = autoBackup.needsFolderReauthorization;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -424,10 +425,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               backgroundColor: Colors.red,
                               duration: const Duration(seconds: 5),
                               action: SnackBarAction(
-                                label: 'Settings',
+                                label: needsReauth ? 'Select Folder' : 'Settings',
                                 textColor: Colors.white,
-                                onPressed: () {
-                                  Navigator.pushNamed(context, '/backup-restore');
+                                onPressed: () async {
+                                  if (needsReauth) {
+                                    // Directly open folder picker
+                                    final success = await autoBackup.reauthorizeFolder();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            success
+                                                ? 'Backup folder selected successfully'
+                                                : 'Folder selection cancelled',
+                                          ),
+                                          backgroundColor: success ? Colors.green : Colors.orange,
+                                        ),
+                                      );
+                                    }
+                                  } else {
+                                    Navigator.pushNamed(context, '/backup-restore');
+                                  }
                                 },
                               ),
                             ),
