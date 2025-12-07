@@ -57,6 +57,11 @@ FoodEntry _$FoodEntryFromJson(Map<String, dynamic> json) => FoodEntry(
       energyAfterMeal: (json['energyAfterMeal'] as num?)?.toInt(),
       isManualEntry: json['isManualEntry'] as bool? ?? false,
       imagePath: json['imagePath'] as String?,
+      templateId: json['templateId'] as String?,
+      overriddenFields:
+          (json['overriddenFields'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as bool),
+      ),
     );
 
 Map<String, dynamic> _$FoodEntryToJson(FoodEntry instance) => <String, dynamic>{
@@ -69,6 +74,8 @@ Map<String, dynamic> _$FoodEntryToJson(FoodEntry instance) => <String, dynamic>{
       'energyAfterMeal': instance.energyAfterMeal,
       'isManualEntry': instance.isManualEntry,
       'imagePath': instance.imagePath,
+      'templateId': instance.templateId,
+      'overriddenFields': instance.overriddenFields,
     };
 
 const _$MealTypeEnumMap = {

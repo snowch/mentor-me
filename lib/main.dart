@@ -30,6 +30,7 @@ import 'providers/weight_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/win_provider.dart';
 import 'providers/food_log_provider.dart';
+import 'providers/food_library_provider.dart';
 import 'providers/medication_provider.dart';
 import 'providers/symptom_provider.dart';
 import 'screens/home_screen.dart';
@@ -208,6 +209,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DigitalWellnessProvider()),
         ChangeNotifierProvider(create: (_) => WinProvider()),
         ChangeNotifierProvider(create: (_) => FoodLogProvider()),
+        ChangeNotifierProvider(create: (_) => FoodLibraryProvider()),
         ChangeNotifierProvider(create: (_) => MedicationProvider()),
         ChangeNotifierProvider(create: (_) => SymptomProvider()),
         ChangeNotifierProvider(create: (_) {

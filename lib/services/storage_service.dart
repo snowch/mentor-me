@@ -16,6 +16,7 @@ import '../models/weight_entry.dart';
 import '../models/win.dart';
 import '../models/exercise.dart';
 import '../models/food_entry.dart';
+import '../models/food_template.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
 import 'package:mentor_me/services/migration_service.dart';
@@ -80,6 +81,7 @@ class StorageService {
   // Food logging
   static const String _foodEntriesKey = 'food_entries';
   static const String _nutritionGoalKey = 'nutrition_goal';
+  static const String _foodTemplatesKey = 'food_templates';
 
   // Medication tracking
   static const String _medicationsKey = 'medications';
@@ -152,6 +154,7 @@ class StorageService {
     // Food logging
     'food_entries',
     'nutrition_goal',
+    'food_templates',
 
     // Medication tracking
     'medications',
@@ -683,6 +686,29 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_nutritionGoalKey);
     await _notifyPersistence('nutrition_goal');
+  }
+
+  // Save/Load Food Templates (Food Library)
+  Future<void> saveFoodTemplates(List<FoodTemplate> templates) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = templates.map((t) => t.toJson()).toList();
+    await prefs.setString(_foodTemplatesKey, json.encode(jsonList));
+    await _notifyPersistence('food_templates');
+  }
+
+  Future<List<FoodTemplate>> loadFoodTemplates() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_foodTemplatesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => FoodTemplate.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted food templates data, returning empty list. Error: $e');
+      await prefs.remove(_foodTemplatesKey);
+      return [];
+    }
   }
 
   // ============================================================================

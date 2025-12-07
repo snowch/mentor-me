@@ -177,6 +177,8 @@ class FoodEntry {
   final int? energyAfterMeal; // 1-5 scale, how they felt after eating
   final bool isManualEntry; // True if user manually entered nutrition
   final String? imagePath; // Path to food photo (optional)
+  final String? templateId; // If added from food library, the template ID
+  final Map<String, bool>? overriddenFields; // Which fields were manually overridden
 
   FoodEntry({
     String? id,
@@ -188,8 +190,19 @@ class FoodEntry {
     this.energyAfterMeal,
     this.isManualEntry = false,
     this.imagePath,
+    this.templateId,
+    this.overriddenFields,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
+
+  /// Check if a specific field was manually overridden
+  bool isFieldOverridden(String fieldName) {
+    return overriddenFields?[fieldName] ?? false;
+  }
+
+  /// Check if any nutrition field was overridden
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  bool get hasOverrides => overriddenFields?.values.any((v) => v) ?? false;
 
   /// Auto-generated serialization - ensures all fields are included
   factory FoodEntry.fromJson(Map<String, dynamic> json) => _$FoodEntryFromJson(json);
@@ -205,6 +218,8 @@ class FoodEntry {
     int? energyAfterMeal,
     bool? isManualEntry,
     String? imagePath,
+    String? templateId,
+    Map<String, bool>? overriddenFields,
   }) {
     return FoodEntry(
       id: id ?? this.id,
@@ -216,6 +231,8 @@ class FoodEntry {
       energyAfterMeal: energyAfterMeal ?? this.energyAfterMeal,
       isManualEntry: isManualEntry ?? this.isManualEntry,
       imagePath: imagePath ?? this.imagePath,
+      templateId: templateId ?? this.templateId,
+      overriddenFields: overriddenFields ?? this.overriddenFields,
     );
   }
 
