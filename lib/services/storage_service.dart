@@ -142,6 +142,7 @@ class StorageService {
     'user_height',  // height in backup
     'user_gender',  // gender in backup
     'user_age',     // age in backup
+    'user_name',    // userName in backup
 
     // Exercise tracking
     'custom_exercises',
