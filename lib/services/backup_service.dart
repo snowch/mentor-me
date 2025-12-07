@@ -99,6 +99,7 @@ class BackupService {
     final personalValues = await _storage.getPersonalValues() ?? [];
     final implementationIntentions = await _storage.getImplementationIntentions() ?? [];
     final meditationSessions = await _storage.getMeditationSessions() ?? [];
+    final meditationSettings = await _storage.getMeditationSettings();
     final urgeSurfingSessions = await _storage.getUrgeSurfingSessions() ?? [];
     final hydrationEntries = await _storage.loadHydrationEntries();
     final hydrationGoal = await _storage.loadHydrationGoal();
@@ -192,6 +193,7 @@ class BackupService {
       'personal_values': json.encode(personalValues.map((p) => p.toJson()).toList()),
       'implementation_intentions': json.encode(implementationIntentions.map((i) => i.toJson()).toList()),
       'meditation_sessions': json.encode(meditationSessions),
+      'meditation_settings': meditationSettings != null ? json.encode(meditationSettings) : null,
       'urge_surfing_sessions': json.encode(urgeSurfingSessions),
       'hydration_entries': json.encode(hydrationEntries.map((e) => e.toJson()).toList()),
       'hydration_goal': hydrationGoal,
@@ -1620,6 +1622,38 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Meditation Sessions',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import meditation settings
+    try {
+      if (data.containsKey('meditation_settings') && data['meditation_settings'] != null) {
+        final settingsJson = json.decode(data['meditation_settings'] as String) as Map<String, dynamic>;
+        await _storage.saveMeditationSettings(settingsJson);
+        await _debug.info('BackupService', 'Imported meditation settings');
+        results.add(ImportItemResult(
+          dataType: 'Meditation Settings',
+          success: true,
+          count: 1,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Meditation Settings',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import meditation settings: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Meditation Settings',
         success: false,
         count: 0,
         errorMessage: e.toString(),
