@@ -328,8 +328,8 @@ class AutoBackupService extends ChangeNotifier {
         },
       );
 
-      // Clean up old SAF backups
-      await _rotateSAFBackups(folderUri);
+      // Clean up old SAF backups, excluding the file we just created
+      await _rotateSAFBackups(folderUri, excludeUri: fileUri);
     } catch (e, stackTrace) {
       await _debug.error(
         'AutoBackupService',
@@ -341,27 +341,35 @@ class AutoBackupService extends ChangeNotifier {
   }
 
   /// Delete old SAF backups, keeping only the most recent N
-  Future<void> _rotateSAFBackups(String folderUri) async {
+  /// [excludeUri] - URI of a file to never delete (the just-created backup)
+  Future<void> _rotateSAFBackups(String folderUri, {String? excludeUri}) async {
     try {
       final files = await _safService.listFiles(folderUri);
 
-      // Delete files beyond the limit
+      // Delete files beyond the limit, but never delete the excluded file
       if (files.length > _maxAutoBackups) {
-        final filesToDelete = files.sublist(_maxAutoBackups);
+        final filesToDelete = files
+            .sublist(_maxAutoBackups)
+            .where((file) => excludeUri == null || file.uri != excludeUri)
+            .toList();
+
         for (final file in filesToDelete) {
           await _safService.deleteFile(file.uri);
           await _debug.info('AutoBackupService', 'Deleted old SAF backup: ${file.name}');
         }
 
-        await _debug.info(
-          'AutoBackupService',
-          'SAF rotation completed',
-          metadata: {
-            'total_files': files.length,
-            'deleted': filesToDelete.length,
-            'kept': _maxAutoBackups,
-          },
-        );
+        if (filesToDelete.isNotEmpty) {
+          await _debug.info(
+            'AutoBackupService',
+            'SAF rotation completed',
+            metadata: {
+              'total_files': files.length,
+              'deleted': filesToDelete.length,
+              'kept': files.length - filesToDelete.length,
+              'excludedUri': excludeUri,
+            },
+          );
+        }
       }
     } catch (e, stackTrace) {
       await _debug.error(
