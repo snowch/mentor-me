@@ -272,38 +272,23 @@ class AutoBackupService extends ChangeNotifier {
         return;
       }
 
-      // Create backup filename with timestamp
+      // Create backup filename with timestamp (ZIP format)
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
-      final filename = 'auto_backup_$timestamp.json';
+      final filename = 'auto_backup_$timestamp.zip';
 
-      // Generate backup JSON
+      // Generate compressed ZIP backup
+      final zipBytes = await _backupService.createCompressedBackup();
+
+      // Also get statistics for logging
       final backupJson = await _backupService.createBackupJson();
-
-      // Parse backup to get statistics for logging
       final backupData = json.decode(backupJson) as Map<String, dynamic>;
       final stats = backupData['statistics'] as Map<String, dynamic>?;
 
-      // Write to SAF folder
-      final fileUri = await _safService.writeFile(folderUri, filename, backupJson);
+      // Write ZIP to SAF folder
+      final fileUri = await _safService.writeBytes(folderUri, filename, zipBytes);
 
       if (fileUri == null) {
-        throw Exception('SAF backup failed: writeFile returned null');
-      }
-
-      // Verify file was written successfully by reading it back
-      final readContent = await _safService.readFile(fileUri);
-      if (readContent == null || readContent.isEmpty) {
-        throw Exception('SAF backup verification failed: file is empty or unreadable');
-      }
-      if (readContent.length < backupJson.length * 0.9) {
-        await _debug.warning(
-          'AutoBackupService',
-          'SAF backup size mismatch',
-          metadata: {
-            'expectedSize': backupJson.length,
-            'actualSize': readContent.length,
-          },
-        );
+        throw Exception('SAF backup failed: writeBytes returned null');
       }
 
       // Update last backup time in settings
@@ -318,8 +303,10 @@ class AutoBackupService extends ChangeNotifier {
         metadata: {
           'filename': filename,
           'fileUri': fileUri,
-          'sizeBytes': backupJson.length,
-          'sizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+          'sizeBytes': zipBytes.length,
+          'sizeKB': (zipBytes.length / 1024).toStringAsFixed(1),
+          'originalSizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+          'compressionRatio': '${((1 - zipBytes.length / backupJson.length) * 100).toStringAsFixed(1)}%',
           'goals': stats?['totalGoals'] ?? 0,
           'habits': stats?['totalHabits'] ?? 0,
           'journalEntries': stats?['totalJournalEntries'] ?? 0,
@@ -389,19 +376,20 @@ class AutoBackupService extends ChangeNotifier {
         return;
       }
 
-      // Create backup filename with timestamp
+      // Create backup filename with timestamp (ZIP format)
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
-      final filename = 'auto_backup_$timestamp.json';
+      final filename = 'auto_backup_$timestamp.zip';
 
-      // Generate backup JSON
+      // Generate compressed ZIP backup
+      final zipBytes = await _backupService.createCompressedBackup();
+
+      // Also get statistics for logging
       final backupJson = await _backupService.createBackupJson();
-
-      // Parse backup to get statistics for logging
       final backupData = json.decode(backupJson) as Map<String, dynamic>;
       final stats = backupData['statistics'] as Map<String, dynamic>?;
 
-      // Upload to Drive
-      final fileId = await _driveBackupService.uploadBackup(filename, backupJson);
+      // Upload ZIP to Drive
+      final fileId = await _driveBackupService.uploadBackupBytes(filename, zipBytes);
 
       if (fileId != null) {
         // Update last backup time in settings
@@ -416,8 +404,10 @@ class AutoBackupService extends ChangeNotifier {
           metadata: {
             'filename': filename,
             'fileId': fileId,
-            'sizeBytes': backupJson.length,
-            'sizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+            'sizeBytes': zipBytes.length,
+            'sizeKB': (zipBytes.length / 1024).toStringAsFixed(1),
+            'originalSizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+            'compressionRatio': '${((1 - zipBytes.length / backupJson.length) * 100).toStringAsFixed(1)}%',
             'goals': stats?['totalGoals'] ?? 0,
             'habits': stats?['totalHabits'] ?? 0,
             'journalEntries': stats?['totalJournalEntries'] ?? 0,
@@ -447,21 +437,22 @@ class AutoBackupService extends ChangeNotifier {
         await autoBackupDir.create(recursive: true);
       }
 
-      // Create backup filename with timestamp
+      // Create backup filename with timestamp (ZIP format)
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
-      final filename = 'auto_backup_$timestamp.json';
+      final filename = 'auto_backup_$timestamp.zip';
       final filePath = '${autoBackupDir.path}/$filename';
 
-      // Generate backup JSON
-      final backupJson = await _backupService.createBackupJson();
+      // Generate compressed ZIP backup
+      final zipBytes = await _backupService.createCompressedBackup();
 
-      // Parse backup to get statistics for logging
+      // Also get statistics for logging
+      final backupJson = await _backupService.createBackupJson();
       final backupData = json.decode(backupJson) as Map<String, dynamic>;
       final stats = backupData['statistics'] as Map<String, dynamic>?;
 
-      // Write to file
+      // Write ZIP to file
       final file = File(filePath);
-      await file.writeAsString(backupJson);
+      await file.writeAsBytes(zipBytes);
 
       // Verify file was written successfully
       if (!await file.exists()) {
@@ -470,17 +461,6 @@ class AutoBackupService extends ChangeNotifier {
       final writtenSize = await file.length();
       if (writtenSize == 0) {
         throw Exception('Backup file is empty: $filePath');
-      }
-      if (writtenSize < backupJson.length * 0.9) {
-        // Allow some variance due to encoding, but flag if significantly smaller
-        await _debug.warning(
-          'AutoBackupService',
-          'Backup file size mismatch',
-          metadata: {
-            'expectedSize': backupJson.length,
-            'actualSize': writtenSize,
-          },
-        );
       }
 
       // Update last backup time in settings
@@ -495,8 +475,10 @@ class AutoBackupService extends ChangeNotifier {
         metadata: {
           'filename': filename,
           'filePath': filePath,
-          'sizeBytes': backupJson.length,
-          'sizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+          'sizeBytes': zipBytes.length,
+          'sizeKB': (zipBytes.length / 1024).toStringAsFixed(1),
+          'originalSizeKB': (backupJson.length / 1024).toStringAsFixed(1),
+          'compressionRatio': '${((1 - zipBytes.length / backupJson.length) * 100).toStringAsFixed(1)}%',
           'goals': stats?['totalGoals'] ?? 0,
           'habits': stats?['totalHabits'] ?? 0,
           'journalEntries': stats?['totalJournalEntries'] ?? 0,

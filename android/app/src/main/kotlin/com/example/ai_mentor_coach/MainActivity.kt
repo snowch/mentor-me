@@ -179,6 +179,22 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGUMENT", "URI, fileName, and content are required", null)
                     }
                 }
+                "writeBytes" -> {
+                    val uriString = call.argument<String>("uri")
+                    val fileName = call.argument<String>("fileName")
+                    val bytes = call.argument<ByteArray>("bytes")
+                    val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                    if (uriString != null && fileName != null && bytes != null) {
+                        try {
+                            val fileUri = writeSAFFileBytes(uriString, fileName, bytes, mimeType)
+                            result.success(fileUri)
+                        } catch (e: Exception) {
+                            result.error("WRITE_FAILED", "Failed to write file: ${e.message}", null)
+                        }
+                    } else {
+                        result.error("INVALID_ARGUMENT", "URI, fileName, and bytes are required", null)
+                    }
+                }
                 "readFile" -> {
                     val fileUriString = call.argument<String>("fileUri")
                     if (fileUriString != null) {
@@ -652,6 +668,29 @@ class MainActivity : FlutterActivity() {
         } ?: throw Exception("Failed to open output stream")
 
         Log.d(TAG, "SAF file written: $fileName")
+        return newFileUri.toString()
+    }
+
+    /// Write binary file to SAF directory (for ZIP backups)
+    private fun writeSAFFileBytes(uriString: String, fileName: String, bytes: ByteArray, mimeType: String): String {
+        val treeUri = Uri.parse(uriString)
+        val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
+        val parentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocumentId)
+
+        // Create new document with specified MIME type
+        val newFileUri = DocumentsContract.createDocument(
+            contentResolver,
+            parentUri,
+            mimeType,
+            fileName
+        ) ?: throw Exception("Failed to create document")
+
+        // Write binary content
+        contentResolver.openOutputStream(newFileUri)?.use { outputStream ->
+            outputStream.write(bytes)
+        } ?: throw Exception("Failed to open output stream")
+
+        Log.d(TAG, "SAF binary file written: $fileName (${bytes.size} bytes)")
         return newFileUri.toString()
     }
 

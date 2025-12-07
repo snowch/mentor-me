@@ -2,12 +2,23 @@
 // Web-specific file download functionality
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:html' as html;
 
-/// Trigger a file download in the web browser
+/// Trigger a file download in the web browser (string content)
 void downloadFile(String jsonString, String filename) {
   final bytes = utf8.encode(jsonString);
   final blob = html.Blob([bytes], 'application/json');
+  final url = html.Url.createObjectUrlFromBlob(blob);
+  html.AnchorElement(href: url)
+    ..setAttribute('download', filename)
+    ..click();
+  html.Url.revokeObjectUrl(url);
+}
+
+/// Trigger a binary file download in the web browser (for ZIP files)
+void downloadBytes(Uint8List bytes, String filename, {String mimeType = 'application/zip'}) {
+  final blob = html.Blob([bytes], mimeType);
   final url = html.Url.createObjectUrlFromBlob(blob);
   html.AnchorElement(href: url)
     ..setAttribute('download', filename)

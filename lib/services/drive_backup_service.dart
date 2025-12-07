@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -202,6 +203,44 @@ class DriveBackupService extends ChangeNotifier {
       final media = drive.Media(
         Stream.value(utf8.encode(jsonContent)),
         jsonContent.length,
+      );
+
+      // Upload file
+      final uploadedFile = await _driveApi!.files.create(
+        fileMetadata,
+        uploadMedia: media,
+      );
+
+      await _debug.info('DriveBackupService', 'Upload complete: ${uploadedFile.id}');
+      return uploadedFile.id;
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'DriveBackupService',
+        'Failed to upload backup: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      rethrow;
+    }
+  }
+
+  /// Upload a binary backup file to Google Drive (for ZIP backups)
+  Future<String?> uploadBackupBytes(String fileName, Uint8List bytes) async {
+    if (!_isSignedIn || _driveApi == null || _backupFolderId == null) {
+      throw Exception('Not signed in to Google Drive');
+    }
+
+    try {
+      await _debug.info('DriveBackupService', 'Uploading backup: $fileName (${bytes.length} bytes)');
+
+      // Create file metadata
+      final fileMetadata = drive.File()
+        ..name = fileName
+        ..parents = [_backupFolderId!];
+
+      // Create media from bytes
+      final media = drive.Media(
+        Stream.value(bytes),
+        bytes.length,
       );
 
       // Upload file
