@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/win.dart';
@@ -6,10 +7,126 @@ import '../theme/app_spacing.dart';
 import 'add_win_dialog.dart';
 
 /// A widget that displays the user's recent wins for motivation.
-/// Shows wins from the last 7 days with source icons and categories.
-/// Shows an encouraging empty state with option to record a win when empty.
-class RecentWinsWidget extends StatelessWidget {
+/// Shows wins from the last 7 days, cycling through them one at a time
+/// with a slot machine style animation.
+class RecentWinsWidget extends StatefulWidget {
   const RecentWinsWidget({super.key});
+
+  @override
+  State<RecentWinsWidget> createState() => _RecentWinsWidgetState();
+}
+
+class _RecentWinsWidgetState extends State<RecentWinsWidget>
+    with SingleTickerProviderStateMixin {
+  int _currentIndex = 0;
+  Timer? _cycleTimer;
+  late AnimationController _animationController;
+  late Animation<Offset> _slideAnimation;
+  bool _isAnimating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, -1),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Start cycling timer
+    _startCycleTimer();
+  }
+
+  @override
+  void dispose() {
+    _cycleTimer?.cancel();
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _startCycleTimer() {
+    _cycleTimer?.cancel();
+    _cycleTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _cycleToNext();
+    });
+  }
+
+  Future<void> _cycleToNext() async {
+    if (_isAnimating) return;
+
+    final winProvider = context.read<WinProvider>();
+    final recentWins = winProvider.getRecentWinsFromDays(7);
+
+    if (recentWins.length <= 1) return;
+
+    setState(() => _isAnimating = true);
+
+    // Animate out
+    await _animationController.forward();
+
+    // Update index
+    setState(() {
+      _currentIndex = (_currentIndex + 1) % recentWins.length;
+    });
+
+    // Reset and animate in from below
+    _animationController.reset();
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+
+    await _animationController.forward();
+
+    // Reset animation for next cycle (out direction)
+    _animationController.reset();
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, -1),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+
+    setState(() => _isAnimating = false);
+  }
+
+  void _goToPrevious() {
+    if (_isAnimating) return;
+
+    final winProvider = context.read<WinProvider>();
+    final recentWins = winProvider.getRecentWinsFromDays(7);
+
+    if (recentWins.length <= 1) return;
+
+    setState(() {
+      _currentIndex = (_currentIndex - 1 + recentWins.length) % recentWins.length;
+    });
+    _startCycleTimer(); // Reset timer on manual navigation
+  }
+
+  void _goToNext() {
+    if (_isAnimating) return;
+
+    final winProvider = context.read<WinProvider>();
+    final recentWins = winProvider.getRecentWinsFromDays(7);
+
+    if (recentWins.length <= 1) return;
+
+    setState(() {
+      _currentIndex = (_currentIndex + 1) % recentWins.length;
+    });
+    _startCycleTimer(); // Reset timer on manual navigation
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +137,13 @@ class RecentWinsWidget extends StatelessWidget {
     if (recentWins.isEmpty) {
       return _buildEmptyState(context);
     }
+
+    // Ensure index is valid
+    if (_currentIndex >= recentWins.length) {
+      _currentIndex = 0;
+    }
+
+    final currentWin = recentWins[_currentIndex];
 
     return Card(
       elevation: 0,
@@ -110,23 +234,60 @@ class RecentWinsWidget extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Win list (show max 3 recent wins)
-            ...recentWins.take(3).map((win) => _WinItem(win: win)),
-
-            // Show more indicator if there are more wins
-            if (recentWins.length > 3)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Center(
-                  child: Text(
-                    '+${recentWins.length - 3} more this week',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                ),
+            // Single win with slot machine animation
+            ClipRect(
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: _WinItem(win: currentWin),
               ),
+            ),
+
+            // Navigation dots and arrows (if multiple wins)
+            if (recentWins.length > 1) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Previous arrow
+                  IconButton(
+                    onPressed: _goToPrevious,
+                    icon: const Icon(Icons.chevron_left),
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  // Dots indicator
+                  ...List.generate(
+                    recentWins.length,
+                    (index) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: index == _currentIndex ? 16 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: index == _currentIndex
+                              ? Colors.amber.shade600
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
+                                  .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Next arrow
+                  IconButton(
+                    onPressed: _goToNext,
+                    icon: const Icon(Icons.chevron_right),
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -202,70 +363,67 @@ class _WinItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Source icon
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: _getSourceColor(win.source).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _getSourceIcon(win.source),
-              color: _getSourceColor(win.source),
-              size: 16,
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Source icon
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _getSourceColor(win.source).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(width: 12),
-          // Win description and metadata
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  win.description,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      _formatDate(win.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+          child: Icon(
+            _getSourceIcon(win.source),
+            color: _getSourceColor(win.source),
+            size: 16,
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Win description and metadata
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                win.description,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
                     ),
-                    if (win.category != null) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    _formatDate(win.createdAt),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        child: Text(
-                          win.category!.displayName,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
+                  ),
+                  if (win.category != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
+                      child: Text(
+                        win.category!.displayName,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ),
                   ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

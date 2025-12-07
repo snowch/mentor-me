@@ -72,7 +72,7 @@ class DashboardWidgetRegistry {
       description: 'Personalized coaching messages',
       icon: Icons.psychology,
       color: Colors.purple,
-      canHide: false, // Always visible - core feature
+      canHide: true, // Can be hidden via dashboard customization
     ),
     DashboardWidgetInfo(
       id: 'actionButtons',

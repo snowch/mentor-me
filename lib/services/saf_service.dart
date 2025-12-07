@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'debug_service.dart';
@@ -111,6 +112,41 @@ class SAFService {
         'Failed to write file: ${e.toString()}',
         stackTrace: stackTrace.toString(),
         metadata: {'fileName': fileName},
+      );
+      return null;
+    }
+  }
+
+  /// Write binary file to SAF folder (for ZIP backups)
+  Future<String?> writeBytes(String folderUri, String fileName, Uint8List bytes, {String mimeType = 'application/zip'}) async {
+    if (kIsWeb) {
+      await _debug.warning('SAFService', 'SAF not supported on web');
+      return null;
+    }
+
+    try {
+      await _debug.info('SAFService', 'Writing binary file: $fileName (${bytes.length} bytes)');
+
+      final fileUri = await _channel.invokeMethod<String>('writeBytes', {
+        'uri': folderUri,
+        'fileName': fileName,
+        'bytes': bytes,
+        'mimeType': mimeType,
+      });
+
+      await _debug.info('SAFService', 'Binary file written successfully', metadata: {
+        'fileName': fileName,
+        'fileUri': fileUri,
+        'sizeBytes': bytes.length,
+      });
+
+      return fileUri;
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'SAFService',
+        'Failed to write binary file: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+        metadata: {'fileName': fileName, 'sizeBytes': bytes.length},
       );
       return null;
     }

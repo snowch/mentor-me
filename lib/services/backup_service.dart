@@ -413,19 +413,21 @@ class BackupService {
   /// Returns tuple of (success, statistics)
   Future<(bool, Map<String, dynamic>?)> _exportBackupWeb() async {
     try {
-      final jsonString = await createBackupJson();
+      // Create compressed backup (same as mobile)
+      final zipBytes = await createCompressedBackup();
 
-      // Extract statistics from backup data
+      // Get statistics from the JSON for return value
+      final jsonString = await createBackupJson();
       final backupData = json.decode(jsonString) as Map<String, dynamic>;
       final statistics = backupData['statistics'] as Map<String, dynamic>?;
 
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.')[0];
-      final filename = 'habits_backup_$timestamp.json';
+      final filename = 'habits_backup_$timestamp.zip';
 
-      // Use web download helper (conditionally compiled)
-      web_download.downloadFile(jsonString, filename);
+      // Use web download helper for binary download
+      web_download.downloadBytes(zipBytes, filename);
 
-      debugPrint('✓ Backup downloaded: $filename');
+      debugPrint('✓ Backup downloaded: $filename (${zipBytes.length} bytes)');
       return (true, statistics);
     } catch (e, stackTrace) {
       await _debug.error(

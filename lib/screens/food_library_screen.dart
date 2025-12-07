@@ -683,34 +683,30 @@ class _FoodTemplateDetailsSheet extends StatelessWidget {
               label: 'Carbohydrates',
               value: '${nutrition.carbsGrams}g',
             ),
-            if (nutrition.fiberGrams != null)
-              _NutritionRow(
-                label: '  Fiber',
-                value: '${nutrition.fiberGrams}g',
-                isIndented: true,
-              ),
-            if (nutrition.sugarGrams != null)
-              _NutritionRow(
-                label: '  Sugar',
-                value: '${nutrition.sugarGrams}g',
-                isIndented: true,
-              ),
+            _NutritionRow(
+              label: '  Fiber',
+              value: '${nutrition.fiberGrams ?? 0}g',
+              isIndented: true,
+            ),
+            _NutritionRow(
+              label: '  Sugar',
+              value: '${nutrition.sugarGrams ?? 0}g',
+              isIndented: true,
+            ),
             _NutritionRow(
               label: 'Fat',
               value: '${nutrition.fatGrams}g',
             ),
-            if (nutrition.saturatedFatGrams != null)
-              _NutritionRow(
-                label: '  Saturated',
-                value: '${nutrition.saturatedFatGrams}g',
-                isIndented: true,
-              ),
-            if (nutrition.unsaturatedFatGrams != null)
-              _NutritionRow(
-                label: '  Unsaturated',
-                value: '${nutrition.unsaturatedFatGrams}g',
-                isIndented: true,
-              ),
+            _NutritionRow(
+              label: '  Saturated',
+              value: '${nutrition.saturatedFatGrams ?? 0}g',
+              isIndented: true,
+            ),
+            _NutritionRow(
+              label: '  Unsaturated',
+              value: '${nutrition.unsaturatedFatGrams ?? 0}g',
+              isIndented: true,
+            ),
 
             if (nutrition.sodiumMg != null ||
                 nutrition.cholesterolMg != null ||

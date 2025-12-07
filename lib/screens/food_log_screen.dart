@@ -1135,44 +1135,40 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                           ),
                         ],
                       ),
-                      // Fat breakdown row (if available)
-                      if (_nutrition!.saturatedFatGrams != null ||
-                          _nutrition!.unsaturatedFatGrams != null ||
-                          _nutrition!.transFatGrams != null) ...[
-                        AppSpacing.gapVerticalSm,
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        AppSpacing.gapVerticalSm,
-                        Text(
-                          'Fat Breakdown',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.outline,
+                      // Fat breakdown row (always shown for consistency)
+                      AppSpacing.gapVerticalSm,
+                      Divider(color: theme.colorScheme.outlineVariant),
+                      AppSpacing.gapVerticalSm,
+                      Text(
+                        'Fat Breakdown',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                      AppSpacing.gapVerticalXs,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildNutritionValue(
+                            'Saturated',
+                            '${_nutrition!.saturatedFatGrams ?? 0}',
+                            'g',
+                            color: theme.colorScheme.error.withValues(alpha: 0.8),
                           ),
-                        ),
-                        AppSpacing.gapVerticalXs,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildNutritionValue(
-                              'Saturated',
-                              '${_nutrition!.saturatedFatGrams ?? 0}',
-                              'g',
-                              color: theme.colorScheme.error.withValues(alpha: 0.8),
-                            ),
-                            _buildNutritionValue(
-                              'Unsaturated',
-                              '${_nutrition!.unsaturatedFatGrams ?? 0}',
-                              'g',
-                              color: Colors.green.shade700,
-                            ),
-                            _buildNutritionValue(
-                              'Trans',
-                              '${_nutrition!.transFatGrams ?? 0}',
-                              'g',
-                              color: theme.colorScheme.error,
-                            ),
-                          ],
-                        ),
-                      ],
+                          _buildNutritionValue(
+                            'Unsaturated',
+                            '${_nutrition!.unsaturatedFatGrams ?? 0}',
+                            'g',
+                            color: Colors.green.shade700,
+                          ),
+                          _buildNutritionValue(
+                            'Trans',
+                            '${_nutrition!.transFatGrams ?? 0}',
+                            'g',
+                            color: theme.colorScheme.error,
+                          ),
+                        ],
+                      ),
                       if (_nutrition!.notes != null) ...[
                         AppSpacing.gapVerticalSm,
                         Text(
