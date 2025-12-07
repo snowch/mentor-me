@@ -1560,6 +1560,311 @@ JSON:''',
       return null;
     }
   }
+
+  /// Classify a food photo to determine optimal analysis strategy
+  ///
+  /// This is a fast, lightweight call that determines what type of food photo
+  /// was taken (prepared food, packaged product, nutrition label, etc.)
+  /// so we can use the appropriate analysis prompt.
+  Future<FoodPhotoClassification?> classifyFoodPhoto(Uint8List imageBytes) async {
+    if (!hasApiKey()) {
+      await _debug.warning('AIService', 'Cannot classify food photo: no API key');
+      return null;
+    }
+
+    if (imageBytes.isEmpty) {
+      await _debug.warning('AIService', 'Cannot classify food photo: empty image');
+      return null;
+    }
+
+    if (_selectedProvider == AIProvider.local) {
+      await _debug.warning('AIService', 'Food photo classification requires Cloud AI');
+      return null;
+    }
+
+    try {
+      final base64Image = base64Encode(imageBytes);
+      final url = kIsWeb ? _proxyUrl : _apiUrl;
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': _apiKey!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: json.encode({
+          'model': _selectedModel,
+          'max_tokens': 512,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'image',
+                  'source': {
+                    'type': 'base64',
+                    'media_type': 'image/jpeg',
+                    'data': base64Image,
+                  },
+                },
+                {
+                  'type': 'text',
+                  'text': '''Quickly classify this food image. What type is it?
+
+Respond with ONLY valid JSON:
+{
+  "type": "prepared_food|packaged_product|nutrition_label|restaurant|mixed|unclear",
+  "confidence": 0.0-1.0,
+  "brand_detected": "brand name if visible, or null",
+  "product_name": "product name if identifiable, or null",
+  "has_nutrition_label": true/false,
+  "reasoning": "brief explanation"
+}
+
+Types:
+- prepared_food: Home-cooked meal, plate of food, homemade
+- packaged_product: Boxed/canned/wrapped product, food package
+- nutrition_label: Close-up of Nutrition Facts panel
+- restaurant: Restaurant/fast-food meal (may have wrapper/bag)
+- mixed: Both prepared food and packaging visible
+- unclear: Cannot determine
+
+JSON:''',
+                },
+              ],
+            },
+          ],
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final data = json.decode(response.body);
+      final responseText = data['content'][0]['text'] as String;
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch == null) return null;
+
+      final parsed = json.decode(jsonMatch.group(0)!) as Map<String, dynamic>;
+
+      FoodPhotoType type;
+      switch (parsed['type']?.toString()) {
+        case 'prepared_food':
+          type = FoodPhotoType.preparedFood;
+          break;
+        case 'packaged_product':
+          type = FoodPhotoType.packagedProduct;
+          break;
+        case 'nutrition_label':
+          type = FoodPhotoType.nutritionLabel;
+          break;
+        case 'restaurant':
+          type = FoodPhotoType.restaurant;
+          break;
+        case 'mixed':
+          type = FoodPhotoType.mixed;
+          break;
+        default:
+          type = FoodPhotoType.unclear;
+      }
+
+      return FoodPhotoClassification(
+        type: type,
+        confidence: (parsed['confidence'] as num?)?.toDouble() ?? 0.5,
+        brandDetected: parsed['brand_detected'] as String?,
+        productName: parsed['product_name'] as String?,
+        hasVisibleNutritionLabel: parsed['has_nutrition_label'] == true,
+        reasoning: parsed['reasoning'] as String?,
+      );
+    } catch (e) {
+      await _debug.error('AIService', 'Failed to classify food photo: $e');
+      return null;
+    }
+  }
+
+  /// Analyze a packaged product photo to extract product info and nutrition
+  ///
+  /// Specialized for reading nutrition labels and identifying branded products.
+  Future<FoodImageAnalysis?> analyzePackagedProduct(Uint8List imageBytes) async {
+    if (!hasApiKey()) return null;
+    if (imageBytes.isEmpty) return null;
+    if (_selectedProvider == AIProvider.local) return null;
+
+    try {
+      final base64Image = base64Encode(imageBytes);
+      final url = kIsWeb ? _proxyUrl : _apiUrl;
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': _apiKey!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: json.encode({
+          'model': _selectedModel,
+          'max_tokens': 1024,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'image',
+                  'source': {
+                    'type': 'base64',
+                    'media_type': 'image/jpeg',
+                    'data': base64Image,
+                  },
+                },
+                {
+                  'type': 'text',
+                  'text': '''Analyze this packaged food product image. Extract:
+1. Product name and brand
+2. Serving size (from label if visible)
+3. Nutrition facts (from label if visible, or estimate if known product)
+
+IMPORTANT: If you can see a Nutrition Facts label, extract the EXACT values.
+If you only see the package front, identify the product for database lookup.
+
+Respond with ONLY valid JSON:
+{
+  "product_name": "Full product name",
+  "brand": "Brand name",
+  "serving_size": "e.g., 1 cup (240ml) or 28g",
+  "nutrition_from_label": true/false,
+  "calories": 250,
+  "proteinGrams": 10,
+  "carbsGrams": 30,
+  "fatGrams": 12,
+  "saturatedFatGrams": 4,
+  "fiberGrams": 2,
+  "sugarGrams": 15,
+  "sodiumMg": 500,
+  "cholesterolMg": 25,
+  "confidence": "high/medium/low",
+  "notes": "explanation of data source"
+}
+
+If product is unidentifiable:
+{"error": "Cannot identify product", "reason": "explanation"}
+
+JSON:''',
+                },
+              ],
+            },
+          ],
+        }),
+      ).timeout(const Duration(seconds: 45));
+
+      if (response.statusCode != 200) return null;
+
+      final data = json.decode(response.body);
+      final responseText = data['content'][0]['text'] as String;
+
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(responseText);
+      if (jsonMatch == null) return null;
+
+      final parsed = json.decode(jsonMatch.group(0)!) as Map<String, dynamic>;
+
+      if (parsed.containsKey('error')) {
+        await _debug.warning('AIService', 'Package analysis error: ${parsed['error']}');
+        return null;
+      }
+
+      int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+        if (value == null) return defaultValue;
+        if (value is int) return value;
+        if (value is double) return value.toInt();
+        if (value is String) return int.tryParse(value) ?? defaultValue;
+        return defaultValue;
+      }
+
+      final confidence = parsed['confidence']?.toString() ?? 'medium';
+      final fromLabel = parsed['nutrition_from_label'] == true;
+
+      return FoodImageAnalysis(
+        description: '${parsed['brand'] ?? ''} ${parsed['product_name'] ?? 'Product'}'.trim(),
+        productName: parsed['product_name'] as String?,
+        brandName: parsed['brand'] as String?,
+        servingSize: parsed['serving_size'] as String?,
+        hasNutritionLabel: fromLabel,
+        photoType: FoodPhotoType.packagedProduct,
+        confidence: confidence,
+        nutrition: NutritionEstimate(
+          calories: parseIntSafe(parsed['calories']),
+          proteinGrams: parseIntSafe(parsed['proteinGrams']),
+          carbsGrams: parseIntSafe(parsed['carbsGrams']),
+          fatGrams: parseIntSafe(parsed['fatGrams']),
+          saturatedFatGrams: parseIntSafe(parsed['saturatedFatGrams']),
+          fiberGrams: parseIntSafe(parsed['fiberGrams']),
+          sugarGrams: parseIntSafe(parsed['sugarGrams']),
+          sodiumMg: parseIntSafe(parsed['sodiumMg']),
+          cholesterolMg: parseIntSafe(parsed['cholesterolMg']),
+          confidence: fromLabel ? 'high' : confidence,
+          notes: parsed['notes'] as String?,
+        ),
+      );
+    } catch (e) {
+      await _debug.error('AIService', 'Failed to analyze packaged product: $e');
+      return null;
+    }
+  }
+
+  /// Smart food image analysis that classifies first, then uses optimal strategy
+  ///
+  /// This method:
+  /// 1. Classifies the photo type (prepared food vs packaged product)
+  /// 2. Uses appropriate analysis prompt based on type
+  /// 3. Returns enhanced results including product/brand info when applicable
+  Future<FoodImageAnalysis?> analyzeSmartFoodImage(Uint8List imageBytes) async {
+    if (!hasApiKey()) return null;
+    if (imageBytes.isEmpty) return null;
+    if (_selectedProvider == AIProvider.local) return null;
+
+    try {
+      // Step 1: Classify the photo
+      final classification = await classifyFoodPhoto(imageBytes);
+
+      if (classification == null) {
+        // Fallback to standard analysis
+        return await analyzeFoodImage(imageBytes);
+      }
+
+      await _debug.info('AIService', 'Photo classified', metadata: {
+        'type': classification.type.name,
+        'confidence': classification.confidence,
+        'brand': classification.brandDetected,
+      });
+
+      // Step 2: Use appropriate analysis based on type
+      switch (classification.type) {
+        case FoodPhotoType.packagedProduct:
+        case FoodPhotoType.nutritionLabel:
+          // Use specialized packaged product analysis
+          return await analyzePackagedProduct(imageBytes);
+
+        case FoodPhotoType.mixed:
+          // Try packaged first, fall back to standard if it fails
+          final packagedResult = await analyzePackagedProduct(imageBytes);
+          if (packagedResult != null && packagedResult.nutrition != null) {
+            return packagedResult;
+          }
+          return await analyzeFoodImage(imageBytes);
+
+        case FoodPhotoType.preparedFood:
+        case FoodPhotoType.restaurant:
+        case FoodPhotoType.unclear:
+          // Use standard food analysis
+          return await analyzeFoodImage(imageBytes);
+      }
+    } catch (e) {
+      await _debug.error('AIService', 'Smart food analysis failed: $e');
+      return await analyzeFoodImage(imageBytes);
+    }
+  }
 }
 
 /// Result of analyzing a food image with AI
@@ -1567,11 +1872,84 @@ class FoodImageAnalysis {
   final String description;
   final NutritionEstimate? nutrition;
   final String confidence; // "high", "medium", "low"
+  final FoodPhotoType? photoType;
+  final String? productName;
+  final String? brandName;
+  final String? servingSize;
+  final bool hasNutritionLabel;
 
   const FoodImageAnalysis({
     required this.description,
     this.nutrition,
     required this.confidence,
+    this.photoType,
+    this.productName,
+    this.brandName,
+    this.servingSize,
+    this.hasNutritionLabel = false,
+  });
+}
+
+/// Types of food photos for specialized analysis
+enum FoodPhotoType {
+  preparedFood,    // Plate of food, meal, homemade
+  packagedProduct, // Box, can, wrapper, packaged food
+  nutritionLabel,  // Close-up of nutrition facts panel
+  restaurant,      // Restaurant meal (may have menu info)
+  mixed,           // Both food and packaging visible
+  unclear;         // Cannot determine
+
+  String get displayName {
+    switch (this) {
+      case FoodPhotoType.preparedFood:
+        return 'Prepared Food';
+      case FoodPhotoType.packagedProduct:
+        return 'Packaged Product';
+      case FoodPhotoType.nutritionLabel:
+        return 'Nutrition Label';
+      case FoodPhotoType.restaurant:
+        return 'Restaurant Meal';
+      case FoodPhotoType.mixed:
+        return 'Mixed';
+      case FoodPhotoType.unclear:
+        return 'Unclear';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case FoodPhotoType.preparedFood:
+        return 'Home-cooked or prepared meal';
+      case FoodPhotoType.packagedProduct:
+        return 'Packaged/branded food product';
+      case FoodPhotoType.nutritionLabel:
+        return 'Nutrition facts label';
+      case FoodPhotoType.restaurant:
+        return 'Restaurant or fast food meal';
+      case FoodPhotoType.mixed:
+        return 'Mix of prepared food and packaging';
+      case FoodPhotoType.unclear:
+        return 'Unable to determine food type';
+    }
+  }
+}
+
+/// Result of classifying a food photo
+class FoodPhotoClassification {
+  final FoodPhotoType type;
+  final double confidence;
+  final String? brandDetected;
+  final String? productName;
+  final bool hasVisibleNutritionLabel;
+  final String? reasoning;
+
+  const FoodPhotoClassification({
+    required this.type,
+    required this.confidence,
+    this.brandDetected,
+    this.productName,
+    this.hasVisibleNutritionLabel = false,
+    this.reasoning,
   });
 }
 

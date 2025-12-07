@@ -52,6 +52,7 @@ import '../models/exercise.dart';
 import '../models/digital_wellness.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
+import '../models/food_template.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -105,6 +106,7 @@ class BackupService {
     final wins = await _storage.loadWins();
     final foodEntries = await _storage.loadFoodEntries();
     final nutritionGoal = await _storage.loadNutritionGoal();
+    final foodTemplates = await _storage.loadFoodTemplates();
 
     // Weight tracking data
     final weightEntries = await _storage.loadWeightEntries();
@@ -205,6 +207,7 @@ class BackupService {
       // Food log / nutrition tracking
       'food_entries': json.encode(foodEntries.map((f) => f.toJson()).toList()),
       'nutrition_goal': nutritionGoal != null ? json.encode(nutritionGoal.toJson()) : null,
+      'food_templates': json.encode(foodTemplates.map((t) => t.toJson()).toList()),
 
       // Weight tracking
       'weight_entries': json.encode(weightEntries.map((w) => w.toJson()).toList()),
@@ -264,6 +267,7 @@ class BackupService {
         'totalWins': wins.length,
         'totalFoodEntries': foodEntries.length,
         'hasNutritionGoal': nutritionGoal != null,
+        'totalFoodTemplates': foodTemplates.length,
         'totalWeightEntries': weightEntries.length,
         'hasWeightGoal': weightGoal != null,
         'weightUnit': weightUnit.name,
@@ -1843,6 +1847,39 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Nutrition Goal',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import food templates (food library)
+    try {
+      if (data.containsKey('food_templates') && data['food_templates'] != null) {
+        final templatesJson = json.decode(data['food_templates'] as String) as List;
+        final templates = templatesJson.map((json) => FoodTemplate.fromJson(json)).toList();
+        await _storage.saveFoodTemplates(templates);
+        await _debug.info('BackupService', 'Imported ${templates.length} food templates');
+        results.add(ImportItemResult(
+          dataType: 'Food Templates',
+          success: true,
+          count: templates.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Food Templates',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import food templates: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Food Templates',
         success: false,
         count: 0,
         errorMessage: e.toString(),
