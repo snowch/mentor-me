@@ -83,10 +83,8 @@ class AutoBackupService extends ChangeNotifier {
         });
 
         // Trigger an immediate backup now that folder access is restored
-        // Use a short delay to allow UI to update first
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _performAutoBackup();
-        });
+        // Wait for it to complete so the caller knows if backup succeeded
+        await _performAutoBackup();
 
         return true;
       } else {

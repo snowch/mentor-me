@@ -429,17 +429,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 textColor: Colors.white,
                                 onPressed: () async {
                                   if (needsReauth) {
-                                    // Directly open folder picker
+                                    // Directly open folder picker and perform backup
                                     final success = await autoBackup.reauthorizeFolder();
                                     if (context.mounted) {
+                                      // Check if backup had an error even though folder was selected
+                                      final backupError = autoBackup.lastBackupError;
+                                      final message = !success
+                                          ? 'Folder selection cancelled'
+                                          : backupError != null
+                                              ? 'Folder selected but backup failed'
+                                              : 'Backup saved successfully';
+                                      final color = !success
+                                          ? Colors.orange
+                                          : backupError != null
+                                              ? Colors.red
+                                              : Colors.green;
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text(
-                                            success
-                                                ? 'Backup folder selected successfully'
-                                                : 'Folder selection cancelled',
-                                          ),
-                                          backgroundColor: success ? Colors.green : Colors.orange,
+                                          content: Text(message),
+                                          backgroundColor: color,
                                         ),
                                       );
                                     }
