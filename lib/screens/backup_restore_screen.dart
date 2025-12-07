@@ -962,6 +962,9 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       await _autoBackupService.clearFolderReauthorization();
     }
 
+    // Trigger an auto-backup with the new location
+    await _autoBackupService.scheduleAutoBackup();
+
     setState(() {
       _backupLocation = newLocation;
       _externalFolderName = folderName;
@@ -1013,6 +1016,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
     // Clear the reauthorization flag since user has re-selected a folder and it works
     await _autoBackupService.clearFolderReauthorization();
+
+    // Trigger an auto-backup now that the folder is configured
+    // This catches the backup that was skipped when permissions were lost
+    await _autoBackupService.scheduleAutoBackup();
 
     // Get the new folder display name
     final folderName = await _safService.getFolderDisplayName();
