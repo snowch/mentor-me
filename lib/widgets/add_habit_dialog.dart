@@ -107,43 +107,40 @@ class _AddHabitDialogState extends State<AddHabitDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Status selector with active limit enforcement
+                // Status selector with soft limit (allows override with warning)
                 Builder(
                   builder: (context) {
                     final habitProvider = context.watch<HabitProvider>();
                     final activeHabitCount = habitProvider.habits.where((h) => h.status == HabitStatus.active).length;
-                    final atLimit = activeHabitCount >= 2;
+                    final atSoftLimit = activeHabitCount >= 2;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         DropdownButtonFormField<HabitStatus>(
-                          value: atLimit ? HabitStatus.backlog : _selectedStatus,
+                          value: _selectedStatus,
                           decoration: InputDecoration(
                             labelText: AppStrings.status,
                             border: const OutlineInputBorder(),
-                            helperText: atLimit
-                                ? AppStrings.limitReachedHabits
+                            helperText: atSoftLimit && _selectedStatus == HabitStatus.active
+                                ? AppStrings.softLimitHabits
                                 : AppStrings.focusOnActiveHabits,
                             helperMaxLines: 2,
+                            helperStyle: atSoftLimit && _selectedStatus == HabitStatus.active
+                                ? TextStyle(color: Colors.orange[700])
+                                : null,
                           ),
                           items: [
                             DropdownMenuItem(
                               value: HabitStatus.active,
-                              enabled: !atLimit,
                               child: Row(
                                 children: [
-                                  Text(
-                                    AppStrings.active,
-                                    style: atLimit
-                                        ? TextStyle(color: Colors.grey[400])
-                                        : null,
-                                  ),
+                                  const Text(AppStrings.active),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '($activeHabitCount/2)',
+                                    '($activeHabitCount active)',
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: atLimit ? Colors.red : Colors.grey,
+                                          color: atSoftLimit ? Colors.orange : Colors.grey,
                                         ),
                                   ),
                                 ],
@@ -154,15 +151,13 @@ class _AddHabitDialogState extends State<AddHabitDialog> {
                               child: Text(AppStrings.backlog),
                             ),
                           ],
-                          onChanged: atLimit
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _selectedStatus = value;
-                                    });
-                                  }
-                                },
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedStatus = value;
+                              });
+                            }
+                          },
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -227,11 +222,36 @@ class _AddHabitDialogState extends State<AddHabitDialog> {
     );
   }
 
-  void _createHabit() {
+  void _createHabit() async {
     if (_formKey.currentState!.validate()) {
       final habitProvider = context.read<HabitProvider>();
       final activeHabitCount = habitProvider.habits.where((h) => h.status == HabitStatus.active).length;
-      final atLimit = activeHabitCount >= 2;
+      final exceedsSoftLimit = activeHabitCount >= 2 && _selectedStatus == HabitStatus.active;
+
+      // Show confirmation dialog if exceeding soft limit
+      if (exceedsSoftLimit) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text(AppStrings.exceedHabitLimitTitle),
+            content: Text(
+              AppStrings.exceedHabitLimitMessage.replaceAll('{count}', activeHabitCount.toString()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(AppStrings.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Add Active Habit'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed != true) return;
+      }
 
       final habit = Habit(
         title: _titleController.text,
@@ -239,10 +259,13 @@ class _AddHabitDialogState extends State<AddHabitDialog> {
         frequency: _selectedFrequency,
         linkedGoalId: _selectedGoalId,
         targetCount: _selectedFrequency.weeklyTarget,
-        status: atLimit ? HabitStatus.backlog : _selectedStatus,
+        status: _selectedStatus,
       );
 
       habitProvider.addHabit(habit);
+
+      if (!mounted) return;
+
       Navigator.pop(context);
 
       final statusMessage = habit.status == HabitStatus.backlog ? ' ${AppStrings.addedToBacklog}' : '';

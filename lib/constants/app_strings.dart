@@ -111,8 +111,10 @@ class AppStrings {
   static const String linkingToGoalHelps = 'Linking to a goal helps track related habits together';
 
   // Goal Status Messages
-  static const String limitReachedGoals = 'Limit reached: You have 2 active goals. New goals go to backlog.';
+  static const String softLimitGoals = 'You have 2+ active goals. We recommend 1-2 for better focus.';
   static const String focusOnActiveGoals = 'Focus on 1-2 active goals at a time';
+  static const String exceedGoalLimitTitle = 'Add another active goal?';
+  static const String exceedGoalLimitMessage = 'You already have {count} active goals. Research shows focusing on 1-2 goals leads to better outcomes. Are you sure you want to add another active goal?';
   static const String targetDatePassed = 'Target date passed';
   static const String dueToday = 'Due today';
   static const String dayRemaining = 'day remaining';
@@ -152,8 +154,10 @@ class AppStrings {
   static const String whatHabitInvolves = 'What does this habit involve?';
 
   // Habit Status Messages
-  static const String limitReachedHabits = 'Limit reached: You have 2 active habits. New habits go to backlog.';
+  static const String softLimitHabits = 'You have 2+ active habits. We recommend 1-2 for better focus.';
   static const String focusOnActiveHabits = 'Focus on 1-2 active habits at a time';
+  static const String exceedHabitLimitTitle = 'Add another active habit?';
+  static const String exceedHabitLimitMessage = 'You already have {count} active habits. Research shows focusing on 1-2 habits leads to better outcomes. Are you sure you want to add another active habit?';
   static const String createFirstHabitBuildConsistency = 'Create your first habit to start building consistency';
   static const String completed = 'Completed';
   static const String remaining = 'Remaining';

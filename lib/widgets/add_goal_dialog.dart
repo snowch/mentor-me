@@ -126,43 +126,40 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Status selector with active limit enforcement
+                // Status selector with soft limit (allows override with warning)
                 Builder(
                   builder: (context) {
                     final goalProvider = context.watch<GoalProvider>();
                     final activeGoalCount = goalProvider.goals.where((g) => g.status == GoalStatus.active).length;
-                    final atLimit = activeGoalCount >= 2;
+                    final atSoftLimit = activeGoalCount >= 2;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         DropdownButtonFormField<GoalStatus>(
-                          value: atLimit ? GoalStatus.backlog : _selectedStatus,
+                          value: _selectedStatus,
                           decoration: InputDecoration(
                             labelText: AppStrings.status,
                             border: const OutlineInputBorder(),
-                            helperText: atLimit
-                                ? AppStrings.limitReachedGoals
+                            helperText: atSoftLimit && _selectedStatus == GoalStatus.active
+                                ? AppStrings.softLimitGoals
                                 : AppStrings.focusOnActiveGoals,
                             helperMaxLines: 2,
+                            helperStyle: atSoftLimit && _selectedStatus == GoalStatus.active
+                                ? TextStyle(color: Colors.orange[700])
+                                : null,
                           ),
                           items: [
                             DropdownMenuItem(
                               value: GoalStatus.active,
-                              enabled: !atLimit,
                               child: Row(
                                 children: [
-                                  Text(
-                                    AppStrings.active,
-                                    style: atLimit
-                                        ? TextStyle(color: Colors.grey[400])
-                                        : null,
-                                  ),
+                                  const Text(AppStrings.active),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '($activeGoalCount/2)',
+                                    '($activeGoalCount active)',
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: atLimit ? Colors.red : Colors.grey,
+                                          color: atSoftLimit ? Colors.orange : Colors.grey,
                                         ),
                                   ),
                                 ],
@@ -173,15 +170,13 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
                               child: Text(AppStrings.backlog),
                             ),
                           ],
-                          onChanged: atLimit
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _selectedStatus = value;
-                                    });
-                                  }
-                                },
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedStatus = value;
+                              });
+                            }
+                          },
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -638,7 +633,32 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
     if (_formKey.currentState!.validate()) {
       final goalProvider = context.read<GoalProvider>();
       final activeGoalCount = goalProvider.goals.where((g) => g.status == GoalStatus.active).length;
-      final atLimit = activeGoalCount >= 2;
+      final exceedsSoftLimit = activeGoalCount >= 2 && _selectedStatus == GoalStatus.active;
+
+      // Show confirmation dialog if exceeding soft limit
+      if (exceedsSoftLimit) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text(AppStrings.exceedGoalLimitTitle),
+            content: Text(
+              AppStrings.exceedGoalLimitMessage.replaceAll('{count}', activeGoalCount.toString()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(AppStrings.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Add Active Goal'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed != true) return;
+      }
 
       final goal = Goal(
         title: _titleController.text,
@@ -646,7 +666,7 @@ class _AddGoalDialogState extends State<AddGoalDialog> {
         category: _selectedCategory,
         targetDate: _targetDate,
         milestonesDetailed: _suggestedMilestones ?? [],
-        status: atLimit ? GoalStatus.backlog : _selectedStatus,
+        status: _selectedStatus,
         linkedValueIds: _selectedValueIds.isNotEmpty ? _selectedValueIds.toList() : null,
       );
 
