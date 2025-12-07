@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 import '../models/food_entry.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/weight_provider.dart';
@@ -589,6 +591,66 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     }
   }
 
+  /// Analyze the food photo using AI vision to get description and nutrition
+  Future<void> _analyzeImage() async {
+    if (_imagePath == null) return;
+
+    final ai = AIService();
+
+    // Check if Claude API key is configured
+    if (!ai.hasApiKey()) {
+      setState(() {
+        _estimateError = 'Claude API key not configured. Go to Settings → AI Settings to add your API key.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isEstimating = true;
+      _estimateError = null;
+    });
+
+    try {
+      // Read image bytes
+      final Uint8List imageBytes;
+      if (kIsWeb) {
+        // On web, fetch the image from the path
+        final response = await http.get(Uri.parse(_imagePath!));
+        imageBytes = response.bodyBytes;
+      } else {
+        // On mobile, read from file
+        imageBytes = await File(_imagePath!).readAsBytes();
+      }
+
+      final analysis = await ai.analyzeFoodImage(imageBytes);
+
+      if (mounted) {
+        if (analysis != null) {
+          setState(() {
+            // Auto-fill description if empty
+            if (_descriptionController.text.trim().isEmpty) {
+              _descriptionController.text = analysis.description;
+            }
+            _nutrition = analysis.nutrition;
+            _isEstimating = false;
+          });
+        } else {
+          setState(() {
+            _isEstimating = false;
+            _estimateError = 'Could not analyze the image. Make sure the food is clearly visible.';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isEstimating = false;
+          _estimateError = 'Error analyzing image: $e';
+        });
+      }
+    }
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     if (kIsWeb) {
       // Web doesn't support camera, only gallery
@@ -948,43 +1010,61 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
 
   Widget _buildPhotoSection(ThemeData theme) {
     if (_imagePath != null) {
-      return GestureDetector(
-        onTap: _showImageSourceDialog,
-        child: Stack(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: kIsWeb
-                  ? Image.network(
-                      _imagePath!,
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    )
-                  : Image.file(
-                      File(_imagePath!),
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: _showImageSourceDialog,
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: kIsWeb
+                      ? Image.network(
+                          _imagePath!,
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.file(
+                          File(_imagePath!),
+                          height: 150,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(20),
+                    child: IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: _showImageSourceDialog,
+                      iconSize: 20,
+                    ),
+                  ),
                 ),
-                child: IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: _showImageSourceDialog,
-                  iconSize: 20,
-                ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Show "Analyze Photo" button when image is present
+          AppSpacing.gapVerticalSm,
+          FilledButton.tonalIcon(
+            onPressed: _isEstimating ? null : _analyzeImage,
+            icon: _isEstimating
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.auto_awesome),
+            label: Text(_isEstimating ? 'Analyzing...' : 'Analyze Photo with AI'),
+          ),
+        ],
       );
     }
 

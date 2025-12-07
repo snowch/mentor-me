@@ -1366,6 +1366,213 @@ JSON:''';
       return null;
     }
   }
+
+  /// Analyze a food image and return description with nutrition estimate
+  ///
+  /// Uses Claude's vision capabilities to identify food in the image,
+  /// generate a description, and estimate nutritional content.
+  ///
+  /// Returns a [FoodImageAnalysis] with:
+  /// - description: What the AI sees in the image
+  /// - nutrition: Estimated nutritional content
+  /// - confidence: How confident the AI is in its analysis
+  ///
+  /// Example:
+  /// ```dart
+  /// final bytes = await File('food.jpg').readAsBytes();
+  /// final analysis = await aiService.analyzeFoodImage(bytes);
+  /// print(analysis?.description); // "Grilled chicken salad with ranch"
+  /// print(analysis?.nutrition?.calories); // 450
+  /// ```
+  Future<FoodImageAnalysis?> analyzeFoodImage(Uint8List imageBytes) async {
+    if (!hasApiKey()) {
+      await _debug.warning('AIService', 'Cannot analyze food image: no API key');
+      return null;
+    }
+
+    if (imageBytes.isEmpty) {
+      await _debug.warning('AIService', 'Cannot analyze food image: empty image data');
+      return null;
+    }
+
+    // Image analysis only supported by cloud AI
+    if (_selectedProvider == AIProvider.local) {
+      await _debug.warning('AIService', 'Food image analysis requires Cloud AI');
+      return null;
+    }
+
+    try {
+      await _debug.info('AIService', 'Analyzing food image', metadata: {
+        'imageSizeBytes': imageBytes.length,
+      });
+
+      // Convert image to base64
+      final base64Image = base64Encode(imageBytes);
+
+      // Determine media type (assume JPEG for simplicity, works for most images)
+      final mediaType = 'image/jpeg';
+
+      // Use proxy for web, direct API for mobile
+      final url = kIsWeb ? _proxyUrl : _apiUrl;
+
+      final startTime = DateTime.now();
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': _apiKey!,
+          'anthropic-version': '2023-06-01',
+        },
+        body: json.encode({
+          'model': _selectedModel,
+          'max_tokens': 1024,
+          'messages': [
+            {
+              'role': 'user',
+              'content': [
+                {
+                  'type': 'image',
+                  'source': {
+                    'type': 'base64',
+                    'media_type': mediaType,
+                    'data': base64Image,
+                  },
+                },
+                {
+                  'type': 'text',
+                  'text': '''Analyze this food image and provide:
+1. A concise description of the food/meal (what it is, approximate portions)
+2. Estimated nutritional content
+
+Respond with ONLY valid JSON in this exact format (no markdown, no explanation):
+{"description": "Grilled chicken caesar salad with croutons and parmesan, about 2 cups", "calories": 450, "proteinGrams": 35, "carbsGrams": 20, "fatGrams": 28, "saturatedFatGrams": 8, "unsaturatedFatGrams": 18, "transFatGrams": 0, "fiberGrams": 4, "sugarGrams": 3, "sodiumMg": 850, "potassiumMg": 400, "cholesterolMg": 75, "confidence": "medium", "notes": "Based on typical restaurant-style caesar salad"}
+
+Guidelines:
+- description: What you see in the image, including estimated portion size
+- confidence: "high" if food is clearly visible and identifiable, "medium" for typical meals, "low" if image is unclear or food is hard to identify
+- If you cannot identify any food in the image, respond with: {"error": "No food detected in image"}
+
+JSON:''',
+                },
+              ],
+            },
+          ],
+        }),
+      ).timeout(
+        const Duration(seconds: 45), // Longer timeout for image processing
+        onTimeout: () {
+          throw Exception('Image analysis timed out after 45 seconds');
+        },
+      );
+
+      final duration = DateTime.now().difference(startTime);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final responseText = data['content'][0]['text'] as String;
+
+        await _debug.logLLMResponse(
+          provider: 'cloud',
+          model: _selectedModel,
+          response: responseText,
+          estimatedTokens: _contextService.estimateTokens(responseText),
+          duration: duration,
+        );
+
+        // Parse the JSON response
+        final jsonMatch = RegExp(r'\{[^{}]*\}').firstMatch(responseText);
+        if (jsonMatch == null) {
+          await _debug.warning('AIService', 'No JSON found in food image response', metadata: {
+            'response': responseText,
+          });
+          return null;
+        }
+
+        final jsonString = jsonMatch.group(0)!;
+        final Map<String, dynamic> parsed = json.decode(jsonString);
+
+        // Check for error response
+        if (parsed.containsKey('error')) {
+          await _debug.warning('AIService', 'Food image analysis error', metadata: {
+            'error': parsed['error'],
+          });
+          return null;
+        }
+
+        // Helper to safely parse numbers
+        int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+          if (value == null) return defaultValue;
+          if (value is int) return value;
+          if (value is double) return value.toInt();
+          if (value is String) return int.tryParse(value) ?? defaultValue;
+          return defaultValue;
+        }
+
+        final description = parsed['description']?.toString() ?? 'Food item';
+        final confidence = parsed['confidence']?.toString() ?? 'medium';
+        final notes = parsed['notes']?.toString();
+
+        // Build nutrition estimate
+        final nutrition = NutritionEstimate(
+          calories: parseIntSafe(parsed['calories']),
+          proteinGrams: parseIntSafe(parsed['proteinGrams'] ?? parsed['protein']),
+          carbsGrams: parseIntSafe(parsed['carbsGrams'] ?? parsed['carbs']),
+          fatGrams: parseIntSafe(parsed['fatGrams'] ?? parsed['fat']),
+          saturatedFatGrams: parseIntSafe(parsed['saturatedFatGrams']),
+          unsaturatedFatGrams: parseIntSafe(parsed['unsaturatedFatGrams']),
+          transFatGrams: parseIntSafe(parsed['transFatGrams']),
+          fiberGrams: parseIntSafe(parsed['fiberGrams']),
+          sugarGrams: parseIntSafe(parsed['sugarGrams']),
+          sodiumMg: parsed['sodiumMg'] != null ? parseIntSafe(parsed['sodiumMg']) : null,
+          potassiumMg: parsed['potassiumMg'] != null ? parseIntSafe(parsed['potassiumMg']) : null,
+          cholesterolMg: parsed['cholesterolMg'] != null ? parseIntSafe(parsed['cholesterolMg']) : null,
+          confidence: confidence,
+          notes: notes,
+        );
+
+        final analysis = FoodImageAnalysis(
+          description: description,
+          nutrition: nutrition,
+          confidence: confidence,
+        );
+
+        await _debug.info('AIService', 'Food image analyzed successfully', metadata: {
+          'description': description,
+          'calories': nutrition.calories,
+          'confidence': confidence,
+        });
+
+        return analysis;
+      } else {
+        await _debug.error('AIService', 'Food image analysis failed', metadata: {
+          'statusCode': response.statusCode,
+          'body': response.body.substring(0, response.body.length > 500 ? 500 : response.body.length),
+        });
+        return null;
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'AIService',
+        'Failed to analyze food image: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      return null;
+    }
+  }
+}
+
+/// Result of analyzing a food image with AI
+class FoodImageAnalysis {
+  final String description;
+  final NutritionEstimate? nutrition;
+  final String confidence; // "high", "medium", "low"
+
+  const FoodImageAnalysis({
+    required this.description,
+    this.nutrition,
+    required this.confidence,
+  });
 }
 
 /// Estimated calories burned from exercise
