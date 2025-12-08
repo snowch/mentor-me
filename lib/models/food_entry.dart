@@ -174,11 +174,17 @@ class FoodEntry {
   final String description; // Natural language description of food
   final NutritionEstimate? nutrition; // AI-estimated nutrition
   final String? notes; // Optional user notes
-  final int? energyAfterMeal; // 1-5 scale, how they felt after eating
+  final int? energyAfterMeal; // 1-5 scale, how they felt after eating (legacy)
   final bool isManualEntry; // True if user manually entered nutrition
   final String? imagePath; // Path to food photo (optional)
   final String? templateId; // If added from food library, the template ID
   final Map<String, bool>? overriddenFields; // Which fields were manually overridden
+
+  // Mindful eating fields
+  final int? hungerBefore; // 1-5 scale: 1=not hungry, 5=starving
+  final List<String>? moodBefore; // Feelings before meal (multi-select)
+  final int? fullnessAfter; // 1-5 scale: 1=still hungry, 5=overfull
+  final List<String>? moodAfter; // Feelings after meal (multi-select)
 
   FoodEntry({
     String? id,
@@ -192,6 +198,10 @@ class FoodEntry {
     this.imagePath,
     this.templateId,
     this.overriddenFields,
+    this.hungerBefore,
+    this.moodBefore,
+    this.fullnessAfter,
+    this.moodAfter,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -220,6 +230,10 @@ class FoodEntry {
     String? imagePath,
     String? templateId,
     Map<String, bool>? overriddenFields,
+    int? hungerBefore,
+    List<String>? moodBefore,
+    int? fullnessAfter,
+    List<String>? moodAfter,
   }) {
     return FoodEntry(
       id: id ?? this.id,
@@ -233,6 +247,10 @@ class FoodEntry {
       imagePath: imagePath ?? this.imagePath,
       templateId: templateId ?? this.templateId,
       overriddenFields: overriddenFields ?? this.overriddenFields,
+      hungerBefore: hungerBefore ?? this.hungerBefore,
+      moodBefore: moodBefore ?? this.moodBefore,
+      fullnessAfter: fullnessAfter ?? this.fullnessAfter,
+      moodAfter: moodAfter ?? this.moodAfter,
     );
   }
 
@@ -441,4 +459,62 @@ class NutritionSummary {
 
   double fatProgress(NutritionGoal goal) =>
       (goal.targetFatGrams ?? 0) > 0 ? totalFat / goal.targetFatGrams! : 0;
+}
+
+/// Preset mood options for before/after meals
+class MealMoodPresets {
+  /// Feelings before meal (why am I eating?)
+  static const List<MoodOption> beforeMeal = [
+    MoodOption(id: 'hungry', label: 'Hungry', emoji: '🍽️'),
+    MoodOption(id: 'stressed', label: 'Stressed', emoji: '😰'),
+    MoodOption(id: 'anxious', label: 'Anxious', emoji: '😟'),
+    MoodOption(id: 'bored', label: 'Bored', emoji: '😑'),
+    MoodOption(id: 'tired', label: 'Tired', emoji: '😴'),
+    MoodOption(id: 'happy', label: 'Happy', emoji: '😊'),
+    MoodOption(id: 'sad', label: 'Sad', emoji: '😢'),
+    MoodOption(id: 'neutral', label: 'Neutral', emoji: '😐'),
+  ];
+
+  /// Feelings after meal (how do I feel now?)
+  static const List<MoodOption> afterMeal = [
+    MoodOption(id: 'satisfied', label: 'Satisfied', emoji: '😌'),
+    MoodOption(id: 'energized', label: 'Energized', emoji: '⚡'),
+    MoodOption(id: 'sluggish', label: 'Sluggish', emoji: '🥱'),
+    MoodOption(id: 'guilty', label: 'Guilty', emoji: '😣'),
+    MoodOption(id: 'content', label: 'Content', emoji: '😊'),
+    MoodOption(id: 'still_hungry', label: 'Still Hungry', emoji: '🍽️'),
+    MoodOption(id: 'overfull', label: 'Overfull', emoji: '🫃'),
+    MoodOption(id: 'neutral', label: 'Neutral', emoji: '😐'),
+  ];
+
+  /// Hunger level labels (1-5)
+  static const List<String> hungerLabels = [
+    'Not hungry',
+    'Slightly hungry',
+    'Hungry',
+    'Very hungry',
+    'Starving',
+  ];
+
+  /// Fullness level labels (1-5)
+  static const List<String> fullnessLabels = [
+    'Still hungry',
+    'Not quite full',
+    'Satisfied',
+    'Full',
+    'Overfull',
+  ];
+}
+
+/// A mood option with id, label, and emoji
+class MoodOption {
+  final String id;
+  final String label;
+  final String emoji;
+
+  const MoodOption({
+    required this.id,
+    required this.label,
+    required this.emoji,
+  });
 }

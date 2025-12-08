@@ -538,6 +538,18 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   final _fatController = TextEditingController();
   bool _nutritionEdited = false; // Track if user has edited values
 
+  // Mindful eating fields
+  int? _hungerBefore;
+  Set<String> _selectedMoodsBefore = {};
+  int? _fullnessAfter;
+  Set<String> _selectedMoodsAfter = {};
+
+  // Custom mood input
+  final _customMoodBeforeController = TextEditingController();
+  final _customMoodAfterController = TextEditingController();
+  bool _showCustomMoodBeforeInput = false;
+  bool _showCustomMoodAfterInput = false;
+
   @override
   void initState() {
     super.initState();
@@ -551,6 +563,11 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       if (_nutrition != null) {
         _populateNutritionControllers(_nutrition!);
       }
+      // Load mindful eating values
+      _hungerBefore = widget.existingEntry!.hungerBefore;
+      _selectedMoodsBefore = Set.from(widget.existingEntry!.moodBefore ?? []);
+      _fullnessAfter = widget.existingEntry!.fullnessAfter;
+      _selectedMoodsAfter = Set.from(widget.existingEntry!.moodAfter ?? []);
     } else {
       // Default to current time
       _selectedTime = TimeOfDay.now();
@@ -575,6 +592,8 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     _proteinController.dispose();
     _carbsController.dispose();
     _fatController.dispose();
+    _customMoodBeforeController.dispose();
+    _customMoodAfterController.dispose();
     super.dispose();
   }
 
@@ -883,6 +902,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       description: description,
       nutrition: finalNutrition,
       imagePath: _imagePath,
+      hungerBefore: _hungerBefore,
+      moodBefore: _selectedMoodsBefore.isNotEmpty ? _selectedMoodsBefore.toList() : null,
+      fullnessAfter: _fullnessAfter,
+      moodAfter: _selectedMoodsAfter.isNotEmpty ? _selectedMoodsAfter.toList() : null,
     );
 
     if (widget.existingEntry != null) {
@@ -1037,6 +1060,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
               maxLines: 2,
               textCapitalization: TextCapitalization.sentences,
             ),
+            AppSpacing.gapVerticalMd,
+
+            // Mindful eating section
+            _buildMindfulEatingSection(theme),
             AppSpacing.gapVerticalMd,
 
             // AI Estimate button
@@ -1357,6 +1384,326 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
       ),
+    );
+  }
+
+  /// Build the mindful eating section with hunger/fullness and mood selectors
+  Widget _buildMindfulEatingSection(ThemeData theme) {
+    final provider = context.read<FoodLogProvider>();
+
+    // Check if any mindful eating options are enabled
+    final showBefore = provider.showHungerBefore || provider.showMoodBefore;
+    final showAfter = provider.showFullnessAfter || provider.showMoodAfter;
+
+    if (!showBefore && !showAfter) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.psychology_outlined,
+                    size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'How are you feeling?',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Before meal section
+            if (showBefore) ...[
+              Text(
+                'Before eating:',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Hunger level
+              if (provider.showHungerBefore) ...[
+                _buildLevelSelector(
+                  theme: theme,
+                  label: 'Hunger level',
+                  value: _hungerBefore,
+                  labels: MealMoodPresets.hungerLabels,
+                  onChanged: (value) => setState(() => _hungerBefore = value),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Mood before
+              if (provider.showMoodBefore) ...[
+                _buildMoodSelector(
+                  theme: theme,
+                  presets: MealMoodPresets.beforeMeal,
+                  customMoods: provider.customMoodsBefore,
+                  selectedMoods: _selectedMoodsBefore,
+                  onToggle: (id) => setState(() {
+                    if (_selectedMoodsBefore.contains(id)) {
+                      _selectedMoodsBefore.remove(id);
+                    } else {
+                      _selectedMoodsBefore.add(id);
+                    }
+                  }),
+                  showCustomInput: _showCustomMoodBeforeInput,
+                  onToggleCustomInput: () => setState(() {
+                    _showCustomMoodBeforeInput = !_showCustomMoodBeforeInput;
+                  }),
+                  customController: _customMoodBeforeController,
+                  onSaveCustom: () async {
+                    final mood = _customMoodBeforeController.text.trim();
+                    if (mood.isNotEmpty) {
+                      await provider.addCustomMoodBefore(mood);
+                      _selectedMoodsBefore.add(mood);
+                      _customMoodBeforeController.clear();
+                      setState(() => _showCustomMoodBeforeInput = false);
+                    }
+                  },
+                  onRemoveCustom: (mood) async {
+                    await provider.removeCustomMoodBefore(mood);
+                    _selectedMoodsBefore.remove(mood);
+                    setState(() {});
+                  },
+                ),
+              ],
+
+              if (showAfter) const Divider(height: 24),
+            ],
+
+            // After meal section
+            if (showAfter) ...[
+              Text(
+                'After eating:',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Fullness level
+              if (provider.showFullnessAfter) ...[
+                _buildLevelSelector(
+                  theme: theme,
+                  label: 'Fullness level',
+                  value: _fullnessAfter,
+                  labels: MealMoodPresets.fullnessLabels,
+                  onChanged: (value) => setState(() => _fullnessAfter = value),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              // Mood after
+              if (provider.showMoodAfter) ...[
+                _buildMoodSelector(
+                  theme: theme,
+                  presets: MealMoodPresets.afterMeal,
+                  customMoods: provider.customMoodsAfter,
+                  selectedMoods: _selectedMoodsAfter,
+                  onToggle: (id) => setState(() {
+                    if (_selectedMoodsAfter.contains(id)) {
+                      _selectedMoodsAfter.remove(id);
+                    } else {
+                      _selectedMoodsAfter.add(id);
+                    }
+                  }),
+                  showCustomInput: _showCustomMoodAfterInput,
+                  onToggleCustomInput: () => setState(() {
+                    _showCustomMoodAfterInput = !_showCustomMoodAfterInput;
+                  }),
+                  customController: _customMoodAfterController,
+                  onSaveCustom: () async {
+                    final mood = _customMoodAfterController.text.trim();
+                    if (mood.isNotEmpty) {
+                      await provider.addCustomMoodAfter(mood);
+                      _selectedMoodsAfter.add(mood);
+                      _customMoodAfterController.clear();
+                      setState(() => _showCustomMoodAfterInput = false);
+                    }
+                  },
+                  onRemoveCustom: (mood) async {
+                    await provider.removeCustomMoodAfter(mood);
+                    _selectedMoodsAfter.remove(mood);
+                    setState(() {});
+                  },
+                ),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build a 1-5 level selector (for hunger/fullness)
+  Widget _buildLevelSelector({
+    required ThemeData theme,
+    required String label,
+    required int? value,
+    required List<String> labels,
+    required ValueChanged<int?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label, style: theme.textTheme.bodySmall),
+            if (value != null) ...[
+              const Spacer(),
+              Text(
+                labels[value - 1],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: List.generate(5, (index) {
+            final level = index + 1;
+            final isSelected = value == level;
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: index < 4 ? 4 : 0),
+                child: InkWell(
+                  onTap: () => onChanged(isSelected ? null : level),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: isSelected
+                          ? Border.all(color: theme.colorScheme.primary, width: 2)
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$level',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: isSelected ? FontWeight.bold : null,
+                        color: isSelected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  /// Build a mood chip selector with custom "Other" option
+  Widget _buildMoodSelector({
+    required ThemeData theme,
+    required List<MoodOption> presets,
+    required List<String> customMoods,
+    required Set<String> selectedMoods,
+    required Function(String) onToggle,
+    required bool showCustomInput,
+    required VoidCallback onToggleCustomInput,
+    required TextEditingController customController,
+    required VoidCallback onSaveCustom,
+    required Function(String) onRemoveCustom,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            // Preset moods
+            ...presets.map((mood) {
+              final isSelected = selectedMoods.contains(mood.id);
+              return FilterChip(
+                label: Text('${mood.emoji} ${mood.label}'),
+                selected: isSelected,
+                onSelected: (_) => onToggle(mood.id),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              );
+            }),
+            // Custom moods
+            ...customMoods.map((mood) {
+              final isSelected = selectedMoods.contains(mood);
+              return FilterChip(
+                label: Text('✨ $mood'),
+                selected: isSelected,
+                onSelected: (_) => onToggle(mood),
+                deleteIcon: const Icon(Icons.close, size: 14),
+                onDeleted: () => onRemoveCustom(mood),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              );
+            }),
+            // "Other" button
+            ActionChip(
+              label: const Text('+ Other'),
+              onPressed: onToggleCustomInput,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ],
+        ),
+        // Custom mood input
+        if (showCustomInput) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: customController,
+                  decoration: InputDecoration(
+                    hintText: 'Enter custom feeling',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.words,
+                  onSubmitted: (_) => onSaveCustom(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: onSaveCustom,
+                icon: const Icon(Icons.check, size: 18),
+                visualDensity: VisualDensity.compact,
+              ),
+              IconButton(
+                onPressed: onToggleCustomInput,
+                icon: const Icon(Icons.close, size: 18),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

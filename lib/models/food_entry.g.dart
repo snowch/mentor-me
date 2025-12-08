@@ -62,6 +62,14 @@ FoodEntry _$FoodEntryFromJson(Map<String, dynamic> json) => FoodEntry(
           (json['overriddenFields'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, e as bool),
       ),
+      hungerBefore: (json['hungerBefore'] as num?)?.toInt(),
+      moodBefore: (json['moodBefore'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      fullnessAfter: (json['fullnessAfter'] as num?)?.toInt(),
+      moodAfter: (json['moodAfter'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
     );
 
 Map<String, dynamic> _$FoodEntryToJson(FoodEntry instance) => <String, dynamic>{
@@ -76,6 +84,10 @@ Map<String, dynamic> _$FoodEntryToJson(FoodEntry instance) => <String, dynamic>{
       'imagePath': instance.imagePath,
       'templateId': instance.templateId,
       'overriddenFields': instance.overriddenFields,
+      'hungerBefore': instance.hungerBefore,
+      'moodBefore': instance.moodBefore,
+      'fullnessAfter': instance.fullnessAfter,
+      'moodAfter': instance.moodAfter,
     };
 
 const _$MealTypeEnumMap = {
