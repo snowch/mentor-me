@@ -51,7 +51,9 @@ class NutritionEstimate {
   final int carbsGrams;
   final int fatGrams;
   final int? saturatedFatGrams; // "Bad" fat - solid at room temp
-  final int? unsaturatedFatGrams; // "Good" fat - liquid at room temp (mono + poly)
+  final int? unsaturatedFatGrams; // "Good" fat - liquid at room temp (mono + poly combined)
+  final int? monoFatGrams; // Monounsaturated fat (olive oil, avocado, nuts)
+  final int? polyFatGrams; // Polyunsaturated fat (omega-3, omega-6, fish, seeds)
   final int? transFatGrams; // Artificial trans fats - worst for health
   final int? fiberGrams;
   final int? sugarGrams;
@@ -69,6 +71,8 @@ class NutritionEstimate {
     required this.fatGrams,
     this.saturatedFatGrams,
     this.unsaturatedFatGrams,
+    this.monoFatGrams,
+    this.polyFatGrams,
     this.transFatGrams,
     this.fiberGrams,
     this.sugarGrams,
@@ -90,6 +94,8 @@ class NutritionEstimate {
     int? fatGrams,
     int? saturatedFatGrams,
     int? unsaturatedFatGrams,
+    int? monoFatGrams,
+    int? polyFatGrams,
     int? transFatGrams,
     int? fiberGrams,
     int? sugarGrams,
@@ -106,6 +112,8 @@ class NutritionEstimate {
       fatGrams: fatGrams ?? this.fatGrams,
       saturatedFatGrams: saturatedFatGrams ?? this.saturatedFatGrams,
       unsaturatedFatGrams: unsaturatedFatGrams ?? this.unsaturatedFatGrams,
+      monoFatGrams: monoFatGrams ?? this.monoFatGrams,
+      polyFatGrams: polyFatGrams ?? this.polyFatGrams,
       transFatGrams: transFatGrams ?? this.transFatGrams,
       fiberGrams: fiberGrams ?? this.fiberGrams,
       sugarGrams: sugarGrams ?? this.sugarGrams,

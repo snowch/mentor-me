@@ -1062,10 +1062,6 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             ),
             AppSpacing.gapVerticalMd,
 
-            // Mindful eating section
-            _buildMindfulEatingSection(theme),
-            AppSpacing.gapVerticalMd,
-
             // AI Estimate button
             FilledButton.tonalIcon(
               onPressed: _isEstimating ? null : _estimateNutrition,
@@ -1173,29 +1169,64 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                         ),
                       ),
                       AppSpacing.gapVerticalXs,
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildNutritionValue(
-                            'Saturated',
-                            '${_nutrition!.saturatedFatGrams ?? 0}',
-                            'g',
-                            color: theme.colorScheme.error.withValues(alpha: 0.8),
-                          ),
-                          _buildNutritionValue(
-                            'Unsaturated',
-                            '${_nutrition!.unsaturatedFatGrams ?? 0}',
-                            'g',
-                            color: Colors.green.shade700,
-                          ),
-                          _buildNutritionValue(
-                            'Trans',
-                            '${_nutrition!.transFatGrams ?? 0}',
-                            'g',
-                            color: theme.colorScheme.error,
-                          ),
-                        ],
-                      ),
+                      // Show mono/poly if available, otherwise show combined unsaturated
+                      if (_nutrition!.monoFatGrams != null || _nutrition!.polyFatGrams != null) ...[
+                        // Detailed breakdown with mono/poly
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildNutritionValue(
+                              'Saturated',
+                              '${_nutrition!.saturatedFatGrams ?? 0}',
+                              'g',
+                              color: theme.colorScheme.error.withValues(alpha: 0.8),
+                            ),
+                            _buildNutritionValue(
+                              'Mono',
+                              '${_nutrition!.monoFatGrams ?? 0}',
+                              'g',
+                              color: Colors.green.shade700,
+                            ),
+                            _buildNutritionValue(
+                              'Poly',
+                              '${_nutrition!.polyFatGrams ?? 0}',
+                              'g',
+                              color: Colors.green.shade500,
+                            ),
+                            _buildNutritionValue(
+                              'Trans',
+                              '${_nutrition!.transFatGrams ?? 0}',
+                              'g',
+                              color: theme.colorScheme.error,
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        // Simple breakdown with combined unsaturated
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildNutritionValue(
+                              'Saturated',
+                              '${_nutrition!.saturatedFatGrams ?? 0}',
+                              'g',
+                              color: theme.colorScheme.error.withValues(alpha: 0.8),
+                            ),
+                            _buildNutritionValue(
+                              'Unsaturated',
+                              '${_nutrition!.unsaturatedFatGrams ?? 0}',
+                              'g',
+                              color: Colors.green.shade700,
+                            ),
+                            _buildNutritionValue(
+                              'Trans',
+                              '${_nutrition!.transFatGrams ?? 0}',
+                              'g',
+                              color: theme.colorScheme.error,
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_nutrition!.notes != null) ...[
                         AppSpacing.gapVerticalSm,
                         Text(
@@ -1211,6 +1242,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                 ),
               ),
             ],
+
+            // Mindful eating section (shown after AI estimation)
+            AppSpacing.gapVerticalMd,
+            _buildMindfulEatingSection(theme),
 
             AppSpacing.gapVerticalLg,
 
@@ -1399,150 +1434,181 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       return const SizedBox.shrink();
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.psychology_outlined,
-                    size: 18, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'How are you feeling?',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+    // Check if any values are set (to show indicator)
+    final hasValues = _hungerBefore != null ||
+        _selectedMoodsBefore.isNotEmpty ||
+        _fullnessAfter != null ||
+        _selectedMoodsAfter.isNotEmpty;
 
-            // Before meal section
-            if (showBefore) ...[
-              Text(
-                'Before eating:',
-                style: theme.textTheme.labelMedium?.copyWith(
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        leading: Icon(Icons.psychology_outlined,
+            size: 20, color: theme.colorScheme.primary),
+        title: Text(
+          'Mindful Eating',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: hasValues
+            ? Text(
+                _buildMindfulSummary(),
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.primary,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
+            : Text(
+                'Track hunger, fullness & mood',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+        initiallyExpanded: false,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          // Before meal section
+          if (showBefore) ...[
+            Text(
+              'Before eating:',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Hunger level
+            if (provider.showHungerBefore) ...[
+              _buildLevelSelector(
+                theme: theme,
+                label: 'Hunger level',
+                value: _hungerBefore,
+                labels: MealMoodPresets.hungerLabels,
+                onChanged: (value) => setState(() => _hungerBefore = value),
               ),
               const SizedBox(height: 8),
-
-              // Hunger level
-              if (provider.showHungerBefore) ...[
-                _buildLevelSelector(
-                  theme: theme,
-                  label: 'Hunger level',
-                  value: _hungerBefore,
-                  labels: MealMoodPresets.hungerLabels,
-                  onChanged: (value) => setState(() => _hungerBefore = value),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              // Mood before
-              if (provider.showMoodBefore) ...[
-                _buildMoodSelector(
-                  theme: theme,
-                  presets: MealMoodPresets.beforeMeal,
-                  customMoods: provider.customMoodsBefore,
-                  selectedMoods: _selectedMoodsBefore,
-                  onToggle: (id) => setState(() {
-                    if (_selectedMoodsBefore.contains(id)) {
-                      _selectedMoodsBefore.remove(id);
-                    } else {
-                      _selectedMoodsBefore.add(id);
-                    }
-                  }),
-                  showCustomInput: _showCustomMoodBeforeInput,
-                  onToggleCustomInput: () => setState(() {
-                    _showCustomMoodBeforeInput = !_showCustomMoodBeforeInput;
-                  }),
-                  customController: _customMoodBeforeController,
-                  onSaveCustom: () async {
-                    final mood = _customMoodBeforeController.text.trim();
-                    if (mood.isNotEmpty) {
-                      await provider.addCustomMoodBefore(mood);
-                      _selectedMoodsBefore.add(mood);
-                      _customMoodBeforeController.clear();
-                      setState(() => _showCustomMoodBeforeInput = false);
-                    }
-                  },
-                  onRemoveCustom: (mood) async {
-                    await provider.removeCustomMoodBefore(mood);
-                    _selectedMoodsBefore.remove(mood);
-                    setState(() {});
-                  },
-                ),
-              ],
-
-              if (showAfter) const Divider(height: 24),
             ],
 
-            // After meal section
-            if (showAfter) ...[
-              Text(
-                'After eating:',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.secondary,
-                ),
+            // Mood before
+            if (provider.showMoodBefore) ...[
+              _buildMoodSelector(
+                theme: theme,
+                presets: MealMoodPresets.beforeMeal,
+                customMoods: provider.customMoodsBefore,
+                selectedMoods: _selectedMoodsBefore,
+                onToggle: (id) => setState(() {
+                  if (_selectedMoodsBefore.contains(id)) {
+                    _selectedMoodsBefore.remove(id);
+                  } else {
+                    _selectedMoodsBefore.add(id);
+                  }
+                }),
+                showCustomInput: _showCustomMoodBeforeInput,
+                onToggleCustomInput: () => setState(() {
+                  _showCustomMoodBeforeInput = !_showCustomMoodBeforeInput;
+                }),
+                customController: _customMoodBeforeController,
+                onSaveCustom: () async {
+                  final mood = _customMoodBeforeController.text.trim();
+                  if (mood.isNotEmpty) {
+                    await provider.addCustomMoodBefore(mood);
+                    _selectedMoodsBefore.add(mood);
+                    _customMoodBeforeController.clear();
+                    setState(() => _showCustomMoodBeforeInput = false);
+                  }
+                },
+                onRemoveCustom: (mood) async {
+                  await provider.removeCustomMoodBefore(mood);
+                  _selectedMoodsBefore.remove(mood);
+                  setState(() {});
+                },
+              ),
+            ],
+
+            if (showAfter) const Divider(height: 24),
+          ],
+
+          // After meal section
+          if (showAfter) ...[
+            Text(
+              'After eating:',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.secondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Fullness level
+            if (provider.showFullnessAfter) ...[
+              _buildLevelSelector(
+                theme: theme,
+                label: 'Fullness level',
+                value: _fullnessAfter,
+                labels: MealMoodPresets.fullnessLabels,
+                onChanged: (value) => setState(() => _fullnessAfter = value),
               ),
               const SizedBox(height: 8),
+            ],
 
-              // Fullness level
-              if (provider.showFullnessAfter) ...[
-                _buildLevelSelector(
-                  theme: theme,
-                  label: 'Fullness level',
-                  value: _fullnessAfter,
-                  labels: MealMoodPresets.fullnessLabels,
-                  onChanged: (value) => setState(() => _fullnessAfter = value),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              // Mood after
-              if (provider.showMoodAfter) ...[
-                _buildMoodSelector(
-                  theme: theme,
-                  presets: MealMoodPresets.afterMeal,
-                  customMoods: provider.customMoodsAfter,
-                  selectedMoods: _selectedMoodsAfter,
-                  onToggle: (id) => setState(() {
-                    if (_selectedMoodsAfter.contains(id)) {
-                      _selectedMoodsAfter.remove(id);
-                    } else {
-                      _selectedMoodsAfter.add(id);
-                    }
-                  }),
-                  showCustomInput: _showCustomMoodAfterInput,
-                  onToggleCustomInput: () => setState(() {
-                    _showCustomMoodAfterInput = !_showCustomMoodAfterInput;
-                  }),
-                  customController: _customMoodAfterController,
-                  onSaveCustom: () async {
-                    final mood = _customMoodAfterController.text.trim();
-                    if (mood.isNotEmpty) {
-                      await provider.addCustomMoodAfter(mood);
-                      _selectedMoodsAfter.add(mood);
-                      _customMoodAfterController.clear();
-                      setState(() => _showCustomMoodAfterInput = false);
-                    }
-                  },
-                  onRemoveCustom: (mood) async {
-                    await provider.removeCustomMoodAfter(mood);
-                    _selectedMoodsAfter.remove(mood);
-                    setState(() {});
-                  },
-                ),
-              ],
+            // Mood after
+            if (provider.showMoodAfter) ...[
+              _buildMoodSelector(
+                theme: theme,
+                presets: MealMoodPresets.afterMeal,
+                customMoods: provider.customMoodsAfter,
+                selectedMoods: _selectedMoodsAfter,
+                onToggle: (id) => setState(() {
+                  if (_selectedMoodsAfter.contains(id)) {
+                    _selectedMoodsAfter.remove(id);
+                  } else {
+                    _selectedMoodsAfter.add(id);
+                  }
+                }),
+                showCustomInput: _showCustomMoodAfterInput,
+                onToggleCustomInput: () => setState(() {
+                  _showCustomMoodAfterInput = !_showCustomMoodAfterInput;
+                }),
+                customController: _customMoodAfterController,
+                onSaveCustom: () async {
+                  final mood = _customMoodAfterController.text.trim();
+                  if (mood.isNotEmpty) {
+                    await provider.addCustomMoodAfter(mood);
+                    _selectedMoodsAfter.add(mood);
+                    _customMoodAfterController.clear();
+                    setState(() => _showCustomMoodAfterInput = false);
+                  }
+                },
+                onRemoveCustom: (mood) async {
+                  await provider.removeCustomMoodAfter(mood);
+                  _selectedMoodsAfter.remove(mood);
+                  setState(() {});
+                },
+              ),
             ],
           ],
-        ),
+        ],
       ),
     );
+  }
+
+  /// Build a summary of selected mindful eating values
+  String _buildMindfulSummary() {
+    final parts = <String>[];
+    if (_hungerBefore != null) {
+      parts.add('Hunger: $_hungerBefore/5');
+    }
+    if (_fullnessAfter != null) {
+      parts.add('Full: $_fullnessAfter/5');
+    }
+    if (_selectedMoodsBefore.isNotEmpty) {
+      parts.add('${_selectedMoodsBefore.length} mood(s) before');
+    }
+    if (_selectedMoodsAfter.isNotEmpty) {
+      parts.add('${_selectedMoodsAfter.length} mood(s) after');
+    }
+    return parts.join(' • ');
   }
 
   /// Build a 1-5 level selector (for hunger/fullness)

@@ -322,7 +322,7 @@ class ContextManagementService {
           foodSection.writeln('Details: ${details.join(', ')}');
         }
       }
-      // Recent food entries with detailed nutrition
+      // Recent food entries with detailed nutrition and mindful eating data
       int foodCount = 0;
       for (final entry in foodEntries.take(10)) {
         final nutritionParts = <String>[];
@@ -339,7 +339,24 @@ class ContextManagementService {
           }
         }
         final nutrition = nutritionParts.isNotEmpty ? ' (${nutritionParts.join(', ')})' : '';
-        foodSection.writeln('- ${_formatDate(entry.timestamp)} ${entry.mealType.displayName}: ${entry.description}$nutrition');
+
+        // Build mindful eating context
+        final mindfulParts = <String>[];
+        if (entry.hungerBefore != null) {
+          mindfulParts.add('hunger before: ${entry.hungerBefore}/5');
+        }
+        if (entry.moodBefore != null && entry.moodBefore!.isNotEmpty) {
+          mindfulParts.add('feeling before: ${entry.moodBefore!.join(", ")}');
+        }
+        if (entry.fullnessAfter != null) {
+          mindfulParts.add('fullness after: ${entry.fullnessAfter}/5');
+        }
+        if (entry.moodAfter != null && entry.moodAfter!.isNotEmpty) {
+          mindfulParts.add('feeling after: ${entry.moodAfter!.join(", ")}');
+        }
+        final mindful = mindfulParts.isNotEmpty ? ' | ${mindfulParts.join("; ")}' : '';
+
+        foodSection.writeln('- ${_formatDate(entry.timestamp)} ${entry.mealType.displayName}: ${entry.description}$nutrition$mindful');
         foodCount++;
       }
       foodSection.writeln();
