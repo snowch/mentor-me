@@ -1062,10 +1062,6 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             ),
             AppSpacing.gapVerticalMd,
 
-            // Mindful eating section
-            _buildMindfulEatingSection(theme),
-            AppSpacing.gapVerticalMd,
-
             // AI Estimate button
             FilledButton.tonalIcon(
               onPressed: _isEstimating ? null : _estimateNutrition,
@@ -1211,6 +1207,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                 ),
               ),
             ],
+
+            // Mindful eating section (shown after AI estimation)
+            AppSpacing.gapVerticalMd,
+            _buildMindfulEatingSection(theme),
 
             AppSpacing.gapVerticalLg,
 
