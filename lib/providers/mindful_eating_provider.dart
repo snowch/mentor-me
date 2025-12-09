@@ -144,32 +144,32 @@ class MindfulEatingProvider extends ChangeNotifier {
     return _entries.where((e) => e.timestamp.isAfter(start)).toList();
   }
 
-  /// Calculate average hunger level before eating (for trends)
+  /// Calculate average level for a specific timing (for trends)
+  double? averageLevelForTiming(int days, MindfulEatingTiming timing) {
+    final recent = entriesForLastDays(days)
+        .where((e) => e.timing == timing && e.level != null)
+        .toList();
+    if (recent.isEmpty) return null;
+    final sum = recent.fold<int>(0, (sum, e) => sum + e.level!);
+    return sum / recent.length;
+  }
+
+  /// Calculate average hunger level (entries with beforeEating timing)
   double? averageHungerBefore(int days) {
-    final recent = entriesForLastDays(days)
-        .where((e) => e.hungerBefore != null)
-        .toList();
-    if (recent.isEmpty) return null;
-    final sum = recent.fold<int>(0, (sum, e) => sum + e.hungerBefore!);
-    return sum / recent.length;
+    return averageLevelForTiming(days, MindfulEatingTiming.beforeEating);
   }
 
-  /// Calculate average fullness after eating (for trends)
+  /// Calculate average fullness level (entries with afterEating timing)
   double? averageFullnessAfter(int days) {
-    final recent = entriesForLastDays(days)
-        .where((e) => e.fullnessAfter != null)
-        .toList();
-    if (recent.isEmpty) return null;
-    final sum = recent.fold<int>(0, (sum, e) => sum + e.fullnessAfter!);
-    return sum / recent.length;
+    return averageLevelForTiming(days, MindfulEatingTiming.afterEating);
   }
 
-  /// Get most common moods before eating (for insights)
-  Map<String, int> moodFrequencyBefore(int days) {
+  /// Get mood frequency for a specific timing (for insights)
+  Map<String, int> moodFrequencyForTiming(int days, MindfulEatingTiming timing) {
     final counts = <String, int>{};
     for (final entry in entriesForLastDays(days)) {
-      if (entry.moodBefore != null) {
-        for (final mood in entry.moodBefore!) {
+      if (entry.timing == timing && entry.mood != null) {
+        for (final mood in entry.mood!) {
           counts[mood] = (counts[mood] ?? 0) + 1;
         }
       }
@@ -177,12 +177,22 @@ class MindfulEatingProvider extends ChangeNotifier {
     return counts;
   }
 
-  /// Get most common moods after eating (for insights)
+  /// Get most common moods for before eating entries (for insights)
+  Map<String, int> moodFrequencyBefore(int days) {
+    return moodFrequencyForTiming(days, MindfulEatingTiming.beforeEating);
+  }
+
+  /// Get most common moods for after eating entries (for insights)
   Map<String, int> moodFrequencyAfter(int days) {
+    return moodFrequencyForTiming(days, MindfulEatingTiming.afterEating);
+  }
+
+  /// Get overall mood frequency across all timings
+  Map<String, int> moodFrequency(int days) {
     final counts = <String, int>{};
     for (final entry in entriesForLastDays(days)) {
-      if (entry.moodAfter != null) {
-        for (final mood in entry.moodAfter!) {
+      if (entry.mood != null) {
+        for (final mood in entry.mood!) {
           counts[mood] = (counts[mood] ?? 0) + 1;
         }
       }

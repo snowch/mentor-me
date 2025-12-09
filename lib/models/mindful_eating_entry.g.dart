@@ -12,26 +12,26 @@ MindfulEatingEntry _$MindfulEatingEntryFromJson(Map<String, dynamic> json) =>
       timestamp: json['timestamp'] == null
           ? null
           : DateTime.parse(json['timestamp'] as String),
-      hungerBefore: (json['hungerBefore'] as num?)?.toInt(),
-      moodBefore: (json['moodBefore'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
-      fullnessAfter: (json['fullnessAfter'] as num?)?.toInt(),
-      moodAfter: (json['moodAfter'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
+      timing:
+          $enumDecodeNullable(_$MindfulEatingTimingEnumMap, json['timing']) ??
+              MindfulEatingTiming.beforeEating,
+      level: (json['level'] as num?)?.toInt(),
+      mood: (json['mood'] as List<dynamic>?)?.map((e) => e as String).toList(),
       note: json['note'] as String?,
-      linkedFoodEntryId: json['linkedFoodEntryId'] as String?,
     );
 
 Map<String, dynamic> _$MindfulEatingEntryToJson(MindfulEatingEntry instance) =>
     <String, dynamic>{
       'id': instance.id,
       'timestamp': instance.timestamp.toIso8601String(),
-      'hungerBefore': instance.hungerBefore,
-      'moodBefore': instance.moodBefore,
-      'fullnessAfter': instance.fullnessAfter,
-      'moodAfter': instance.moodAfter,
+      'timing': _$MindfulEatingTimingEnumMap[instance.timing]!,
+      'level': instance.level,
+      'mood': instance.mood,
       'note': instance.note,
-      'linkedFoodEntryId': instance.linkedFoodEntryId,
     };
+
+const _$MindfulEatingTimingEnumMap = {
+  MindfulEatingTiming.beforeEating: 'beforeEating',
+  MindfulEatingTiming.afterEating: 'afterEating',
+  MindfulEatingTiming.other: 'other',
+};
