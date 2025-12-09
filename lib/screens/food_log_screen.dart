@@ -18,6 +18,7 @@ import '../services/ai_service.dart';
 import '../services/nutrition_goal_service.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/food_picker_dialog.dart';
+import '../widgets/food_database_search_sheet.dart';
 import 'food_library_screen.dart';
 
 class FoodLogScreen extends StatefulWidget {
@@ -916,6 +917,34 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     }
   }
 
+  /// Open food database search sheet (Open Food Facts + UK CoFID)
+  void _searchFoodDatabase() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => FoodDatabaseSearchSheet(
+          onFoodSelected: (result) {
+            Navigator.pop(context); // Close search sheet
+            // Populate form with selected food data
+            setState(() {
+              _descriptionController.text = result.brand != null
+                  ? '${result.name} (${result.brand})'
+                  : result.name;
+              _nutrition = result.nutrition;
+              _nutritionEdited = false; // Reset edited flag
+              _populateNutritionControllers(result.nutrition);
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmDeleteEntry(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1041,8 +1070,19 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             ),
             AppSpacing.gapVerticalMd,
 
-            // Pick from Library button (only for new entries)
+            // Quick add buttons (only for new entries)
             if (widget.existingEntry == null) ...[
+              // Search Food Database - Open Food Facts + UK CoFID
+              OutlinedButton.icon(
+                onPressed: _searchFoodDatabase,
+                icon: const Icon(Icons.search),
+                label: const Text('Search Food Database'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+              AppSpacing.gapVerticalSm,
+              // Pick from personal library
               OutlinedButton.icon(
                 onPressed: _pickFromLibrary,
                 icon: const Icon(Icons.menu_book),
@@ -2252,11 +2292,13 @@ class _GoalSettingsSheetState extends State<_GoalSettingsSheet> {
 class _MindfulEatingSheet extends StatefulWidget {
   final ScrollController scrollController;
   final DateTime selectedDate;
+  /// Used for editing existing entries (edit functionality to be wired up)
   final MindfulEatingEntry? existingEntry;
 
   const _MindfulEatingSheet({
     required this.scrollController,
     required this.selectedDate,
+    // ignore: unused_element
     this.existingEntry,
   });
 
