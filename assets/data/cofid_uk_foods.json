@@ -1,0 +1,908 @@
+{
+  "version": "2021.1",
+  "source": "McCance and Widdowson's Composition of Foods Integrated Dataset (CoFID)",
+  "license": "Open Government Licence v3.0",
+  "notes": "Nutrition values per 100g edible portion. Curated subset for MentorMe app.",
+  "foods": [
+    {
+      "id": "cofid_001",
+      "name": "Chicken breast, grilled, meat only",
+      "category": "protein",
+      "per100g": {"calories": 148, "protein": 32.0, "carbs": 0, "fat": 2.2, "saturatedFat": 0.6, "fiber": 0, "sugar": 0, "sodium": 81}
+    },
+    {
+      "id": "cofid_002",
+      "name": "Chicken thigh, roasted, meat only",
+      "category": "protein",
+      "per100g": {"calories": 177, "protein": 25.0, "carbs": 0, "fat": 8.5, "saturatedFat": 2.4, "fiber": 0, "sugar": 0, "sodium": 89}
+    },
+    {
+      "id": "cofid_003",
+      "name": "Beef mince, stewed",
+      "category": "protein",
+      "per100g": {"calories": 209, "protein": 21.8, "carbs": 0, "fat": 13.5, "saturatedFat": 5.7, "fiber": 0, "sugar": 0, "sodium": 72}
+    },
+    {
+      "id": "cofid_004",
+      "name": "Beef steak, sirloin, grilled, lean",
+      "category": "protein",
+      "per100g": {"calories": 163, "protein": 28.6, "carbs": 0, "fat": 5.1, "saturatedFat": 2.1, "fiber": 0, "sugar": 0, "sodium": 63}
+    },
+    {
+      "id": "cofid_005",
+      "name": "Lamb chop, grilled, lean",
+      "category": "protein",
+      "per100g": {"calories": 203, "protein": 29.2, "carbs": 0, "fat": 9.4, "saturatedFat": 4.2, "fiber": 0, "sugar": 0, "sodium": 86}
+    },
+    {
+      "id": "cofid_006",
+      "name": "Pork chop, grilled, lean",
+      "category": "protein",
+      "per100g": {"calories": 184, "protein": 31.6, "carbs": 0, "fat": 6.4, "saturatedFat": 2.3, "fiber": 0, "sugar": 0, "sodium": 76}
+    },
+    {
+      "id": "cofid_007",
+      "name": "Bacon rashers, back, grilled",
+      "category": "protein",
+      "per100g": {"calories": 295, "protein": 25.3, "carbs": 0, "fat": 21.8, "saturatedFat": 8.1, "fiber": 0, "sugar": 0, "sodium": 1990}
+    },
+    {
+      "id": "cofid_008",
+      "name": "Sausages, pork, grilled",
+      "category": "protein",
+      "per100g": {"calories": 294, "protein": 15.4, "carbs": 9.5, "fat": 22.1, "saturatedFat": 8.0, "fiber": 0.5, "sugar": 1.2, "sodium": 920}
+    },
+    {
+      "id": "cofid_009",
+      "name": "Salmon, grilled",
+      "category": "protein",
+      "per100g": {"calories": 215, "protein": 24.2, "carbs": 0, "fat": 13.1, "saturatedFat": 2.5, "fiber": 0, "sugar": 0, "sodium": 55}
+    },
+    {
+      "id": "cofid_010",
+      "name": "Cod, baked",
+      "category": "protein",
+      "per100g": {"calories": 96, "protein": 21.4, "carbs": 0, "fat": 1.2, "saturatedFat": 0.2, "fiber": 0, "sugar": 0, "sodium": 80}
+    },
+    {
+      "id": "cofid_011",
+      "name": "Haddock, smoked, poached",
+      "category": "protein",
+      "per100g": {"calories": 101, "protein": 23.3, "carbs": 0, "fat": 0.9, "saturatedFat": 0.2, "fiber": 0, "sugar": 0, "sodium": 1220}
+    },
+    {
+      "id": "cofid_012",
+      "name": "Tuna, canned in brine, drained",
+      "category": "protein",
+      "per100g": {"calories": 99, "protein": 23.5, "carbs": 0, "fat": 0.6, "saturatedFat": 0.2, "fiber": 0, "sugar": 0, "sodium": 320}
+    },
+    {
+      "id": "cofid_013",
+      "name": "Prawns, boiled",
+      "category": "protein",
+      "per100g": {"calories": 99, "protein": 22.6, "carbs": 0, "fat": 0.9, "saturatedFat": 0.2, "fiber": 0, "sugar": 0, "sodium": 1590}
+    },
+    {
+      "id": "cofid_014",
+      "name": "Fish fingers, grilled",
+      "category": "protein",
+      "per100g": {"calories": 214, "protein": 15.1, "carbs": 17.2, "fat": 9.0, "saturatedFat": 1.1, "fiber": 0.7, "sugar": 0.8, "sodium": 350}
+    },
+    {
+      "id": "cofid_015",
+      "name": "Eggs, chicken, boiled",
+      "category": "protein",
+      "per100g": {"calories": 147, "protein": 12.5, "carbs": 0, "fat": 10.8, "saturatedFat": 3.1, "fiber": 0, "sugar": 0, "sodium": 140}
+    },
+    {
+      "id": "cofid_016",
+      "name": "Eggs, chicken, fried",
+      "category": "protein",
+      "per100g": {"calories": 179, "protein": 13.6, "carbs": 0, "fat": 13.9, "saturatedFat": 3.5, "fiber": 0, "sugar": 0, "sodium": 200}
+    },
+    {
+      "id": "cofid_017",
+      "name": "Eggs, chicken, scrambled",
+      "category": "protein",
+      "per100g": {"calories": 160, "protein": 10.9, "carbs": 0.7, "fat": 12.6, "saturatedFat": 4.5, "fiber": 0, "sugar": 0.7, "sodium": 290}
+    },
+    {
+      "id": "cofid_018",
+      "name": "Tofu, steamed",
+      "category": "protein",
+      "per100g": {"calories": 73, "protein": 8.1, "carbs": 0.7, "fat": 4.2, "saturatedFat": 0.5, "fiber": 0.3, "sugar": 0.5, "sodium": 4}
+    },
+    {
+      "id": "cofid_019",
+      "name": "Milk, whole, pasteurised",
+      "category": "dairy",
+      "per100g": {"calories": 66, "protein": 3.3, "carbs": 4.6, "fat": 3.9, "saturatedFat": 2.5, "fiber": 0, "sugar": 4.6, "sodium": 43}
+    },
+    {
+      "id": "cofid_020",
+      "name": "Milk, semi-skimmed, pasteurised",
+      "category": "dairy",
+      "per100g": {"calories": 46, "protein": 3.4, "carbs": 4.7, "fat": 1.7, "saturatedFat": 1.1, "fiber": 0, "sugar": 4.7, "sodium": 44}
+    },
+    {
+      "id": "cofid_021",
+      "name": "Milk, skimmed, pasteurised",
+      "category": "dairy",
+      "per100g": {"calories": 34, "protein": 3.4, "carbs": 4.9, "fat": 0.2, "saturatedFat": 0.1, "fiber": 0, "sugar": 4.9, "sodium": 44}
+    },
+    {
+      "id": "cofid_022",
+      "name": "Cheese, Cheddar",
+      "category": "dairy",
+      "per100g": {"calories": 416, "protein": 25.4, "carbs": 0.1, "fat": 34.9, "saturatedFat": 21.7, "fiber": 0, "sugar": 0.1, "sodium": 670}
+    },
+    {
+      "id": "cofid_023",
+      "name": "Cheese, Cheddar, reduced fat",
+      "category": "dairy",
+      "per100g": {"calories": 273, "protein": 32.7, "carbs": 0.1, "fat": 15.8, "saturatedFat": 9.8, "fiber": 0, "sugar": 0.1, "sodium": 870}
+    },
+    {
+      "id": "cofid_024",
+      "name": "Cheese, cottage, plain",
+      "category": "dairy",
+      "per100g": {"calories": 101, "protein": 12.6, "carbs": 3.3, "fat": 4.3, "saturatedFat": 2.7, "fiber": 0, "sugar": 3.3, "sodium": 380}
+    },
+    {
+      "id": "cofid_025",
+      "name": "Cheese, mozzarella",
+      "category": "dairy",
+      "per100g": {"calories": 257, "protein": 18.6, "carbs": 0, "fat": 20.3, "saturatedFat": 11.9, "fiber": 0, "sugar": 0, "sodium": 373}
+    },
+    {
+      "id": "cofid_026",
+      "name": "Cheese, Brie",
+      "category": "dairy",
+      "per100g": {"calories": 343, "protein": 19.3, "carbs": 0, "fat": 29.1, "saturatedFat": 17.4, "fiber": 0, "sugar": 0, "sodium": 700}
+    },
+    {
+      "id": "cofid_027",
+      "name": "Yogurt, Greek style, plain",
+      "category": "dairy",
+      "per100g": {"calories": 133, "protein": 5.7, "carbs": 4.8, "fat": 10.2, "saturatedFat": 6.6, "fiber": 0, "sugar": 4.8, "sodium": 60}
+    },
+    {
+      "id": "cofid_028",
+      "name": "Yogurt, low fat, natural",
+      "category": "dairy",
+      "per100g": {"calories": 56, "protein": 4.8, "carbs": 7.4, "fat": 1.0, "saturatedFat": 0.6, "fiber": 0, "sugar": 7.4, "sodium": 76}
+    },
+    {
+      "id": "cofid_029",
+      "name": "Yogurt, fat free, natural",
+      "category": "dairy",
+      "per100g": {"calories": 54, "protein": 5.7, "carbs": 8.0, "fat": 0.2, "saturatedFat": 0.1, "fiber": 0, "sugar": 8.0, "sodium": 77}
+    },
+    {
+      "id": "cofid_030",
+      "name": "Cream, single",
+      "category": "dairy",
+      "per100g": {"calories": 193, "protein": 2.6, "carbs": 3.8, "fat": 19.1, "saturatedFat": 11.9, "fiber": 0, "sugar": 3.8, "sodium": 40}
+    },
+    {
+      "id": "cofid_031",
+      "name": "Cream, double",
+      "category": "dairy",
+      "per100g": {"calories": 449, "protein": 1.7, "carbs": 2.6, "fat": 48.0, "saturatedFat": 29.9, "fiber": 0, "sugar": 2.6, "sodium": 26}
+    },
+    {
+      "id": "cofid_032",
+      "name": "Butter, salted",
+      "category": "fat",
+      "per100g": {"calories": 744, "protein": 0.6, "carbs": 0.6, "fat": 82.2, "saturatedFat": 52.1, "fiber": 0, "sugar": 0.6, "sodium": 750}
+    },
+    {
+      "id": "cofid_033",
+      "name": "Bread, white, sliced",
+      "category": "grain",
+      "per100g": {"calories": 235, "protein": 8.4, "carbs": 46.1, "fat": 1.9, "saturatedFat": 0.4, "fiber": 2.5, "sugar": 3.5, "sodium": 490}
+    },
+    {
+      "id": "cofid_034",
+      "name": "Bread, wholemeal, sliced",
+      "category": "grain",
+      "per100g": {"calories": 217, "protein": 9.4, "carbs": 37.8, "fat": 2.5, "saturatedFat": 0.5, "fiber": 7.0, "sugar": 3.6, "sodium": 460}
+    },
+    {
+      "id": "cofid_035",
+      "name": "Bread, granary/multigrain",
+      "category": "grain",
+      "per100g": {"calories": 237, "protein": 10.2, "carbs": 42.3, "fat": 3.1, "saturatedFat": 0.6, "fiber": 4.5, "sugar": 3.8, "sodium": 480}
+    },
+    {
+      "id": "cofid_036",
+      "name": "Rice, white, boiled",
+      "category": "grain",
+      "per100g": {"calories": 138, "protein": 2.6, "carbs": 30.9, "fat": 1.3, "saturatedFat": 0.3, "fiber": 0.1, "sugar": 0, "sodium": 1}
+    },
+    {
+      "id": "cofid_037",
+      "name": "Rice, brown, boiled",
+      "category": "grain",
+      "per100g": {"calories": 141, "protein": 2.6, "carbs": 29.5, "fat": 1.4, "saturatedFat": 0.3, "fiber": 0.8, "sugar": 0.4, "sodium": 1}
+    },
+    {
+      "id": "cofid_038",
+      "name": "Pasta, white, boiled",
+      "category": "grain",
+      "per100g": {"calories": 131, "protein": 4.5, "carbs": 26.4, "fat": 0.7, "saturatedFat": 0.1, "fiber": 1.2, "sugar": 0.5, "sodium": 1}
+    },
+    {
+      "id": "cofid_039",
+      "name": "Pasta, wholemeal, boiled",
+      "category": "grain",
+      "per100g": {"calories": 124, "protein": 5.1, "carbs": 23.2, "fat": 1.1, "saturatedFat": 0.2, "fiber": 4.5, "sugar": 0.8, "sodium": 2}
+    },
+    {
+      "id": "cofid_040",
+      "name": "Noodles, egg, boiled",
+      "category": "grain",
+      "per100g": {"calories": 162, "protein": 5.1, "carbs": 31.2, "fat": 1.9, "saturatedFat": 0.5, "fiber": 1.2, "sugar": 0.3, "sodium": 250}
+    },
+    {
+      "id": "cofid_041",
+      "name": "Porridge, made with water",
+      "category": "grain",
+      "per100g": {"calories": 46, "protein": 1.5, "carbs": 8.1, "fat": 1.1, "saturatedFat": 0.2, "fiber": 0.9, "sugar": 0.1, "sodium": 4}
+    },
+    {
+      "id": "cofid_042",
+      "name": "Porridge, made with semi-skimmed milk",
+      "category": "grain",
+      "per100g": {"calories": 76, "protein": 3.5, "carbs": 11.4, "fat": 1.9, "saturatedFat": 0.8, "fiber": 0.9, "sugar": 3.1, "sodium": 42}
+    },
+    {
+      "id": "cofid_043",
+      "name": "Breakfast cereal, bran flakes",
+      "category": "grain",
+      "per100g": {"calories": 331, "protein": 10.2, "carbs": 67.0, "fat": 1.9, "saturatedFat": 0.4, "fiber": 15.0, "sugar": 22.0, "sodium": 900}
+    },
+    {
+      "id": "cofid_044",
+      "name": "Breakfast cereal, cornflakes",
+      "category": "grain",
+      "per100g": {"calories": 376, "protein": 7.9, "carbs": 84.0, "fat": 0.9, "saturatedFat": 0.2, "fiber": 3.0, "sugar": 8.0, "sodium": 750}
+    },
+    {
+      "id": "cofid_045",
+      "name": "Breakfast cereal, muesli, no added sugar",
+      "category": "grain",
+      "per100g": {"calories": 363, "protein": 9.8, "carbs": 66.0, "fat": 6.2, "saturatedFat": 1.1, "fiber": 7.6, "sugar": 16.0, "sodium": 39}
+    },
+    {
+      "id": "cofid_046",
+      "name": "Potatoes, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 72, "protein": 1.8, "carbs": 17.0, "fat": 0.1, "saturatedFat": 0, "fiber": 1.2, "sugar": 0.7, "sodium": 7}
+    },
+    {
+      "id": "cofid_047",
+      "name": "Potatoes, mashed with butter",
+      "category": "vegetable",
+      "per100g": {"calories": 104, "protein": 1.8, "carbs": 15.5, "fat": 4.3, "saturatedFat": 2.3, "fiber": 1.1, "sugar": 0.7, "sodium": 28}
+    },
+    {
+      "id": "cofid_048",
+      "name": "Potatoes, roast",
+      "category": "vegetable",
+      "per100g": {"calories": 149, "protein": 2.9, "carbs": 25.3, "fat": 4.5, "saturatedFat": 0.6, "fiber": 1.8, "sugar": 0.8, "sodium": 12}
+    },
+    {
+      "id": "cofid_049",
+      "name": "Chips, oven baked",
+      "category": "vegetable",
+      "per100g": {"calories": 162, "protein": 3.3, "carbs": 29.8, "fat": 4.2, "saturatedFat": 0.5, "fiber": 2.2, "sugar": 0.3, "sodium": 40}
+    },
+    {
+      "id": "cofid_050",
+      "name": "Chips, deep fried",
+      "category": "vegetable",
+      "per100g": {"calories": 239, "protein": 3.2, "carbs": 30.1, "fat": 12.4, "saturatedFat": 1.4, "fiber": 2.1, "sugar": 0.3, "sodium": 38}
+    },
+    {
+      "id": "cofid_051",
+      "name": "Sweet potato, baked",
+      "category": "vegetable",
+      "per100g": {"calories": 115, "protein": 1.6, "carbs": 27.9, "fat": 0.3, "saturatedFat": 0.1, "fiber": 3.0, "sugar": 6.5, "sodium": 13}
+    },
+    {
+      "id": "cofid_052",
+      "name": "Carrots, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 24, "protein": 0.6, "carbs": 4.9, "fat": 0.4, "saturatedFat": 0.1, "fiber": 2.3, "sugar": 4.4, "sodium": 25}
+    },
+    {
+      "id": "cofid_053",
+      "name": "Broccoli, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 24, "protein": 3.1, "carbs": 1.1, "fat": 0.8, "saturatedFat": 0.1, "fiber": 2.3, "sugar": 1.0, "sodium": 4}
+    },
+    {
+      "id": "cofid_054",
+      "name": "Peas, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 79, "protein": 6.0, "carbs": 10.0, "fat": 1.6, "saturatedFat": 0.3, "fiber": 5.1, "sugar": 2.5, "sodium": 1}
+    },
+    {
+      "id": "cofid_055",
+      "name": "Green beans, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 22, "protein": 1.8, "carbs": 2.9, "fat": 0.5, "saturatedFat": 0.1, "fiber": 2.4, "sugar": 1.9, "sodium": 1}
+    },
+    {
+      "id": "cofid_056",
+      "name": "Spinach, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 19, "protein": 2.8, "carbs": 0.8, "fat": 0.8, "saturatedFat": 0.1, "fiber": 2.1, "sugar": 0.5, "sodium": 120}
+    },
+    {
+      "id": "cofid_057",
+      "name": "Cabbage, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 15, "protein": 1.0, "carbs": 2.3, "fat": 0.3, "saturatedFat": 0, "fiber": 1.7, "sugar": 2.2, "sodium": 3}
+    },
+    {
+      "id": "cofid_058",
+      "name": "Cauliflower, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 28, "protein": 2.9, "carbs": 2.1, "fat": 0.9, "saturatedFat": 0.2, "fiber": 1.6, "sugar": 1.8, "sodium": 5}
+    },
+    {
+      "id": "cofid_059",
+      "name": "Sweetcorn, canned, drained",
+      "category": "vegetable",
+      "per100g": {"calories": 79, "protein": 2.7, "carbs": 15.7, "fat": 1.0, "saturatedFat": 0.2, "fiber": 1.4, "sugar": 4.5, "sodium": 270}
+    },
+    {
+      "id": "cofid_060",
+      "name": "Mushrooms, fried",
+      "category": "vegetable",
+      "per100g": {"calories": 157, "protein": 2.4, "carbs": 0.3, "fat": 16.2, "saturatedFat": 2.0, "fiber": 1.5, "sugar": 0.2, "sodium": 5}
+    },
+    {
+      "id": "cofid_061",
+      "name": "Tomatoes, raw",
+      "category": "vegetable",
+      "per100g": {"calories": 17, "protein": 0.7, "carbs": 3.1, "fat": 0.3, "saturatedFat": 0.1, "fiber": 1.0, "sugar": 3.1, "sodium": 5}
+    },
+    {
+      "id": "cofid_062",
+      "name": "Onions, raw",
+      "category": "vegetable",
+      "per100g": {"calories": 36, "protein": 1.2, "carbs": 7.9, "fat": 0.2, "saturatedFat": 0, "fiber": 1.4, "sugar": 5.6, "sodium": 3}
+    },
+    {
+      "id": "cofid_063",
+      "name": "Peppers, mixed, raw",
+      "category": "vegetable",
+      "per100g": {"calories": 26, "protein": 1.0, "carbs": 5.3, "fat": 0.3, "saturatedFat": 0.1, "fiber": 1.6, "sugar": 4.2, "sodium": 2}
+    },
+    {
+      "id": "cofid_064",
+      "name": "Courgette, raw",
+      "category": "vegetable",
+      "per100g": {"calories": 18, "protein": 1.8, "carbs": 1.8, "fat": 0.4, "saturatedFat": 0.1, "fiber": 0.9, "sugar": 1.7, "sodium": 2}
+    },
+    {
+      "id": "cofid_065",
+      "name": "Aubergine, fried",
+      "category": "vegetable",
+      "per100g": {"calories": 302, "protein": 1.2, "carbs": 2.8, "fat": 31.9, "saturatedFat": 3.9, "fiber": 2.3, "sugar": 2.4, "sodium": 3}
+    },
+    {
+      "id": "cofid_066",
+      "name": "Baked beans, canned in tomato sauce",
+      "category": "vegetable",
+      "per100g": {"calories": 81, "protein": 4.8, "carbs": 13.6, "fat": 0.6, "saturatedFat": 0.1, "fiber": 3.7, "sugar": 5.0, "sodium": 480}
+    },
+    {
+      "id": "cofid_067",
+      "name": "Lentils, red, boiled",
+      "category": "vegetable",
+      "per100g": {"calories": 100, "protein": 7.6, "carbs": 17.5, "fat": 0.4, "saturatedFat": 0.1, "fiber": 1.9, "sugar": 0.8, "sodium": 3}
+    },
+    {
+      "id": "cofid_068",
+      "name": "Chickpeas, canned, drained",
+      "category": "vegetable",
+      "per100g": {"calories": 115, "protein": 7.2, "carbs": 16.1, "fat": 2.9, "saturatedFat": 0.3, "fiber": 4.1, "sugar": 0.5, "sodium": 220}
+    },
+    {
+      "id": "cofid_069",
+      "name": "Apples, eating, raw",
+      "category": "fruit",
+      "per100g": {"calories": 47, "protein": 0.4, "carbs": 11.8, "fat": 0.1, "saturatedFat": 0, "fiber": 1.8, "sugar": 11.8, "sodium": 2}
+    },
+    {
+      "id": "cofid_070",
+      "name": "Bananas",
+      "category": "fruit",
+      "per100g": {"calories": 95, "protein": 1.2, "carbs": 23.2, "fat": 0.3, "saturatedFat": 0.1, "fiber": 1.1, "sugar": 20.9, "sodium": 1}
+    },
+    {
+      "id": "cofid_071",
+      "name": "Oranges",
+      "category": "fruit",
+      "per100g": {"calories": 37, "protein": 1.1, "carbs": 8.5, "fat": 0.1, "saturatedFat": 0, "fiber": 1.7, "sugar": 8.5, "sodium": 5}
+    },
+    {
+      "id": "cofid_072",
+      "name": "Strawberries, raw",
+      "category": "fruit",
+      "per100g": {"calories": 27, "protein": 0.8, "carbs": 6.0, "fat": 0.1, "saturatedFat": 0, "fiber": 1.1, "sugar": 6.0, "sodium": 6}
+    },
+    {
+      "id": "cofid_073",
+      "name": "Blueberries, raw",
+      "category": "fruit",
+      "per100g": {"calories": 57, "protein": 0.7, "carbs": 14.5, "fat": 0.3, "saturatedFat": 0, "fiber": 2.4, "sugar": 10.0, "sodium": 1}
+    },
+    {
+      "id": "cofid_074",
+      "name": "Grapes, seedless",
+      "category": "fruit",
+      "per100g": {"calories": 60, "protein": 0.4, "carbs": 15.4, "fat": 0.1, "saturatedFat": 0, "fiber": 0.7, "sugar": 15.4, "sodium": 2}
+    },
+    {
+      "id": "cofid_075",
+      "name": "Pears, raw",
+      "category": "fruit",
+      "per100g": {"calories": 40, "protein": 0.3, "carbs": 10.0, "fat": 0.1, "saturatedFat": 0, "fiber": 2.2, "sugar": 10.0, "sodium": 2}
+    },
+    {
+      "id": "cofid_076",
+      "name": "Melon, honeydew",
+      "category": "fruit",
+      "per100g": {"calories": 28, "protein": 0.6, "carbs": 6.6, "fat": 0.1, "saturatedFat": 0, "fiber": 0.6, "sugar": 6.6, "sodium": 14}
+    },
+    {
+      "id": "cofid_077",
+      "name": "Avocado",
+      "category": "fruit",
+      "per100g": {"calories": 190, "protein": 1.9, "carbs": 1.9, "fat": 19.5, "saturatedFat": 4.1, "fiber": 3.4, "sugar": 0.5, "sodium": 2}
+    },
+    {
+      "id": "cofid_078",
+      "name": "Raisins",
+      "category": "fruit",
+      "per100g": {"calories": 272, "protein": 2.1, "carbs": 69.3, "fat": 0.4, "saturatedFat": 0.1, "fiber": 2.0, "sugar": 69.3, "sodium": 28}
+    },
+    {
+      "id": "cofid_079",
+      "name": "Olive oil",
+      "category": "fat",
+      "per100g": {"calories": 899, "protein": 0, "carbs": 0, "fat": 99.9, "saturatedFat": 14.3, "fiber": 0, "sugar": 0, "sodium": 0}
+    },
+    {
+      "id": "cofid_080",
+      "name": "Vegetable oil, rapeseed",
+      "category": "fat",
+      "per100g": {"calories": 899, "protein": 0, "carbs": 0, "fat": 99.9, "saturatedFat": 6.6, "fiber": 0, "sugar": 0, "sodium": 0}
+    },
+    {
+      "id": "cofid_081",
+      "name": "Margarine, soft, not polyunsaturated",
+      "category": "fat",
+      "per100g": {"calories": 739, "protein": 0.2, "carbs": 1.0, "fat": 81.6, "saturatedFat": 18.1, "fiber": 0, "sugar": 0.5, "sodium": 800}
+    },
+    {
+      "id": "cofid_082",
+      "name": "Almonds",
+      "category": "fat",
+      "per100g": {"calories": 612, "protein": 21.1, "carbs": 6.9, "fat": 55.8, "saturatedFat": 4.4, "fiber": 7.4, "sugar": 4.2, "sodium": 14}
+    },
+    {
+      "id": "cofid_083",
+      "name": "Walnuts",
+      "category": "fat",
+      "per100g": {"calories": 688, "protein": 14.7, "carbs": 3.3, "fat": 68.5, "saturatedFat": 5.6, "fiber": 3.5, "sugar": 2.6, "sodium": 7}
+    },
+    {
+      "id": "cofid_084",
+      "name": "Peanuts, dry roasted",
+      "category": "fat",
+      "per100g": {"calories": 589, "protein": 25.6, "carbs": 10.3, "fat": 49.8, "saturatedFat": 8.2, "fiber": 6.4, "sugar": 3.5, "sodium": 790}
+    },
+    {
+      "id": "cofid_085",
+      "name": "Peanut butter, smooth",
+      "category": "fat",
+      "per100g": {"calories": 606, "protein": 22.6, "carbs": 13.1, "fat": 51.4, "saturatedFat": 9.5, "fiber": 5.4, "sugar": 6.7, "sodium": 400}
+    },
+    {
+      "id": "cofid_086",
+      "name": "Mixed nuts",
+      "category": "fat",
+      "per100g": {"calories": 607, "protein": 17.9, "carbs": 8.1, "fat": 56.7, "saturatedFat": 6.7, "fiber": 5.6, "sugar": 4.1, "sodium": 340}
+    },
+    {
+      "id": "cofid_087",
+      "name": "Seeds, sunflower",
+      "category": "fat",
+      "per100g": {"calories": 581, "protein": 19.8, "carbs": 18.6, "fat": 47.5, "saturatedFat": 4.5, "fiber": 6.0, "sugar": 2.6, "sodium": 3}
+    },
+    {
+      "id": "cofid_088",
+      "name": "Orange juice, unsweetened",
+      "category": "beverage",
+      "per100g": {"calories": 36, "protein": 0.5, "carbs": 8.8, "fat": 0.1, "saturatedFat": 0, "fiber": 0.1, "sugar": 8.8, "sodium": 4}
+    },
+    {
+      "id": "cofid_089",
+      "name": "Apple juice, unsweetened",
+      "category": "beverage",
+      "per100g": {"calories": 38, "protein": 0.1, "carbs": 10.0, "fat": 0.1, "saturatedFat": 0, "fiber": 0.1, "sugar": 10.0, "sodium": 3}
+    },
+    {
+      "id": "cofid_090",
+      "name": "Tea, infusion, black, no milk",
+      "category": "beverage",
+      "per100g": {"calories": 1, "protein": 0.1, "carbs": 0, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 0, "sodium": 0}
+    },
+    {
+      "id": "cofid_091",
+      "name": "Coffee, infusion, black",
+      "category": "beverage",
+      "per100g": {"calories": 2, "protein": 0.2, "carbs": 0, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 0, "sodium": 2}
+    },
+    {
+      "id": "cofid_092",
+      "name": "Cola drink",
+      "category": "beverage",
+      "per100g": {"calories": 42, "protein": 0, "carbs": 10.9, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 10.9, "sodium": 7}
+    },
+    {
+      "id": "cofid_093",
+      "name": "Cola drink, diet",
+      "category": "beverage",
+      "per100g": {"calories": 1, "protein": 0, "carbs": 0, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 0, "sodium": 10}
+    },
+    {
+      "id": "cofid_094",
+      "name": "Lemonade",
+      "category": "beverage",
+      "per100g": {"calories": 21, "protein": 0, "carbs": 5.6, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 5.5, "sodium": 8}
+    },
+    {
+      "id": "cofid_095",
+      "name": "Sugar, white",
+      "category": "condiment",
+      "per100g": {"calories": 400, "protein": 0, "carbs": 100.0, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 100.0, "sodium": 1}
+    },
+    {
+      "id": "cofid_096",
+      "name": "Honey",
+      "category": "condiment",
+      "per100g": {"calories": 307, "protein": 0.4, "carbs": 76.4, "fat": 0, "saturatedFat": 0, "fiber": 0, "sugar": 76.4, "sodium": 11}
+    },
+    {
+      "id": "cofid_097",
+      "name": "Jam, strawberry",
+      "category": "condiment",
+      "per100g": {"calories": 261, "protein": 0.4, "carbs": 69.0, "fat": 0, "saturatedFat": 0, "fiber": 0.7, "sugar": 59.0, "sodium": 16}
+    },
+    {
+      "id": "cofid_098",
+      "name": "Marmalade",
+      "category": "condiment",
+      "per100g": {"calories": 261, "protein": 0.1, "carbs": 69.5, "fat": 0, "saturatedFat": 0, "fiber": 0.4, "sugar": 59.0, "sodium": 35}
+    },
+    {
+      "id": "cofid_099",
+      "name": "Mayonnaise",
+      "category": "condiment",
+      "per100g": {"calories": 691, "protein": 1.1, "carbs": 1.7, "fat": 75.6, "saturatedFat": 5.8, "fiber": 0, "sugar": 1.7, "sodium": 600}
+    },
+    {
+      "id": "cofid_100",
+      "name": "Mayonnaise, reduced calorie",
+      "category": "condiment",
+      "per100g": {"calories": 288, "protein": 0.8, "carbs": 11.0, "fat": 26.7, "saturatedFat": 2.5, "fiber": 0, "sugar": 5.3, "sodium": 710}
+    },
+    {
+      "id": "cofid_101",
+      "name": "Ketchup, tomato",
+      "category": "condiment",
+      "per100g": {"calories": 115, "protein": 1.4, "carbs": 26.8, "fat": 0.3, "saturatedFat": 0.1, "fiber": 0.9, "sugar": 23.0, "sodium": 1120}
+    },
+    {
+      "id": "cofid_102",
+      "name": "Brown sauce",
+      "category": "condiment",
+      "per100g": {"calories": 98, "protein": 1.0, "carbs": 22.6, "fat": 0.2, "saturatedFat": 0, "fiber": 0.7, "sugar": 15.0, "sodium": 990}
+    },
+    {
+      "id": "cofid_103",
+      "name": "Salad cream",
+      "category": "condiment",
+      "per100g": {"calories": 348, "protein": 1.5, "carbs": 16.7, "fat": 31.0, "saturatedFat": 3.7, "fiber": 0.1, "sugar": 11.3, "sodium": 1010}
+    },
+    {
+      "id": "cofid_104",
+      "name": "Hummus",
+      "category": "condiment",
+      "per100g": {"calories": 187, "protein": 7.4, "carbs": 11.6, "fat": 12.6, "saturatedFat": 1.6, "fiber": 4.2, "sugar": 0.3, "sodium": 570}
+    },
+    {
+      "id": "cofid_105",
+      "name": "Fish and chips, shop bought",
+      "category": "prepared",
+      "per100g": {"calories": 223, "protein": 11.2, "carbs": 21.1, "fat": 10.3, "saturatedFat": 1.4, "fiber": 1.5, "sugar": 0.4, "sodium": 310}
+    },
+    {
+      "id": "cofid_106",
+      "name": "Pizza, cheese and tomato",
+      "category": "prepared",
+      "per100g": {"calories": 235, "protein": 10.2, "carbs": 28.0, "fat": 9.2, "saturatedFat": 4.5, "fiber": 1.8, "sugar": 3.2, "sodium": 590}
+    },
+    {
+      "id": "cofid_107",
+      "name": "Lasagne, meat",
+      "category": "prepared",
+      "per100g": {"calories": 132, "protein": 7.4, "carbs": 11.4, "fat": 6.5, "saturatedFat": 2.8, "fiber": 0.6, "sugar": 2.1, "sodium": 320}
+    },
+    {
+      "id": "cofid_108",
+      "name": "Shepherd's pie",
+      "category": "prepared",
+      "per100g": {"calories": 118, "protein": 6.0, "carbs": 11.7, "fat": 5.3, "saturatedFat": 2.3, "fiber": 1.2, "sugar": 1.8, "sodium": 300}
+    },
+    {
+      "id": "cofid_109",
+      "name": "Chicken tikka masala with rice",
+      "category": "prepared",
+      "per100g": {"calories": 142, "protein": 8.1, "carbs": 13.8, "fat": 6.0, "saturatedFat": 1.7, "fiber": 0.8, "sugar": 2.5, "sodium": 350}
+    },
+    {
+      "id": "cofid_110",
+      "name": "Beef stew with vegetables",
+      "category": "prepared",
+      "per100g": {"calories": 79, "protein": 6.5, "carbs": 6.5, "fat": 3.2, "saturatedFat": 1.3, "fiber": 1.0, "sugar": 2.0, "sodium": 280}
+    },
+    {
+      "id": "cofid_111",
+      "name": "Spaghetti bolognese",
+      "category": "prepared",
+      "per100g": {"calories": 127, "protein": 6.8, "carbs": 13.5, "fat": 5.0, "saturatedFat": 1.8, "fiber": 1.2, "sugar": 2.8, "sodium": 340}
+    },
+    {
+      "id": "cofid_112",
+      "name": "Macaroni cheese",
+      "category": "prepared",
+      "per100g": {"calories": 162, "protein": 6.5, "carbs": 14.8, "fat": 8.5, "saturatedFat": 4.8, "fiber": 0.6, "sugar": 1.8, "sodium": 380}
+    },
+    {
+      "id": "cofid_113",
+      "name": "Quiche, cheese and egg",
+      "category": "prepared",
+      "per100g": {"calories": 314, "protein": 12.0, "carbs": 17.0, "fat": 22.4, "saturatedFat": 10.8, "fiber": 0.8, "sugar": 2.0, "sodium": 520}
+    },
+    {
+      "id": "cofid_114",
+      "name": "Sandwich, cheese and pickle",
+      "category": "prepared",
+      "per100g": {"calories": 298, "protein": 10.4, "carbs": 30.2, "fat": 14.4, "saturatedFat": 7.2, "fiber": 1.8, "sugar": 5.5, "sodium": 750}
+    },
+    {
+      "id": "cofid_115",
+      "name": "Sandwich, BLT",
+      "category": "prepared",
+      "per100g": {"calories": 245, "protein": 10.5, "carbs": 22.5, "fat": 12.5, "saturatedFat": 3.2, "fiber": 1.5, "sugar": 3.0, "sodium": 680}
+    },
+    {
+      "id": "cofid_116",
+      "name": "Pasty, Cornish",
+      "category": "prepared",
+      "per100g": {"calories": 267, "protein": 7.2, "carbs": 24.0, "fat": 15.8, "saturatedFat": 7.0, "fiber": 1.2, "sugar": 2.0, "sodium": 480}
+    },
+    {
+      "id": "cofid_117",
+      "name": "Sausage roll",
+      "category": "prepared",
+      "per100g": {"calories": 383, "protein": 8.5, "carbs": 24.0, "fat": 28.5, "saturatedFat": 11.8, "fiber": 1.0, "sugar": 1.5, "sodium": 680}
+    },
+    {
+      "id": "cofid_118",
+      "name": "Pork pie",
+      "category": "prepared",
+      "per100g": {"calories": 376, "protein": 10.4, "carbs": 26.3, "fat": 26.0, "saturatedFat": 9.6, "fiber": 0.7, "sugar": 1.2, "sodium": 720}
+    },
+    {
+      "id": "cofid_119",
+      "name": "Soup, tomato, canned",
+      "category": "prepared",
+      "per100g": {"calories": 55, "protein": 0.8, "carbs": 10.7, "fat": 1.0, "saturatedFat": 0.2, "fiber": 0.5, "sugar": 6.0, "sodium": 340}
+    },
+    {
+      "id": "cofid_120",
+      "name": "Soup, vegetable, canned",
+      "category": "prepared",
+      "per100g": {"calories": 43, "protein": 1.4, "carbs": 6.9, "fat": 1.0, "saturatedFat": 0.2, "fiber": 1.5, "sugar": 2.0, "sodium": 380}
+    },
+    {
+      "id": "cofid_121",
+      "name": "Soup, chicken, canned",
+      "category": "prepared",
+      "per100g": {"calories": 58, "protein": 2.8, "carbs": 5.8, "fat": 2.5, "saturatedFat": 0.8, "fiber": 0.4, "sugar": 0.5, "sodium": 400}
+    },
+    {
+      "id": "cofid_122",
+      "name": "Chocolate, milk",
+      "category": "snack",
+      "per100g": {"calories": 535, "protein": 7.7, "carbs": 56.5, "fat": 30.7, "saturatedFat": 18.5, "fiber": 1.0, "sugar": 56.5, "sodium": 120}
+    },
+    {
+      "id": "cofid_123",
+      "name": "Chocolate, dark",
+      "category": "snack",
+      "per100g": {"calories": 510, "protein": 5.0, "carbs": 59.5, "fat": 28.0, "saturatedFat": 16.8, "fiber": 7.0, "sugar": 48.0, "sodium": 20}
+    },
+    {
+      "id": "cofid_124",
+      "name": "Biscuits, digestive",
+      "category": "snack",
+      "per100g": {"calories": 481, "protein": 7.1, "carbs": 66.0, "fat": 21.3, "saturatedFat": 10.2, "fiber": 3.5, "sugar": 16.6, "sodium": 620}
+    },
+    {
+      "id": "cofid_125",
+      "name": "Biscuits, chocolate digestive",
+      "category": "snack",
+      "per100g": {"calories": 493, "protein": 6.7, "carbs": 64.8, "fat": 23.7, "saturatedFat": 12.4, "fiber": 2.9, "sugar": 29.5, "sodium": 430}
+    },
+    {
+      "id": "cofid_126",
+      "name": "Biscuits, rich tea",
+      "category": "snack",
+      "per100g": {"calories": 445, "protein": 7.4, "carbs": 74.5, "fat": 13.5, "saturatedFat": 6.5, "fiber": 2.1, "sugar": 18.8, "sodium": 490}
+    },
+    {
+      "id": "cofid_127",
+      "name": "Crisps, plain",
+      "category": "snack",
+      "per100g": {"calories": 530, "protein": 5.9, "carbs": 49.3, "fat": 34.2, "saturatedFat": 3.0, "fiber": 4.9, "sugar": 0.5, "sodium": 550}
+    },
+    {
+      "id": "cofid_128",
+      "name": "Crisps, reduced fat",
+      "category": "snack",
+      "per100g": {"calories": 456, "protein": 7.5, "carbs": 60.0, "fat": 21.5, "saturatedFat": 2.0, "fiber": 5.0, "sugar": 1.5, "sodium": 600}
+    },
+    {
+      "id": "cofid_129",
+      "name": "Popcorn, plain",
+      "category": "snack",
+      "per100g": {"calories": 375, "protein": 10.5, "carbs": 63.5, "fat": 9.5, "saturatedFat": 1.5, "fiber": 11.5, "sugar": 0.5, "sodium": 3}
+    },
+    {
+      "id": "cofid_130",
+      "name": "Flapjack",
+      "category": "snack",
+      "per100g": {"calories": 453, "protein": 5.1, "carbs": 56.5, "fat": 23.2, "saturatedFat": 9.0, "fiber": 3.8, "sugar": 33.0, "sodium": 350}
+    },
+    {
+      "id": "cofid_131",
+      "name": "Cereal bar, chocolate",
+      "category": "snack",
+      "per100g": {"calories": 420, "protein": 5.5, "carbs": 66.0, "fat": 15.5, "saturatedFat": 6.5, "fiber": 3.5, "sugar": 32.0, "sodium": 300}
+    },
+    {
+      "id": "cofid_132",
+      "name": "Cake, sponge",
+      "category": "snack",
+      "per100g": {"calories": 467, "protein": 5.4, "carbs": 52.4, "fat": 26.3, "saturatedFat": 6.0, "fiber": 0.9, "sugar": 36.4, "sodium": 280}
+    },
+    {
+      "id": "cofid_133",
+      "name": "Cake, fruit",
+      "category": "snack",
+      "per100g": {"calories": 371, "protein": 4.7, "carbs": 57.9, "fat": 14.5, "saturatedFat": 3.5, "fiber": 1.7, "sugar": 44.0, "sodium": 200}
+    },
+    {
+      "id": "cofid_134",
+      "name": "Cake, carrot",
+      "category": "snack",
+      "per100g": {"calories": 412, "protein": 4.2, "carbs": 50.5, "fat": 22.0, "saturatedFat": 4.5, "fiber": 1.5, "sugar": 38.0, "sodium": 320}
+    },
+    {
+      "id": "cofid_135",
+      "name": "Doughnut, jam",
+      "category": "snack",
+      "per100g": {"calories": 336, "protein": 5.0, "carbs": 49.0, "fat": 13.5, "saturatedFat": 5.5, "fiber": 1.4, "sugar": 20.0, "sodium": 270}
+    },
+    {
+      "id": "cofid_136",
+      "name": "Scone, plain",
+      "category": "snack",
+      "per100g": {"calories": 362, "protein": 7.2, "carbs": 53.0, "fat": 14.0, "saturatedFat": 8.5, "fiber": 1.8, "sugar": 8.5, "sodium": 520}
+    },
+    {
+      "id": "cofid_137",
+      "name": "Croissant",
+      "category": "snack",
+      "per100g": {"calories": 406, "protein": 8.3, "carbs": 41.6, "fat": 22.6, "saturatedFat": 12.8, "fiber": 2.1, "sugar": 6.0, "sodium": 430}
+    },
+    {
+      "id": "cofid_138",
+      "name": "Muffin, blueberry",
+      "category": "snack",
+      "per100g": {"calories": 377, "protein": 5.0, "carbs": 52.0, "fat": 16.5, "saturatedFat": 3.5, "fiber": 1.2, "sugar": 28.0, "sodium": 380}
+    },
+    {
+      "id": "cofid_139",
+      "name": "Ice cream, vanilla",
+      "category": "snack",
+      "per100g": {"calories": 194, "protein": 3.6, "carbs": 24.4, "fat": 9.8, "saturatedFat": 6.1, "fiber": 0, "sugar": 22.0, "sodium": 80}
+    },
+    {
+      "id": "cofid_140",
+      "name": "Custard, ready to eat",
+      "category": "snack",
+      "per100g": {"calories": 100, "protein": 2.8, "carbs": 15.0, "fat": 3.2, "saturatedFat": 1.8, "fiber": 0, "sugar": 12.0, "sodium": 90}
+    },
+    {
+      "id": "cofid_141",
+      "name": "Rice pudding, canned",
+      "category": "snack",
+      "per100g": {"calories": 89, "protein": 3.4, "carbs": 14.0, "fat": 2.5, "saturatedFat": 1.5, "fiber": 0.1, "sugar": 8.0, "sodium": 45}
+    },
+    {
+      "id": "cofid_142",
+      "name": "Trifle",
+      "category": "snack",
+      "per100g": {"calories": 166, "protein": 2.4, "carbs": 22.5, "fat": 7.5, "saturatedFat": 4.0, "fiber": 0.4, "sugar": 17.0, "sodium": 50}
+    },
+    {
+      "id": "cofid_143",
+      "name": "Full English breakfast",
+      "category": "prepared",
+      "per100g": {"calories": 158, "protein": 9.5, "carbs": 8.5, "fat": 10.2, "saturatedFat": 3.5, "fiber": 1.2, "sugar": 2.0, "sodium": 580}
+    },
+    {
+      "id": "cofid_144",
+      "name": "Beans on toast",
+      "category": "prepared",
+      "per100g": {"calories": 122, "protein": 5.2, "carbs": 19.0, "fat": 2.8, "saturatedFat": 0.5, "fiber": 2.8, "sugar": 4.0, "sodium": 450}
+    },
+    {
+      "id": "cofid_145",
+      "name": "Cheese on toast",
+      "category": "prepared",
+      "per100g": {"calories": 295, "protein": 13.5, "carbs": 22.5, "fat": 17.0, "saturatedFat": 9.5, "fiber": 1.2, "sugar": 2.5, "sodium": 720}
+    },
+    {
+      "id": "cofid_146",
+      "name": "Egg and chips",
+      "category": "prepared",
+      "per100g": {"calories": 195, "protein": 7.2, "carbs": 20.5, "fat": 9.8, "saturatedFat": 2.2, "fiber": 1.8, "sugar": 0.5, "sodium": 150}
+    },
+    {
+      "id": "cofid_147",
+      "name": "Cottage pie",
+      "category": "prepared",
+      "per100g": {"calories": 105, "protein": 6.8, "carbs": 9.5, "fat": 4.5, "saturatedFat": 1.8, "fiber": 1.0, "sugar": 1.5, "sodium": 280}
+    },
+    {
+      "id": "cofid_148",
+      "name": "Toad in the hole",
+      "category": "prepared",
+      "per100g": {"calories": 198, "protein": 8.2, "carbs": 17.0, "fat": 11.0, "saturatedFat": 4.0, "fiber": 0.8, "sugar": 2.0, "sodium": 450}
+    },
+    {
+      "id": "cofid_149",
+      "name": "Roast dinner, chicken",
+      "category": "prepared",
+      "per100g": {"calories": 125, "protein": 10.5, "carbs": 10.0, "fat": 5.0, "saturatedFat": 1.5, "fiber": 1.5, "sugar": 2.0, "sodium": 280}
+    },
+    {
+      "id": "cofid_150",
+      "name": "Roast dinner, beef",
+      "category": "prepared",
+      "per100g": {"calories": 138, "protein": 11.0, "carbs": 10.0, "fat": 6.2, "saturatedFat": 2.5, "fiber": 1.5, "sugar": 2.0, "sodium": 290}
+    }
+  ]
+}

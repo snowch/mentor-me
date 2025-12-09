@@ -64,6 +64,9 @@ dependencies:
   # Cryptographic hashing for file verification
   crypto: ^3.0.3
 
+  # Open Food Facts API for branded food nutrition lookup
+  openfoodfacts: ^3.11.0
+
   # Audio playback for meditation chimes
   audioplayers: ^6.1.0
 
@@ -92,6 +95,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/audio/
+    - assets/data/
 
 # --- Flutter Launcher Icons Configuration ---
 flutter_launcher_icons:
