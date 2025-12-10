@@ -87,6 +87,8 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // Add listener to update clear button visibility when text changes
+    _searchController.addListener(_onSearchTextChanged);
     // Pre-populate search if initial query provided
     if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
       _searchController.text = widget.initialQuery!;
@@ -94,8 +96,14 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     _initializeServices();
   }
 
+  void _onSearchTextChanged() {
+    // Trigger rebuild to show/hide clear button
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
     _barcodeController.dispose();
     _tabController.dispose();
@@ -510,9 +518,11 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
           // Barcode input
           TextField(
             controller: _barcodeController,
+            maxLength: 13,
             decoration: InputDecoration(
               hintText: 'Enter barcode (8, 12, or 13 digits)',
               prefixIcon: const Icon(Icons.qr_code),
+              counterText: '', // Hide the counter
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -1036,13 +1046,21 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
+    // Check if AI service is available
+    final aiService = AIService();
+    if (!aiService.hasApiKey()) {
+      setState(() {
+        _errorMessage = 'Claude API key not configured. Go to Settings → AI Settings to add your API key.';
+      });
+      return;
+    }
+
     setState(() {
       _isSearching = true;
       _errorMessage = null;
     });
 
     try {
-      final aiService = AIService();
       final response = await aiService.estimateNutrition(query);
 
       if (response != null) {

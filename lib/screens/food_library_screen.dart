@@ -20,6 +20,7 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
   FoodCategory? _selectedCategory;
   String _sortBy = 'name'; // 'name', 'recent', 'frequent'
   String _searchQuery = '';
+  bool _showFavoritesOnly = false;
 
   @override
   void dispose() {
@@ -30,8 +31,11 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
   List<FoodTemplate> _getFilteredTemplates(FoodLibraryProvider provider) {
     List<FoodTemplate> templates;
 
-    // Apply category filter
-    if (_selectedCategory != null) {
+    // Apply favorites filter
+    if (_showFavoritesOnly) {
+      templates = provider.favorites;
+    } else if (_selectedCategory != null) {
+      // Apply category filter
       templates = provider.byCategory(_selectedCategory!);
     } else {
       templates = provider.templates;
@@ -204,10 +208,22 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
                     const Spacer(),
                     if (provider.favorites.isNotEmpty)
                       TextButton.icon(
-                        icon: const Icon(Icons.favorite, size: 16),
-                        label: Text('${provider.favorites.length} favorites'),
+                        icon: Icon(
+                          _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                          size: 16,
+                        ),
+                        label: Text(
+                          _showFavoritesOnly
+                              ? 'Show all'
+                              : '${provider.favorites.length} favorites',
+                        ),
                         onPressed: () {
-                          // Could navigate to favorites view
+                          setState(() {
+                            _showFavoritesOnly = !_showFavoritesOnly;
+                            if (_showFavoritesOnly) {
+                              _selectedCategory = null; // Clear category when showing favorites
+                            }
+                          });
                         },
                       ),
                   ],
@@ -251,7 +267,7 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
           FloatingActionButton.extended(
             heroTag: 'manual_add',
             onPressed: () => _showAddTemplateSheet(context),
-            icon: const Icon(Icons.edit_note),
+            icon: const Icon(Icons.add),
             label: const Text('Manually Add'),
           ),
         ],
@@ -998,6 +1014,17 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
       return;
     }
 
+    // Check if AI service is available
+    final aiService = AIService();
+    if (!aiService.hasApiKey()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Claude API key not configured. Go to Settings → AI Settings.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -1020,7 +1047,6 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
       }
 
       // Fall back to AI estimation
-      final aiService = AIService();
       final estimate = await aiService.estimateNutrition(description);
 
       if (estimate != null) {
@@ -1036,6 +1062,12 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
             const SnackBar(content: Text('Could not estimate nutrition')),
           );
         }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
     } finally {
       if (mounted) {

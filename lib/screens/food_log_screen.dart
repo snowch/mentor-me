@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1384,29 +1385,40 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       imagePath: _imagePath,
     );
 
-    if (widget.existingEntry != null) {
-      provider.updateEntry(entry);
-    } else {
-      provider.addEntry(entry);
+    try {
+      if (widget.existingEntry != null) {
+        provider.updateEntry(entry);
+      } else {
+        provider.addEntry(entry);
 
-      // Save to library if checkbox is checked and nutrition is available
-      if (_saveToLibrary && finalNutrition != null) {
-        final libraryProvider = context.read<FoodLibraryProvider>();
-        final template = FoodTemplate(
-          name: description,
-          category: FoodCategory.other, // Default category
-          nutritionPerServing: finalNutrition,
-          defaultServingSize: 1,
-          servingUnit: ServingUnit.serving,
-          source: _nutritionEdited ? NutritionSource.manual : _nutritionSource,
-          sourceNotes: 'Added from Food Log',
+        // Save to library if checkbox is checked and nutrition is available
+        if (_saveToLibrary && finalNutrition != null) {
+          final libraryProvider = context.read<FoodLibraryProvider>();
+          final template = FoodTemplate(
+            name: description,
+            category: FoodCategory.other, // Default category
+            nutritionPerServing: finalNutrition,
+            defaultServingSize: 1,
+            servingUnit: ServingUnit.serving,
+            source: _nutritionEdited ? NutritionSource.manual : _nutritionSource,
+            sourceNotes: 'Added from Food Log',
+          );
+          libraryProvider.addTemplate(template);
+        }
+      }
+
+      widget.onSaved?.call();
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
-        libraryProvider.addTemplate(template);
       }
     }
-
-    widget.onSaved?.call();
-    Navigator.pop(context);
   }
 
   @override
@@ -1418,7 +1430,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1553,7 +1565,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             TextField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'Notes',
+                labelText: 'Food Description',
                 hintText: 'e.g., Grilled chicken salad with ranch dressing',
                 border: OutlineInputBorder(),
               ),
@@ -1805,6 +1817,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     required String label,
     required String suffix,
     Color? color,
+    int maxLength = 5, // Default max 5 digits (99,999)
   }) {
     final theme = Theme.of(context);
 
@@ -1812,6 +1825,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
       controller: controller,
       keyboardType: TextInputType.number,
       textAlign: TextAlign.center,
+      maxLength: maxLength,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
       style: theme.textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.bold,
         color: color,
@@ -1825,6 +1842,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
         suffixStyle: theme.textTheme.bodySmall?.copyWith(
           color: color ?? theme.colorScheme.outline,
         ),
+        counterText: '', // Hide the character counter
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         border: OutlineInputBorder(
@@ -2089,7 +2107,7 @@ class _GoalSettingsSheetState extends State<_GoalSettingsSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 100),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
