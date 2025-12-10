@@ -1019,26 +1019,13 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     await libraryProvider.addTemplate(template);
 
     if (context.mounted) {
-      // Show feedback using a dialog since snackbars in bottom sheets may not be visible
-      await showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          icon: Icon(Icons.check_circle, color: theme.colorScheme.primary, size: 48),
-          title: const Text('Saved to Library'),
-          content: Text('"${template.name}" has been added to your food library.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Continue Searching'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext); // Close dialog
-                Navigator.pop(context); // Close search sheet
-              },
-              child: const Text('Done'),
-            ),
-          ],
+      // Show simple toast feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved "${template.name}" to library'),
+          backgroundColor: theme.colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
         ),
       );
     }

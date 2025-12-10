@@ -5,6 +5,7 @@ import '../models/food_entry.dart';
 import '../providers/food_library_provider.dart';
 import '../services/ai_service.dart';
 import '../services/food_search_service.dart';
+import '../widgets/food_database_search_sheet.dart';
 
 /// Screen for managing the user's food library
 class FoodLibraryScreen extends StatefulWidget {
@@ -236,10 +237,24 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddTemplateSheet(context),
-        icon: const Icon(Icons.edit_note),
-        label: const Text('Manually Add Food'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'search_online',
+            onPressed: () => _showOnlineSearch(context),
+            icon: const Icon(Icons.search),
+            label: const Text('Search Online'),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'manual_add',
+            onPressed: () => _showAddTemplateSheet(context),
+            icon: const Icon(Icons.edit_note),
+            label: const Text('Manually Add'),
+          ),
+        ],
       ),
     );
   }
@@ -311,6 +326,61 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => _FoodTemplateDetailsSheet(template: template),
+    );
+  }
+
+  void _showOnlineSearch(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FoodDatabaseSearchSheet(
+        onFoodSelected: (result) {
+          // When food is selected from online search, save it to the library
+          final libraryProvider = context.read<FoodLibraryProvider>();
+
+          // Parse serving size
+          double servingSize = 100.0;
+          ServingUnit servingUnit = ServingUnit.gram;
+          if (result.servingSize != null) {
+            final match = RegExp(r'(\d+(?:\.\d+)?)\s*(g|ml|oz|serving|portion)?', caseSensitive: false)
+                .firstMatch(result.servingSize!);
+            if (match != null) {
+              servingSize = double.tryParse(match.group(1)!) ?? 100.0;
+              final unit = match.group(2)?.toLowerCase();
+              if (unit == 'ml') {
+                servingUnit = ServingUnit.milliliter;
+              } else if (unit == 'oz') {
+                servingUnit = ServingUnit.ounce;
+              } else if (unit == 'serving' || unit == 'portion') {
+                servingUnit = ServingUnit.serving;
+              }
+            }
+          }
+
+          final template = FoodTemplate(
+            name: result.name,
+            brand: result.brand,
+            category: FoodCategory.other,
+            nutritionPerServing: result.nutrition,
+            defaultServingSize: servingSize,
+            servingUnit: servingUnit,
+            servingDescription: result.servingSize,
+            gramsPerServing: servingUnit == ServingUnit.gram ? servingSize : null,
+            mlPerServing: servingUnit == ServingUnit.milliliter ? servingSize : null,
+            source: NutritionSource.imported,
+            barcode: result.barcode,
+          );
+
+          libraryProvider.addTemplate(template);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added "${template.name}" to library'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+      ),
     );
   }
 
