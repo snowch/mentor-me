@@ -11,6 +11,7 @@ import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../providers/food_log_provider.dart';
+import '../providers/weight_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
 import '../services/reflection_session_service.dart';
@@ -115,6 +116,12 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
     final foodLogProvider = context.read<FoodLogProvider>();
     await foodLogProvider.ensureLoaded();
     final food = foodLogProvider.entries;
+    final nutritionGoal = foodLogProvider.goal;
+
+    // Get weight tracking data
+    final weightProvider = context.read<WeightProvider>();
+    final weightEntries = weightProvider.entries;
+    final weightGoal = weightProvider.goal;
 
     try {
       final result = await _sessionService.startSession(
@@ -125,6 +132,9 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
         recentJournals: journals.take(5).toList(),
         recentPulse: pulse.take(3).toList(),
         recentFood: food.take(10).toList(),
+        nutritionGoal: nutritionGoal,
+        recentWeight: weightEntries.take(10).toList(),
+        weightGoal: weightGoal,
       );
 
       setState(() {
@@ -190,6 +200,12 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
         final foodLogProvider = context.read<FoodLogProvider>();
         await foodLogProvider.ensureLoaded();
         final food = foodLogProvider.entries;
+        final nutritionGoal = foodLogProvider.goal;
+
+        // Get weight tracking data
+        final weightProvider = context.read<WeightProvider>();
+        final weightEntries = weightProvider.entries;
+        final weightGoal = weightProvider.goal;
 
         final followUpResult = await _sessionService.generateFollowUp(
           previousExchanges: _session!.exchanges,
@@ -200,6 +216,9 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
           recentJournals: journals.take(5).toList(),
           recentPulse: pulse.take(3).toList(),
           recentFood: food.take(10).toList(),
+          nutritionGoal: nutritionGoal,
+          recentWeight: weightEntries.take(10).toList(),
+          weightGoal: weightGoal,
         );
 
         final message = followUpResult['message'] as String;
