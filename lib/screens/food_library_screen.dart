@@ -135,7 +135,7 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Search foods...',
+                    hintText: 'Search Food Library',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
@@ -238,8 +238,8 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddTemplateSheet(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Food'),
+        icon: const Icon(Icons.edit_note),
+        label: const Text('Manually Add Food'),
       ),
     );
   }
@@ -1112,7 +1112,7 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
 
               // Title
               Text(
-                isEditing ? 'Edit Food' : 'Add Food to Library',
+                isEditing ? 'Edit Food' : 'Manually Add Food',
                 style: theme.textTheme.headlineSmall,
               ),
               const SizedBox(height: 24),

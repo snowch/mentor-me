@@ -4,7 +4,9 @@
 /// with support for barcode lookup and category browsing.
 library;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import '../models/food_entry.dart';
 import '../models/food_template.dart';
@@ -445,25 +447,54 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Info card
+          // Camera scan button (not available on web)
+          if (!kIsWeb) ...[
+            FilledButton.icon(
+              onPressed: _isSearching ? null : () => _openBarcodeScanner(context),
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Scan with Camera'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+              ),
+            ),
+            AppSpacing.gapVerticalMd,
+            Row(
+              children: [
+                Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'OR',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+              ],
+            ),
+            AppSpacing.gapVerticalMd,
+          ],
+
+          // Info card for manual entry
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   Icon(
-                    Icons.qr_code_scanner,
-                    size: 48,
+                    Icons.keyboard,
+                    size: 40,
                     color: theme.colorScheme.primary,
-                  ),
-                  AppSpacing.gapVerticalMd,
-                  Text(
-                    'Enter Barcode',
-                    style: theme.textTheme.titleMedium,
                   ),
                   AppSpacing.gapVerticalSm,
                   Text(
-                    'Enter the barcode number from a food product to look up its nutrition information.',
+                    'Enter Barcode Manually',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  AppSpacing.gapVerticalXs,
+                  Text(
+                    'Type the barcode number from the product packaging.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -474,7 +505,7 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
             ),
           ),
 
-          AppSpacing.gapVerticalLg,
+          AppSpacing.gapVerticalMd,
 
           // Barcode input
           TextField(
@@ -492,7 +523,7 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
 
           AppSpacing.gapVerticalMd,
 
-          FilledButton.icon(
+          FilledButton.tonalIcon(
             onPressed: _isSearching
                 ? null
                 : () => _searchBarcode(_barcodeController.text),
@@ -535,6 +566,21 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
         ],
       ),
     );
+  }
+
+  /// Opens the barcode scanner camera
+  Future<void> _openBarcodeScanner(BuildContext context) async {
+    final scannedBarcode = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const _BarcodeScannerSheet(),
+    );
+
+    if (scannedBarcode != null && scannedBarcode.isNotEmpty) {
+      _barcodeController.text = scannedBarcode;
+      await _searchBarcode(scannedBarcode);
+    }
   }
 
   Widget _buildBrowseTab(ThemeData theme, ScrollController scrollController) {
@@ -1059,5 +1105,323 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
       case FoodDataSource.cached:
         return Colors.green.shade700;
     }
+  }
+}
+
+/// Barcode scanner sheet using device camera
+class _BarcodeScannerSheet extends StatefulWidget {
+  const _BarcodeScannerSheet();
+
+  @override
+  State<_BarcodeScannerSheet> createState() => _BarcodeScannerSheetState();
+}
+
+class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
+  MobileScannerController? _controller;
+  bool _hasScanned = false;
+  bool _hasError = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeScanner();
+  }
+
+  Future<void> _initializeScanner() async {
+    try {
+      _controller = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+        torchEnabled: false,
+      );
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Failed to initialize camera: $e';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _onBarcodeDetected(BarcodeCapture capture) {
+    if (_hasScanned) return; // Prevent multiple scans
+
+    final barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    final barcode = barcodes.first;
+    final value = barcode.rawValue;
+
+    if (value != null && value.isNotEmpty) {
+      setState(() => _hasScanned = true);
+      Navigator.pop(context, value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 32,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.qr_code_scanner, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Scan Barcode', style: theme.textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+
+          // Scanner or error
+          Expanded(
+            child: _hasError
+                ? _buildErrorState(theme)
+                : _controller == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Stack(
+                        children: [
+                          // Camera preview
+                          MobileScanner(
+                            controller: _controller!,
+                            onDetect: _onBarcodeDetected,
+                            errorBuilder: (context, error, child) {
+                              return _buildCameraError(theme, error);
+                            },
+                          ),
+
+                          // Scan overlay
+                          _buildScanOverlay(theme),
+
+                          // Torch toggle
+                          Positioned(
+                            bottom: 32,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // Torch button
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(32),
+                                  ),
+                                  child: ValueListenableBuilder<MobileScannerState>(
+                                    valueListenable: _controller!,
+                                    builder: (context, state, child) {
+                                      return IconButton(
+                                        icon: Icon(
+                                          state.torchState == TorchState.on
+                                              ? Icons.flash_on
+                                              : Icons.flash_off,
+                                          color: Colors.white,
+                                        ),
+                                        onPressed: () => _controller!.toggleTorch(),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                // Camera switch button
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(32),
+                                  ),
+                                  child: IconButton(
+                                    icon: const Icon(
+                                      Icons.cameraswitch,
+                                      color: Colors.white,
+                                    ),
+                                    onPressed: () => _controller!.switchCamera(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
+
+          // Instructions
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Point the camera at a barcode on food packaging',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScanOverlay(ThemeData theme) {
+    return Center(
+      child: Container(
+        width: 280,
+        height: 150,
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: theme.colorScheme.primary,
+            width: 3,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          children: [
+            // Corner accents
+            Positioned(
+              top: -3,
+              left: -3,
+              child: _buildCorner(theme, 0),
+            ),
+            Positioned(
+              top: -3,
+              right: -3,
+              child: _buildCorner(theme, 90),
+            ),
+            Positioned(
+              bottom: -3,
+              right: -3,
+              child: _buildCorner(theme, 180),
+            ),
+            Positioned(
+              bottom: -3,
+              left: -3,
+              child: _buildCorner(theme, 270),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCorner(ThemeData theme, double rotation) {
+    return Transform.rotate(
+      angle: rotation * 3.14159 / 180,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: theme.colorScheme.primary, width: 4),
+            left: BorderSide(color: theme.colorScheme.primary, width: 4),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Camera Error',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _errorMessage ?? 'Unable to access camera',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.tonal(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Enter Barcode Manually'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCameraError(ThemeData theme, MobileScannerException error) {
+    String message;
+    switch (error.errorCode) {
+      case MobileScannerErrorCode.permissionDenied:
+        message = 'Camera permission denied. Please enable camera access in settings.';
+        break;
+      case MobileScannerErrorCode.unsupported:
+        message = 'Camera not supported on this device.';
+        break;
+      default:
+        message = 'Camera error: ${error.errorDetails?.message ?? "Unknown error"}';
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.no_photography,
+              size: 64,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.tonal(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Enter Barcode Manually'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

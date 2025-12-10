@@ -76,6 +76,9 @@ dependencies:
   # Image picker for camera/gallery access
   image_picker: ^1.0.7
 
+  # Barcode/QR code scanning
+  mobile_scanner: ^5.1.1
+
   # Google Drive integration for cloud backups
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
