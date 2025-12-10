@@ -608,6 +608,9 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
 
+  // Track nutrition source for proper library attribution
+  NutritionSource _nutritionSource = NutritionSource.aiEstimated;
+
   // Nutrition override controllers
   final _caloriesController = TextEditingController();
   final _proteinController = TextEditingController();
@@ -1002,6 +1005,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                   : result.name;
               _nutrition = result.nutrition;
               _nutritionEdited = false;
+              _nutritionSource = NutritionSource.imported; // From online database
               _populateNutritionControllers(result.nutrition);
             });
           },
@@ -1363,7 +1367,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
           nutritionPerServing: finalNutrition,
           defaultServingSize: 1,
           servingUnit: ServingUnit.serving,
-          source: _nutritionEdited ? NutritionSource.manual : NutritionSource.aiEstimated,
+          source: _nutritionEdited ? NutritionSource.manual : _nutritionSource,
           sourceNotes: 'Added from Food Log',
         );
         libraryProvider.addTemplate(template);
@@ -1456,7 +1460,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'or describe for AI',
+                      'or add manually',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ),
@@ -1468,27 +1472,45 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
               AppSpacing.gapVerticalMd,
             ],
 
-            // Meal type selector with label below
-            SegmentedButton<MealType>(
-              segments: MealType.values
-                  .map((type) => ButtonSegment(
-                        value: type,
-                        label: Text(type.emoji, style: const TextStyle(fontSize: 20)),
-                        tooltip: type.displayName,
-                      ))
-                  .toList(),
-              selected: {_selectedMealType},
-              onSelectionChanged: (selected) {
-                setState(() => _selectedMealType = selected.first);
-              },
-              showSelectedIcon: false,
-            ),
-            AppSpacing.gapVerticalSm,
-            Text(
-              'Meal Type: ${_selectedMealType.displayName}',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
+            // Meal type and time row
+            Row(
+              children: [
+                // Meal type selector
+                Expanded(
+                  child: SegmentedButton<MealType>(
+                    segments: MealType.values
+                        .map((type) => ButtonSegment(
+                              value: type,
+                              label: Text(type.emoji, style: const TextStyle(fontSize: 18)),
+                              tooltip: type.displayName,
+                            ))
+                        .toList(),
+                    selected: {_selectedMealType},
+                    onSelectionChanged: (selected) {
+                      setState(() => _selectedMealType = selected.first);
+                    },
+                    showSelectedIcon: false,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Time selector
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: _selectedTime,
+                    );
+                    if (picked != null) {
+                      setState(() => _selectedTime = picked);
+                    }
+                  },
+                  icon: const Icon(Icons.access_time, size: 18),
+                  label: Text(_selectedTime.format(context)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+              ],
             ),
             AppSpacing.gapVerticalMd,
 
@@ -1496,49 +1518,34 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             _buildPhotoSection(theme),
             AppSpacing.gapVerticalMd,
 
-            // Time selector
-            OutlinedButton.icon(
-              onPressed: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: _selectedTime,
-                );
-                if (picked != null) {
-                  setState(() => _selectedTime = picked);
-                }
-              },
-              icon: const Icon(Icons.access_time),
-              label: Text(
-                'Time: ${_selectedTime.format(context)}',
-              ),
-            ),
-            AppSpacing.gapVerticalMd,
-
-            // Food description
+            // Notes field (renamed from "What did you eat?")
             TextField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'What did you eat?',
+                labelText: 'Notes',
                 hintText: 'e.g., Grilled chicken salad with ranch dressing',
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
               textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}), // Rebuild to show/hide AI button
             ),
-            AppSpacing.gapVerticalMd,
 
-            // AI Estimate button
-            FilledButton.tonalIcon(
-              onPressed: _isEstimating ? null : _estimateNutrition,
-              icon: _isEstimating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(_isEstimating ? 'Estimating...' : 'Estimate Nutrition with AI'),
-            ),
+            // AI Estimate button - only show as fallback when no nutrition
+            if (_nutrition == null && _descriptionController.text.isNotEmpty) ...[
+              AppSpacing.gapVerticalMd,
+              FilledButton.tonalIcon(
+                onPressed: _isEstimating ? null : _estimateNutrition,
+                icon: _isEstimating
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(_isEstimating ? 'Estimating...' : 'Estimate Nutrition with AI'),
+              ),
+            ],
 
             if (_estimateError != null) ...[
               AppSpacing.gapVerticalSm,
