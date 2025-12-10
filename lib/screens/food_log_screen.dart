@@ -590,7 +590,8 @@ class _AddFoodBottomSheet extends StatefulWidget {
 
 class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   final _descriptionController = TextEditingController();
-  final _librarySearchController = TextEditingController();
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   final _imagePicker = ImagePicker();
   MealType _selectedMealType = MealType.lunch;
   NutritionEstimate? _nutrition;
@@ -600,9 +601,12 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   String? _imagePath;
   bool _saveToLibrary = false;
 
-  // Library search state
-  String _librarySearchQuery = '';
+  // Unified search state
+  String _searchQuery = '';
   List<FoodTemplate> _librarySearchResults = [];
+  bool _showSearchDropdown = false;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
   // Nutrition override controllers
   final _caloriesController = TextEditingController();
@@ -639,17 +643,299 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
         _selectedMealType = MealType.snack;
       }
     }
+
+    // Setup focus listener for search dropdown
+    _searchFocusNode.addListener(_onSearchFocusChanged);
   }
 
   @override
   void dispose() {
+    _removeOverlay();
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchFocusNode.dispose();
     _descriptionController.dispose();
-    _librarySearchController.dispose();
+    _searchController.dispose();
     _caloriesController.dispose();
     _proteinController.dispose();
     _carbsController.dispose();
     _fatController.dispose();
     super.dispose();
+  }
+
+  void _onSearchFocusChanged() {
+    if (_searchFocusNode.hasFocus) {
+      _showOverlay();
+    } else {
+      // Delay hiding to allow tap events on dropdown items
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (!_searchFocusNode.hasFocus && mounted) {
+          _removeOverlay();
+        }
+      });
+    }
+  }
+
+  void _showOverlay() {
+    _removeOverlay();
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+    setState(() => _showSearchDropdown = true);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (mounted) {
+      setState(() => _showSearchDropdown = false);
+    }
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final size = renderBox?.size ?? Size.zero;
+
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width - 40, // Account for padding
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 56), // Below the search field
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            child: _buildSearchDropdownContent(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchDropdownContent() {
+    final theme = Theme.of(context);
+    final provider = context.read<FoodLogProvider>();
+    final recentFoods = _getRecentFoods(provider);
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 300),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Show library results if searching
+              if (_searchQuery.isNotEmpty && _librarySearchResults.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.folder_outlined, size: 14, color: theme.colorScheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'From My Library',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...(_librarySearchResults.take(5).map((template) => _buildLibraryResultTile(template, theme))),
+              ],
+
+              // Show "Search online" option
+              if (_searchQuery.isNotEmpty) ...[
+                if (_librarySearchResults.isNotEmpty)
+                  Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                InkWell(
+                  onTap: () => _searchFoodDatabaseWithQuery(_searchQuery),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.language, size: 20, color: theme.colorScheme.onPrimaryContainer),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Search online for "$_searchQuery"',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                'Open Food Facts & UK database',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.outline),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              // Show recent foods when empty
+              if (_searchQuery.isEmpty && recentFoods.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history, size: 14, color: theme.colorScheme.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Recent Foods',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...recentFoods.take(7).map((food) => _buildRecentFoodTile(food, theme)),
+              ],
+
+              // Empty state prompt
+              if (_searchQuery.isEmpty && recentFoods.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Icon(Icons.search, size: 32, color: theme.colorScheme.outline),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Search your saved foods or online databases',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+              // No library results message
+              if (_searchQuery.isNotEmpty && _librarySearchResults.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 14, color: theme.colorScheme.outline),
+                      const SizedBox(width: 4),
+                      Text(
+                        'No saved foods match "$_searchQuery"',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLibraryResultTile(FoodTemplate template, ThemeData theme) {
+    return InkWell(
+      onTap: () {
+        _removeOverlay();
+        _searchFocusNode.unfocus();
+        _quickLogFromLibrary(template);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Text(template.category.emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    template.displayName,
+                    style: theme.textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '${template.nutritionPerServing.calories} cal · ${template.nutritionPerServing.proteinGrams}g P · ${template.servingText}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.add_circle_outline, size: 20, color: theme.colorScheme.primary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentFoodTile(FoodEntry food, ThemeData theme) {
+    return InkWell(
+      onTap: () {
+        _removeOverlay();
+        _searchFocusNode.unfocus();
+        _quickLogRecent(food);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Text(food.mealType.emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    food.description,
+                    style: theme.textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '${food.nutrition?.calories ?? 0} cal · ${food.nutrition?.proteinGrams ?? 0}g P',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.add_circle_outline, size: 20, color: theme.colorScheme.primary),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Get recent food entries (last 7 unique foods)
@@ -678,7 +964,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   void _searchLibrary(String query) {
     final libraryProvider = context.read<FoodLibraryProvider>();
     setState(() {
-      _librarySearchQuery = query;
+      _searchQuery = query;
       if (query.isEmpty) {
         _librarySearchResults = [];
       } else {
@@ -688,6 +974,40 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             .toList();
       }
     });
+    // Update overlay content
+    if (_overlayEntry != null) {
+      _overlayEntry!.markNeedsBuild();
+    }
+  }
+
+  /// Open food database search with the current query
+  void _searchFoodDatabaseWithQuery(String query) {
+    _removeOverlay();
+    _searchFocusNode.unfocus();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => FoodDatabaseSearchSheet(
+          initialQuery: query,
+          onFoodSelected: (result) {
+            // Populate form with selected food data
+            setState(() {
+              _descriptionController.text = result.brand != null
+                  ? '${result.name} (${result.brand})'
+                  : result.name;
+              _nutrition = result.nutrition;
+              _nutritionEdited = false;
+              _populateNutritionControllers(result.nutrition);
+            });
+          },
+        ),
+      ),
+    );
   }
 
   /// Quick log a recent food entry
@@ -974,66 +1294,6 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     );
   }
 
-  Future<void> _pickFromLibrary() async {
-    final entry = await FoodPickerDialog.show(
-      context,
-      defaultMealType: _selectedMealType,
-    );
-
-    if (entry != null && mounted) {
-      // FoodPickerDialog returns a FoodEntry with all fields filled
-      final provider = context.read<FoodLogProvider>();
-
-      // Adjust timestamp to selected date
-      final adjustedEntry = FoodEntry(
-        id: entry.id,
-        timestamp: DateTime(
-          widget.selectedDate.year,
-          widget.selectedDate.month,
-          widget.selectedDate.day,
-          entry.timestamp.hour,
-          entry.timestamp.minute,
-        ),
-        mealType: entry.mealType,
-        description: entry.description,
-        nutrition: entry.nutrition,
-        imagePath: entry.imagePath,
-      );
-
-      provider.addEntry(adjustedEntry);
-      widget.onSaved?.call();
-      Navigator.pop(context);
-    }
-  }
-
-  /// Open food database search sheet (Open Food Facts + UK CoFID)
-  void _searchFoodDatabase() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => FoodDatabaseSearchSheet(
-          onFoodSelected: (result) {
-            // Note: FoodDatabaseSearchSheet handles closing itself via Navigator.pop
-            // Populate form with selected food data
-            setState(() {
-              _descriptionController.text = result.brand != null
-                  ? '${result.name} (${result.brand})'
-                  : result.name;
-              _nutrition = result.nutrition;
-              _nutritionEdited = false; // Reset edited flag
-              _populateNutritionControllers(result.nutrition);
-            });
-          },
-        ),
-      ),
-    );
-  }
-
   Future<void> _confirmDeleteEntry(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1155,156 +1415,38 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             ),
             AppSpacing.gapVerticalMd,
 
-            // Quick add section (only for new entries)
+            // Quick add section with unified search (only for new entries)
             if (widget.existingEntry == null) ...[
-              // Recent foods section
-              Consumer<FoodLogProvider>(
-                builder: (context, provider, _) {
-                  final recentFoods = _getRecentFoods(provider);
-                  if (recentFoods.isEmpty) return const SizedBox.shrink();
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.history, size: 16, color: theme.colorScheme.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Recent',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 72,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: recentFoods.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final food = recentFoods[index];
-                            return _buildRecentFoodChip(food);
-                          },
-                        ),
-                      ),
-                      AppSpacing.gapVerticalMd,
-                    ],
-                  );
-                },
-              ),
-
-              // Library search box with inline results
-              TextField(
-                controller: _librarySearchController,
-                decoration: InputDecoration(
-                  hintText: 'Search my saved foods...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _librarySearchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _librarySearchController.clear();
-                            _searchLibrary('');
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                onChanged: _searchLibrary,
-              ),
-
-              // Library search results
-              if (_librarySearchResults.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _librarySearchResults.length,
-                    itemBuilder: (context, index) {
-                      final template = _librarySearchResults[index];
-                      return ListTile(
-                        dense: true,
-                        leading: Text(template.category.emoji, style: const TextStyle(fontSize: 20)),
-                        title: Text(template.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                          '${template.nutritionPerServing.calories} cal • ${template.nutritionPerServing.proteinGrams}g P',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
-                        ),
-                        trailing: const Icon(Icons.add_circle_outline),
-                        onTap: () => _quickLogFromLibrary(template),
-                      );
-                    },
-                  ),
-                ),
-              ] else if (_librarySearchQuery.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 16, color: theme.colorScheme.outline),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'No saved foods match. Try searching online or describe for AI.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              AppSpacing.gapVerticalMd,
-
-              // Action buttons row
-              Row(
-                children: [
-                  // Search online foods
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _searchFoodDatabase,
-                      icon: const Icon(Icons.language, size: 18),
-                      label: const Text('Search Online'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+              // Unified search field with dropdown
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  decoration: InputDecoration(
+                    hintText: 'Search foods...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchLibrary('');
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  const SizedBox(width: 8),
-                  // Browse library
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickFromLibrary,
-                      icon: const Icon(Icons.folder_open, size: 18),
-                      label: const Text('Browse Library'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
+                  onChanged: _searchLibrary,
+                  onTap: () {
+                    if (!_showSearchDropdown) {
+                      _showOverlay();
+                    }
+                  },
+                ),
               ),
 
               AppSpacing.gapVerticalSm,
@@ -1668,56 +1810,6 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
           setState(() => _nutritionEdited = true);
         }
       },
-    );
-  }
-
-  /// Build a compact chip for a recent food entry
-  Widget _buildRecentFoodChip(FoodEntry food) {
-    final theme = Theme.of(context);
-
-    // Truncate long descriptions
-    final displayName = food.description.length > 20
-        ? '${food.description.substring(0, 17)}...'
-        : food.description;
-
-    return InkWell(
-      onTap: () => _quickLogRecent(food),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 100,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              food.mealType.emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              displayName,
-              style: theme.textTheme.bodySmall,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
-            Text(
-              '${food.nutrition?.calories ?? 0} cal',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

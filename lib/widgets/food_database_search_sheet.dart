@@ -52,10 +52,12 @@ class FoodSelectionResult {
 /// Bottom sheet for searching food databases
 class FoodDatabaseSearchSheet extends StatefulWidget {
   final Function(FoodSelectionResult) onFoodSelected;
+  final String? initialQuery;
 
   const FoodDatabaseSearchSheet({
     super.key,
     required this.onFoodSelected,
+    this.initialQuery,
   });
 
   @override
@@ -82,6 +84,10 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    // Pre-populate search if initial query provided
+    if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+      _searchController.text = widget.initialQuery!;
+    }
     _initializeServices();
   }
 
@@ -99,6 +105,10 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
       await _foodDbService.initialize();
       await _searchService.initialize();
       await _loadCategories();
+      // Auto-search if initial query was provided
+      if (widget.initialQuery != null && widget.initialQuery!.isNotEmpty) {
+        await _performSearch(widget.initialQuery!);
+      }
     } catch (e) {
       setState(() => _errorMessage = 'Failed to initialize: $e');
     } finally {
