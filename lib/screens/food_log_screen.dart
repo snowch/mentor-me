@@ -990,26 +990,20 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => FoodDatabaseSearchSheet(
-          initialQuery: query,
-          onFoodSelected: (result) {
-            // Populate form with selected food data
-            setState(() {
-              _descriptionController.text = result.brand != null
-                  ? '${result.name} (${result.brand})'
-                  : result.name;
-              _nutrition = result.nutrition;
-              _nutritionEdited = false;
-              _nutritionSource = NutritionSource.imported; // From online database
-              _populateNutritionControllers(result.nutrition);
-            });
-          },
-        ),
+      builder: (context) => FoodDatabaseSearchSheet(
+        initialQuery: query,
+        onFoodSelected: (result) {
+          // Populate form with selected food data
+          setState(() {
+            _descriptionController.text = result.brand != null
+                ? '${result.name} (${result.brand})'
+                : result.name;
+            _nutrition = result.nutrition;
+            _nutritionEdited = false;
+            _nutritionSource = NutritionSource.imported; // From online database
+            _populateNutritionControllers(result.nutrition);
+          });
+        },
       ),
     );
   }
