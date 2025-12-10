@@ -991,7 +991,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => FoodDatabaseSearchSheet(
+      builder: (sheetContext) => FoodDatabaseSearchSheet(
         initialQuery: query,
         onFoodSelected: (result) async {
           // Create a temporary FoodTemplate from the search result
