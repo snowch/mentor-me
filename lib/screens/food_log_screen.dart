@@ -590,6 +590,7 @@ class _AddFoodBottomSheet extends StatefulWidget {
 
 class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   final _descriptionController = TextEditingController();
+  final _librarySearchController = TextEditingController();
   final _imagePicker = ImagePicker();
   MealType _selectedMealType = MealType.lunch;
   NutritionEstimate? _nutrition;
@@ -598,6 +599,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   late TimeOfDay _selectedTime;
   String? _imagePath;
   bool _saveToLibrary = false;
+
+  // Library search state
+  String _librarySearchQuery = '';
+  List<FoodTemplate> _librarySearchResults = [];
 
   // Nutrition override controllers
   final _caloriesController = TextEditingController();
@@ -639,11 +644,114 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _librarySearchController.dispose();
     _caloriesController.dispose();
     _proteinController.dispose();
     _carbsController.dispose();
     _fatController.dispose();
     super.dispose();
+  }
+
+  /// Get recent food entries (last 7 unique foods)
+  List<FoodEntry> _getRecentFoods(FoodLogProvider provider) {
+    final allEntries = provider.entries;
+    final seen = <String>{};
+    final recent = <FoodEntry>[];
+
+    // Sort by timestamp descending
+    final sorted = List<FoodEntry>.from(allEntries)
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    for (final entry in sorted) {
+      // Use description as key for uniqueness
+      final key = entry.description.toLowerCase().trim();
+      if (!seen.contains(key) && entry.nutrition != null) {
+        seen.add(key);
+        recent.add(entry);
+        if (recent.length >= 7) break;
+      }
+    }
+    return recent;
+  }
+
+  /// Search library by query
+  void _searchLibrary(String query) {
+    final libraryProvider = context.read<FoodLibraryProvider>();
+    setState(() {
+      _librarySearchQuery = query;
+      if (query.isEmpty) {
+        _librarySearchResults = [];
+      } else {
+        _librarySearchResults = libraryProvider.templates
+            .where((t) => t.matchesSearch(query))
+            .take(5)
+            .toList();
+      }
+    });
+  }
+
+  /// Quick log a recent food entry
+  Future<void> _quickLogRecent(FoodEntry entry) async {
+    final provider = context.read<FoodLogProvider>();
+
+    // Create new entry with current date/time
+    final now = DateTime.now();
+    final timestamp = DateTime(
+      widget.selectedDate.year,
+      widget.selectedDate.month,
+      widget.selectedDate.day,
+      now.hour,
+      now.minute,
+    );
+
+    final newEntry = FoodEntry(
+      timestamp: timestamp,
+      mealType: _selectedMealType,
+      description: entry.description,
+      nutrition: entry.nutrition,
+      imagePath: entry.imagePath,
+    );
+
+    provider.addEntry(newEntry);
+    widget.onSaved?.call();
+    Navigator.pop(context);
+  }
+
+  /// Quick log from library template
+  Future<void> _quickLogFromLibrary(FoodTemplate template) async {
+    // Close bottom sheet and show portion picker
+    Navigator.pop(context);
+
+    final entry = await PortionAdjustmentSheet.show(
+      context,
+      template: template,
+      defaultMealType: _selectedMealType,
+    );
+
+    if (entry != null) {
+      final provider = context.read<FoodLogProvider>();
+
+      // Adjust timestamp to selected date
+      final adjustedEntry = FoodEntry(
+        id: entry.id,
+        timestamp: DateTime(
+          widget.selectedDate.year,
+          widget.selectedDate.month,
+          widget.selectedDate.day,
+          entry.timestamp.hour,
+          entry.timestamp.minute,
+        ),
+        mealType: entry.mealType,
+        description: entry.description,
+        nutrition: entry.nutrition,
+        imagePath: entry.imagePath,
+      );
+
+      provider.addEntry(adjustedEntry);
+
+      // Update library usage
+      context.read<FoodLibraryProvider>().recordUsage(template.id);
+    }
   }
 
   /// Populate the nutrition text field controllers from a NutritionEstimate
@@ -1047,27 +1155,158 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
             ),
             AppSpacing.gapVerticalMd,
 
-            // Quick add buttons (only for new entries)
+            // Quick add section (only for new entries)
             if (widget.existingEntry == null) ...[
-              // Search Food Database - Open Food Facts + UK CoFID
-              OutlinedButton.icon(
-                onPressed: _searchFoodDatabase,
-                icon: const Icon(Icons.search),
-                label: const Text('Search Food Database'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
+              // Recent foods section
+              Consumer<FoodLogProvider>(
+                builder: (context, provider, _) {
+                  final recentFoods = _getRecentFoods(provider);
+                  if (recentFoods.isEmpty) return const SizedBox.shrink();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.history, size: 16, color: theme.colorScheme.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Recent',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 72,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recentFoods.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final food = recentFoods[index];
+                            return _buildRecentFoodChip(food);
+                          },
+                        ),
+                      ),
+                      AppSpacing.gapVerticalMd,
+                    ],
+                  );
+                },
               ),
-              AppSpacing.gapVerticalSm,
-              // Pick from personal library
-              OutlinedButton.icon(
-                onPressed: _pickFromLibrary,
-                icon: const Icon(Icons.menu_book),
-                label: const Text('Pick from Library'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+
+              // Library search box with inline results
+              TextField(
+                controller: _librarySearchController,
+                decoration: InputDecoration(
+                  hintText: 'Search my saved foods...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _librarySearchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _librarySearchController.clear();
+                            _searchLibrary('');
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
+                onChanged: _searchLibrary,
               ),
+
+              // Library search results
+              if (_librarySearchResults.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _librarySearchResults.length,
+                    itemBuilder: (context, index) {
+                      final template = _librarySearchResults[index];
+                      return ListTile(
+                        dense: true,
+                        leading: Text(template.category.emoji, style: const TextStyle(fontSize: 20)),
+                        title: Text(template.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          '${template.nutritionPerServing.calories} cal • ${template.nutritionPerServing.proteinGrams}g P',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.add_circle_outline),
+                        onTap: () => _quickLogFromLibrary(template),
+                      );
+                    },
+                  ),
+                ),
+              ] else if (_librarySearchQuery.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: theme.colorScheme.outline),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'No saved foods match. Try searching online or describe for AI.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              AppSpacing.gapVerticalMd,
+
+              // Action buttons row
+              Row(
+                children: [
+                  // Search online foods
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _searchFoodDatabase,
+                      icon: const Icon(Icons.language, size: 18),
+                      label: const Text('Search Online'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Browse library
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickFromLibrary,
+                      icon: const Icon(Icons.folder_open, size: 18),
+                      label: const Text('Browse Library'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
               AppSpacing.gapVerticalSm,
               Row(
                 children: [
@@ -1075,7 +1314,7 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'or enter manually',
+                      'or describe for AI',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.outline,
                       ),
@@ -1429,6 +1668,56 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
           setState(() => _nutritionEdited = true);
         }
       },
+    );
+  }
+
+  /// Build a compact chip for a recent food entry
+  Widget _buildRecentFoodChip(FoodEntry food) {
+    final theme = Theme.of(context);
+
+    // Truncate long descriptions
+    final displayName = food.description.length > 20
+        ? '${food.description.substring(0, 17)}...'
+        : food.description;
+
+    return InkWell(
+      onTap: () => _quickLogRecent(food),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant,
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              food.mealType.emoji,
+              style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              displayName,
+              style: theme.textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              '${food.nutrition?.calories ?? 0} cal',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -430,6 +430,8 @@ class _PortionAdjustmentSheetState extends State<PortionAdjustmentSheet> {
   late double _servings;
   late MealType _mealType;
   late TimeOfDay _time;
+  final TextEditingController _customServingsController = TextEditingController();
+  bool _showCustomInput = false;
 
   @override
   void initState() {
@@ -437,6 +439,13 @@ class _PortionAdjustmentSheetState extends State<PortionAdjustmentSheet> {
     _servings = 1.0;
     _mealType = widget.defaultMealType ?? _suggestMealType();
     _time = TimeOfDay.now();
+    _customServingsController.text = _servings.toString();
+  }
+
+  @override
+  void dispose() {
+    _customServingsController.dispose();
+    super.dispose();
   }
 
   MealType _suggestMealType() {
@@ -545,34 +554,112 @@ class _PortionAdjustmentSheetState extends State<PortionAdjustmentSheet> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Serving selector
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton.filled(
-                        onPressed: _servings > 0.25
-                            ? () => setState(() => _servings -= 0.25)
-                            : null,
-                        icon: const Icon(Icons.remove),
-                      ),
-                      const SizedBox(width: 24),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          _servings == _servings.roundToDouble()
-                              ? _servings.toInt().toString()
-                              : _servings.toStringAsFixed(2),
-                          style: theme.textTheme.headlineMedium,
-                          textAlign: TextAlign.center,
+                  // Serving selector - toggle between stepper and custom input
+                  if (_showCustomInput)
+                    // Custom input mode
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          child: TextField(
+                            controller: _customServingsController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineMedium,
+                            decoration: InputDecoration(
+                              hintText: '1.0',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
+                            onChanged: (value) {
+                              final parsed = double.tryParse(value);
+                              if (parsed != null && parsed > 0) {
+                                setState(() => _servings = parsed);
+                              }
+                            },
+                            onSubmitted: (value) {
+                              final parsed = double.tryParse(value);
+                              if (parsed != null && parsed > 0) {
+                                setState(() {
+                                  _servings = parsed;
+                                  _showCustomInput = false;
+                                });
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 24),
-                      IconButton.filled(
-                        onPressed: () => setState(() => _servings += 0.25),
-                        icon: const Icon(Icons.add),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          onPressed: () {
+                            final parsed = double.tryParse(_customServingsController.text);
+                            if (parsed != null && parsed > 0) {
+                              setState(() {
+                                _servings = parsed;
+                                _showCustomInput = false;
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.check),
+                          style: IconButton.styleFrom(
+                            backgroundColor: colorScheme.primaryContainer,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    // Stepper mode
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton.filled(
+                          onPressed: _servings > 0.25
+                              ? () => setState(() {
+                                    _servings -= 0.25;
+                                    _customServingsController.text = _servings.toString();
+                                  })
+                              : null,
+                          icon: const Icon(Icons.remove),
+                        ),
+                        const SizedBox(width: 24),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _showCustomInput = true;
+                            _customServingsController.text = _servings.toString();
+                          }),
+                          child: Container(
+                            width: 80,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: colorScheme.outline.withOpacity(0.3),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _servings == _servings.roundToDouble()
+                                  ? _servings.toInt().toString()
+                                  : _servings.toStringAsFixed(2),
+                              style: theme.textTheme.headlineMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        IconButton.filled(
+                          onPressed: () => setState(() {
+                            _servings += 0.25;
+                            _customServingsController.text = _servings.toString();
+                          }),
+                          icon: const Icon(Icons.add),
+                        ),
+                      ],
+                    ),
 
                   const SizedBox(height: 8),
 
@@ -585,21 +672,51 @@ class _PortionAdjustmentSheetState extends State<PortionAdjustmentSheet> {
                     ),
                   ),
 
-                  // Quick buttons
+                  // Quick buttons + custom option
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
-                    children: [0.5, 1.0, 1.5, 2.0].map((value) {
-                      return ChoiceChip(
-                        label: Text(value == value.roundToDouble()
-                            ? value.toInt().toString()
-                            : value.toString()),
-                        selected: _servings == value,
-                        onSelected: (selected) {
-                          if (selected) setState(() => _servings = value);
-                        },
-                      );
-                    }).toList(),
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      // Quick select buttons
+                      ...[0.5, 1.0, 1.5, 2.0].map((value) {
+                        final isSelected = _servings == value && !_showCustomInput;
+                        return ChoiceChip(
+                          label: Text(value == value.roundToDouble()
+                              ? value.toInt().toString()
+                              : value.toString()),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _servings = value;
+                                _showCustomInput = false;
+                                _customServingsController.text = value.toString();
+                              });
+                            }
+                          },
+                        );
+                      }),
+                      // Custom button
+                      ActionChip(
+                        label: const Text('Custom'),
+                        avatar: Icon(
+                          Icons.edit,
+                          size: 18,
+                          color: _showCustomInput
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                        backgroundColor: _showCustomInput
+                            ? colorScheme.primaryContainer
+                            : null,
+                        onPressed: () => setState(() {
+                          _showCustomInput = true;
+                          _customServingsController.text = _servings.toString();
+                        }),
+                      ),
+                    ],
                   ),
                 ],
               ),
