@@ -1035,37 +1035,28 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     Navigator.pop(context);
   }
 
-  /// Quick log from library template
+  /// Quick log from library template - shows portion picker then populates form
   Future<void> _quickLogFromLibrary(FoodTemplate template) async {
-    // Close bottom sheet and show portion picker
-    Navigator.pop(context);
-
+    // Show portion picker WITHOUT closing the form first
     final entry = await PortionAdjustmentSheet.show(
       context,
       template: template,
       defaultMealType: _selectedMealType,
     );
 
-    if (entry != null) {
-      final provider = context.read<FoodLogProvider>();
-
-      // Adjust timestamp to selected date
-      final adjustedEntry = FoodEntry(
-        id: entry.id,
-        timestamp: DateTime(
-          widget.selectedDate.year,
-          widget.selectedDate.month,
-          widget.selectedDate.day,
-          entry.timestamp.hour,
-          entry.timestamp.minute,
-        ),
-        mealType: entry.mealType,
-        description: entry.description,
-        nutrition: entry.nutrition,
-        imagePath: entry.imagePath,
-      );
-
-      provider.addEntry(adjustedEntry);
+    if (entry != null && mounted) {
+      // Populate the form with the configured entry data
+      setState(() {
+        _descriptionController.text = entry.description;
+        _nutrition = entry.nutrition;
+        _nutritionEdited = false;
+        _nutritionSource = template.source;
+        _selectedMealType = entry.mealType;
+        _selectedTime = TimeOfDay.fromDateTime(entry.timestamp);
+        if (entry.nutrition != null) {
+          _populateNutritionControllers(entry.nutrition!);
+        }
+      });
 
       // Update library usage
       context.read<FoodLibraryProvider>().recordUsage(template.id);
