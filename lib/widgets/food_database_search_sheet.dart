@@ -5,7 +5,10 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/food_entry.dart';
+import '../models/food_template.dart';
+import '../providers/food_library_provider.dart';
 import '../services/food_database_service.dart';
 import '../services/food_search_service.dart';
 import '../theme/app_spacing.dart';
@@ -748,10 +751,13 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
                           const SizedBox(width: 8),
                         ],
                         if (result.servingSize != null)
-                          Text(
-                            result.servingSize!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline,
+                          Expanded(
+                            child: Text(
+                              result.servingSize!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.outline,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                       ],
@@ -760,16 +766,124 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
                 ),
               ),
 
-              // Select arrow
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.outline,
+              // Action buttons column
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Save to library button
+                  IconButton(
+                    icon: const Icon(Icons.bookmark_add_outlined),
+                    tooltip: 'Save to Library',
+                    onPressed: result.nutrition != null
+                        ? () => _saveToLibrary(context, result)
+                        : null,
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  // Select/log button
+                  Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.outline,
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Save a food result directly to the library
+  Future<void> _saveToLibrary(BuildContext context, FoodDatabaseResult result) async {
+    if (result.nutrition == null) return;
+
+    final libraryProvider = context.read<FoodLibraryProvider>();
+    final theme = Theme.of(context);
+
+    // Determine food category based on source or default to 'other'
+    const category = FoodCategory.other;
+
+    // Determine nutrition source - all external database sources map to imported
+    const nutritionSource = NutritionSource.imported;
+
+    final template = FoodTemplate(
+      name: result.productName ?? 'Unknown',
+      brand: result.brand,
+      category: category,
+      nutritionPerServing: result.nutrition!,
+      defaultServingSize: 1,
+      servingUnit: ServingUnit.serving,
+      servingDescription: result.servingSize,
+      source: nutritionSource,
+      sourceNotes: result.source?.displayName,
+      barcode: result.barcode,
+      imagePath: result.imageUrl,
+    );
+
+    // Check for similar templates
+    final similar = libraryProvider.getMostSimilar(template);
+    if (similar != null && similar.similarity > 0.7) {
+      // Show dialog to handle duplicate
+      final action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Similar Food Found'),
+          content: Text(
+            'A similar food "${similar.template.name}" already exists in your library. '
+            'Would you like to update it or add a new entry?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'update'),
+              child: const Text('Update Existing'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'add'),
+              child: const Text('Add New'),
+            ),
+          ],
+        ),
+      );
+
+      if (action == 'cancel' || action == null) return;
+
+      if (action == 'update') {
+        await libraryProvider.mergeTemplates(similar.template.id, template);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Updated "${similar.template.name}" in library'),
+              backgroundColor: theme.colorScheme.primary,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // Add new template
+    await libraryProvider.addTemplate(template);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved "${template.name}" to library'),
+          backgroundColor: theme.colorScheme.primary,
+          action: SnackBarAction(
+            label: 'View Library',
+            textColor: theme.colorScheme.onPrimary,
+            onPressed: () {
+              Navigator.pop(context); // Close the search sheet
+            },
+          ),
+        ),
+      );
+    }
   }
 
   Widget _buildSourceBadge(ThemeData theme, FoodDataSource source) {
