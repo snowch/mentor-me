@@ -6,6 +6,7 @@ import '../models/habit.dart';
 import '../models/journal_entry.dart';
 import '../models/pulse_entry.dart';
 import '../models/food_entry.dart';
+import '../models/weight_entry.dart';
 import '../models/ai_provider.dart';
 import 'ai_service.dart';
 import 'debug_service.dart';
@@ -109,7 +110,7 @@ Always maintain a supportive, non-judgmental tone.''';
   /// Start a new reflection session
   ///
   /// Creates a new session and returns the opening message and questions.
-  /// Uses ContextManagementService to build rich context including goals, habits, journal, pulse, and food data.
+  /// Uses ContextManagementService to build rich context including goals, habits, journal, pulse, food, and weight data.
   /// AI decides whether to explore journal patterns or ask what's on the user's mind.
   Future<ReflectionSessionStart> startSession({
     required ReflectionSessionType type,
@@ -119,6 +120,9 @@ Always maintain a supportive, non-judgmental tone.''';
     List<JournalEntry>? recentJournals,
     List<PulseEntry>? recentPulse,
     List<FoodEntry>? recentFood,
+    NutritionGoal? nutritionGoal,
+    List<WeightEntry>? recentWeight,
+    WeightGoal? weightGoal,
   }) async {
     final sessionId = _uuid.v4();
 
@@ -133,6 +137,9 @@ Always maintain a supportive, non-judgmental tone.''';
       journalEntries: recentJournals ?? [],
       pulseEntries: recentPulse ?? [],
       foodEntries: recentFood ?? [],
+      nutritionGoal: nutritionGoal,
+      weightEntries: recentWeight ?? [],
+      weightGoal: weightGoal,
       conversationHistory: null, // No conversation history yet
     );
 
@@ -238,6 +245,9 @@ Respond in this JSON format:
     List<JournalEntry>? recentJournals,
     List<PulseEntry>? recentPulse,
     List<FoodEntry>? recentFood,
+    NutritionGoal? nutritionGoal,
+    List<WeightEntry>? recentWeight,
+    WeightGoal? weightGoal,
   }) async {
     await _debug.info(
         'ReflectionSessionService', 'Generating follow-up question');
@@ -268,6 +278,9 @@ Respond in this JSON format:
       journalEntries: recentJournals ?? [],
       pulseEntries: recentPulse ?? [],
       foodEntries: recentFood ?? [],
+      nutritionGoal: nutritionGoal,
+      weightEntries: recentWeight ?? [],
+      weightGoal: weightGoal,
       conversationHistory: null,
     );
     final contextBuffer = contextResult.context;
