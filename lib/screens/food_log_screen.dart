@@ -1052,7 +1052,12 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
           }
         },
       ),
-    );
+    ).then((_) {
+      // Refresh library search when sheet closes to pick up any newly saved items
+      if (mounted && _searchQuery.isNotEmpty) {
+        _searchLibrary(_searchQuery);
+      }
+    });
   }
 
   /// Quick log a recent food entry
