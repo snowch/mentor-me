@@ -309,12 +309,10 @@ class FoodDatabaseService {
     return FoodDatabaseResult.failure('Product not found for barcode: $barcode');
   }
 
-  /// Search by name with fallback chain
+  /// Search by name with parallel search across databases
   ///
-  /// Searches in order:
-  /// 1. Open Food Facts (branded products)
-  /// 2. CoFID (UK generic foods)
-  /// 3. Returns failure (caller can fall back to AI)
+  /// Searches Open Food Facts and CoFID in parallel for faster results.
+  /// Returns failure (caller can fall back to AI) if no results found.
   Future<List<FoodDatabaseResult>> searchByName(
     String query, {
     int limit = 10,
@@ -328,12 +326,47 @@ class FoodDatabaseService {
       return [];
     }
 
-    await _debug.info('FoodDatabaseService', 'Searching for: $query');
+    await _debug.info('FoodDatabaseService', 'Searching for: $query (parallel)');
 
     final results = <FoodDatabaseResult>[];
 
-    // 1. Search Open Food Facts (branded products)
+    // Run searches in parallel for faster results
+    final futures = <Future<void>>[];
+
+    // 1. Search Open Food Facts (branded products) - NETWORK CALL
     if (includeOpenFoodFacts) {
+      futures.add(_searchOpenFoodFacts(query, limit, results));
+    }
+
+    // 2. Search CoFID (UK generic foods) - LOCAL/FAST
+    if (includeCoFID) {
+      futures.add(_searchCoFID(query, limit, results));
+    }
+
+    // Wait for all searches to complete in parallel
+    await Future.wait(futures);
+
+    // Sort by confidence
+    results.sort((a, b) => b.confidence.compareTo(a.confidence));
+
+    // Deduplicate similar results
+    final deduped = _deduplicateResults(results);
+
+    await _debug.info(
+      'FoodDatabaseService',
+      'Found ${deduped.length} results for: $query',
+    );
+
+    return deduped.take(limit).toList();
+  }
+
+  /// Search Open Food Facts (network call)
+  Future<void> _searchOpenFoodFacts(
+    String query,
+    int limit,
+    List<FoodDatabaseResult> results,
+  ) async {
+    try {
       final offResults = await _offService.searchByName(query, limit: limit);
       for (final offResult in offResults) {
         results.add(FoodDatabaseResult.success(
@@ -352,10 +385,22 @@ class FoodDatabaseService {
           novaGroup: offResult.novaGroup,
         ));
       }
+    } catch (e) {
+      await _debug.warning(
+        'FoodDatabaseService',
+        'Open Food Facts search failed: $e',
+      );
+      // Continue with other sources - don't fail the whole search
     }
+  }
 
-    // 2. Search CoFID (UK generic foods)
-    if (includeCoFID) {
+  /// Search CoFID database (local, fast)
+  Future<void> _searchCoFID(
+    String query,
+    int limit,
+    List<FoodDatabaseResult> results,
+  ) async {
+    try {
       final cofidResults = await _cofidService.searchByName(query, limit: limit);
       for (final cofidResult in cofidResults) {
         if (cofidResult.food != null) {
@@ -369,20 +414,13 @@ class FoodDatabaseService {
           ));
         }
       }
+    } catch (e) {
+      await _debug.warning(
+        'FoodDatabaseService',
+        'CoFID search failed: $e',
+      );
+      // Continue with other sources - don't fail the whole search
     }
-
-    // Sort by confidence
-    results.sort((a, b) => b.confidence.compareTo(a.confidence));
-
-    // Deduplicate similar results
-    final deduped = _deduplicateResults(results);
-
-    await _debug.info(
-      'FoodDatabaseService',
-      'Found ${deduped.length} results for: $query',
-    );
-
-    return deduped.take(limit).toList();
   }
 
   /// Find best match for a food description

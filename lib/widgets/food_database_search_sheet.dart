@@ -54,7 +54,8 @@ class FoodSelectionResult {
 
 /// Bottom sheet for searching food databases
 class FoodDatabaseSearchSheet extends StatefulWidget {
-  final Function(FoodSelectionResult) onFoodSelected;
+  /// Callback when a food is selected. Must complete before sheet closes.
+  final Future<void> Function(FoodSelectionResult) onFoodSelected;
   final String? initialQuery;
 
   const FoodDatabaseSearchSheet({
@@ -81,7 +82,9 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
   String? _selectedCategory;
   bool _isSearching = false;
   bool _isLoadingCategories = false;
+  bool _isSelectingFood = false;
   String? _errorMessage;
+  String? _searchStage; // For showing progress stages
 
   @override
   void initState() {
@@ -150,6 +153,7 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
       setState(() {
         _searchResults = [];
         _errorMessage = null;
+        _searchStage = null;
       });
       return;
     }
@@ -157,6 +161,7 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     setState(() {
       _isSearching = true;
       _errorMessage = null;
+      _searchStage = 'Searching food databases...';
     });
 
     try {
@@ -181,7 +186,10 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     } catch (e) {
       setState(() => _errorMessage = 'Search failed: $e');
     } finally {
-      setState(() => _isSearching = false);
+      setState(() {
+        _isSearching = false;
+        _searchStage = null;
+      });
     }
   }
 
@@ -197,14 +205,15 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     setState(() {
       _isSearching = true;
       _errorMessage = null;
+      _searchStage = 'Looking up barcode...';
     });
 
     try {
       final result = await _searchService.searchByBarcode(barcode.trim());
 
       if (result.success && result.nutrition != null) {
-        // Auto-select if found
-        widget.onFoodSelected(FoodSelectionResult(
+        // Auto-select if found - await the callback before closing
+        await widget.onFoodSelected(FoodSelectionResult(
           name: result.productName ?? 'Unknown Product',
           brand: result.brand,
           nutrition: result.nutrition!,
@@ -271,11 +280,25 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
     }
   }
 
-  void _selectFood(FoodDatabaseResult result) {
+  Future<void> _selectFood(FoodDatabaseResult result) async {
     if (result.nutrition == null) return;
+    if (_isSelectingFood) return; // Prevent double-tap
 
-    widget.onFoodSelected(FoodSelectionResult.fromDatabaseResult(result));
-    Navigator.pop(context);
+    setState(() => _isSelectingFood = true);
+
+    try {
+      // Wait for the callback to complete (e.g., showing portion picker)
+      await widget.onFoodSelected(FoodSelectionResult.fromDatabaseResult(result));
+    } finally {
+      if (mounted) {
+        setState(() => _isSelectingFood = false);
+      }
+    }
+
+    // Only close after callback completes
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -423,7 +446,7 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
         // Results
         Expanded(
           child: _isSearching
-              ? const Center(child: CircularProgressIndicator())
+              ? _buildSearchingState(theme)
               : _searchResults.isEmpty
                   ? _buildEmptySearchState(theme)
                   : ListView.builder(
@@ -671,6 +694,40 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
                         ),
         ),
       ],
+    );
+  }
+
+  /// Loading state with progress message
+  Widget _buildSearchingState(ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 48,
+              height: 48,
+              child: CircularProgressIndicator(),
+            ),
+            AppSpacing.gapVerticalLg,
+            Text(
+              _searchStage ?? 'Searching...',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+            AppSpacing.gapVerticalSm,
+            Text(
+              'Checking UK food database + Open Food Facts',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1064,8 +1121,8 @@ class _FoodDatabaseSearchSheetState extends State<FoodDatabaseSearchSheet>
       final response = await aiService.estimateNutrition(query);
 
       if (response != null) {
-        // Create a result from AI estimate
-        widget.onFoodSelected(FoodSelectionResult(
+        // Create a result from AI estimate - await the callback before closing
+        await widget.onFoodSelected(FoodSelectionResult(
           name: query,
           nutrition: response,
           source: FoodDataSource.aiEstimated,

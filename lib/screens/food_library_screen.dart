@@ -350,7 +350,7 @@ class _FoodLibraryScreenState extends State<FoodLibraryScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => FoodDatabaseSearchSheet(
-        onFoodSelected: (result) {
+        onFoodSelected: (result) async {
           // When food is selected from online search, save it to the library
           final libraryProvider = context.read<FoodLibraryProvider>();
 
