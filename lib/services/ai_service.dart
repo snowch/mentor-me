@@ -479,7 +479,12 @@ ${contextResult.context}
 
 User message: $prompt
 
-Provide supportive, actionable guidance. Be warm but concise. Focus on specific next steps.''';
+IMPORTANT GUIDELINES:
+- Be warm but concise - keep responses focused
+- Avoid repeating information from previous messages or the context
+- Don't summarize what the user already said or knows
+- Focus on NEW insights, next steps, and forward momentum
+- If continuing a topic, build on it rather than restating it''';
 
       // Use proxy for web, direct API for mobile
       final url = kIsWeb ? _proxyUrl : _apiUrl;

@@ -18,6 +18,14 @@ import '../services/ai_service.dart';
 import '../services/local_ai_service.dart';
 import '../services/context_management_service.dart';
 import '../services/debug_service.dart';
+import '../services/reflection_action_service.dart';
+import '../services/reflection_function_schemas.dart';
+import '../services/notification_service.dart';
+import '../providers/goal_provider.dart';
+import '../providers/habit_provider.dart';
+import '../providers/journal_provider.dart' as journal;
+import '../providers/checkin_template_provider.dart';
+import '../providers/win_provider.dart';
 
 class ChatProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
@@ -25,11 +33,32 @@ class ChatProvider extends ChangeNotifier {
   final ContextManagementService _contextService = ContextManagementService();
   final DebugService _debug = DebugService();
 
+  // Action service for tool execution in chat
+  ReflectionActionService? _actionService;
+
   List<Conversation> _conversations = [];
   Conversation? _currentConversation;
   bool _isTyping = false;
   bool _isLoadingModel = false;
   String? _loadingMessage;
+
+  /// Set providers for tool execution (call from screen that has provider access)
+  void setProviders({
+    required GoalProvider goalProvider,
+    required HabitProvider habitProvider,
+    required journal.JournalProvider journalProvider,
+    required CheckInTemplateProvider templateProvider,
+    required WinProvider winProvider,
+  }) {
+    _actionService = ReflectionActionService(
+      goalProvider: goalProvider,
+      habitProvider: habitProvider,
+      journalProvider: journalProvider,
+      templateProvider: templateProvider,
+      winProvider: winProvider,
+      notificationService: NotificationService(),
+    );
+  }
 
   List<Conversation> get conversations => _conversations;
   Conversation? get currentConversation => _currentConversation;
@@ -431,34 +460,77 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // For local AI, pass raw user message and let AIService handle context building
-      // This avoids duplicate prompting and context building
-      // For cloud AI, we could build context here, but for consistency let AIService handle it
-      final response = await _ai.getCoachingResponse(
-        prompt: userMessage,
-        goals: goals,
-        habits: habits,
-        recentEntries: journalEntries,
-        pulseEntries: pulseEntries,
-        conversationHistory: _currentConversation?.messages,
-        exercisePlans: exercisePlans,
-        workoutLogs: workoutLogs,
-        weightEntries: weightEntries,
-        weightGoal: weightGoal,
-        foodEntries: foodEntries,
-        nutritionGoal: nutritionGoal,
-        wins: wins,
-      );
+      // Check if we can use tools (cloud AI + action service available)
+      final canUseTools = aiProvider == AIProvider.cloud && _actionService != null;
 
-      await _debug.info('ChatProvider', 'AI response generated', metadata: {
-        'responseLength': response.length,
-        'estimatedResponseTokens': _contextService.estimateTokens(response),
-      });
+      if (canUseTools) {
+        // Use tool-enabled response for cloud AI
+        final result = await _ai.getCoachingResponseWithTools(
+          prompt: userMessage,
+          tools: ReflectionFunctionSchemas.allTools,
+          goals: goals,
+          habits: habits,
+          recentEntries: journalEntries,
+          pulseEntries: pulseEntries,
+          conversationHistory: _currentConversation?.messages,
+        );
 
-      _isTyping = false;
-      notifyListeners();
+        final message = result['message'] as String? ?? '';
+        final toolUses = result['tool_uses'] as List<Map<String, dynamic>>? ?? [];
 
-      return response;
+        // Execute any tool uses
+        final toolResults = <String>[];
+        for (final toolUse in toolUses) {
+          final toolResult = await _executeToolUse(toolUse);
+          if (toolResult != null) {
+            toolResults.add(toolResult);
+          }
+        }
+
+        // Combine AI message with tool execution results
+        String response = message;
+        if (toolResults.isNotEmpty) {
+          response += '\n\n✅ **Actions taken:**\n${toolResults.join('\n')}';
+        }
+
+        await _debug.info('ChatProvider', 'AI response with tools', metadata: {
+          'responseLength': response.length,
+          'toolsUsed': toolUses.length,
+          'toolsExecuted': toolResults.length,
+        });
+
+        _isTyping = false;
+        notifyListeners();
+
+        return response;
+      } else {
+        // For local AI or when tools not available, use regular response
+        final response = await _ai.getCoachingResponse(
+          prompt: userMessage,
+          goals: goals,
+          habits: habits,
+          recentEntries: journalEntries,
+          pulseEntries: pulseEntries,
+          conversationHistory: _currentConversation?.messages,
+          exercisePlans: exercisePlans,
+          workoutLogs: workoutLogs,
+          weightEntries: weightEntries,
+          weightGoal: weightGoal,
+          foodEntries: foodEntries,
+          nutritionGoal: nutritionGoal,
+          wins: wins,
+        );
+
+        await _debug.info('ChatProvider', 'AI response generated', metadata: {
+          'responseLength': response.length,
+          'estimatedResponseTokens': _contextService.estimateTokens(response),
+        });
+
+        _isTyping = false;
+        notifyListeners();
+
+        return response;
+      }
     } catch (e) {
       await _debug.error('ChatProvider', 'Error generating AI response',
         metadata: {'error': e.toString()}
@@ -472,6 +544,103 @@ class ChatProvider extends ChangeNotifier {
 
       return "I'm having trouble processing that right now. Could you try again?";
     }
+  }
+
+  /// Execute a single tool use from the AI response
+  Future<String?> _executeToolUse(Map<String, dynamic> toolUse) async {
+    if (_actionService == null) return null;
+
+    final toolName = toolUse['name'] as String?;
+    final input = toolUse['input'] as Map<String, dynamic>?;
+
+    if (toolName == null || input == null) return null;
+
+    await _debug.info('ChatProvider', 'Executing tool: $toolName', metadata: input);
+
+    try {
+      switch (toolName) {
+        case 'create_habit':
+          final result = await _actionService!.createHabit(
+            title: input['title'] as String,
+            description: input['description'] as String?,
+          );
+          if (result.success) {
+            return '• Created habit: "${input['title']}"';
+          }
+          break;
+
+        case 'create_goal':
+          final result = await _actionService!.createGoal(
+            title: input['title'] as String,
+            description: input['description'] as String?,
+            category: input['category'] as String? ?? 'personal',
+            targetDate: input['targetDate'] != null
+                ? DateTime.tryParse(input['targetDate'] as String)
+                : null,
+            milestones: input['milestones'] as List<Map<String, dynamic>>?,
+          );
+          if (result.success) {
+            return '• Created goal: "${input['title']}"';
+          }
+          break;
+
+        case 'mark_habit_complete':
+          final date = input['date'] != null
+              ? DateTime.tryParse(input['date'] as String) ?? DateTime.now()
+              : DateTime.now();
+          final result = await _actionService!.markHabitComplete(
+            habitId: input['habitId'] as String,
+            date: date,
+          );
+          if (result.success) {
+            return '• Marked habit complete';
+          }
+          break;
+
+        case 'complete_goal':
+          final result = await _actionService!.completeGoal(
+            input['goalId'] as String,
+          );
+          if (result.success) {
+            return '• Marked goal complete';
+          }
+          break;
+
+        case 'create_milestone':
+          final result = await _actionService!.createMilestone(
+            goalId: input['goalId'] as String,
+            title: input['title'] as String,
+            description: input['description'] as String?,
+            targetDate: input['targetDate'] != null
+                ? DateTime.tryParse(input['targetDate'] as String)
+                : null,
+          );
+          if (result.success) {
+            return '• Added milestone: "${input['title']}"';
+          }
+          break;
+
+        case 'record_win':
+          final description = input['description'] as String? ?? input['title'] as String? ?? 'Win';
+          final result = await _actionService!.recordWin(
+            description: description,
+            category: input['category'] as String?,
+          );
+          if (result.success) {
+            return '• Recorded win: "$description"';
+          }
+          break;
+
+        default:
+          await _debug.warning('ChatProvider', 'Unknown tool: $toolName');
+      }
+    } catch (e) {
+      await _debug.error('ChatProvider', 'Tool execution failed: $toolName',
+        metadata: {'error': e.toString()}
+      );
+    }
+
+    return null;
   }
 
 

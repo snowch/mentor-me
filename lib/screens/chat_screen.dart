@@ -14,6 +14,7 @@ import '../providers/exercise_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/win_provider.dart';
+import '../providers/checkin_template_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
@@ -22,6 +23,11 @@ import '../models/win.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 import '../services/feature_discovery_service.dart';
+// Screens for navigation from action buttons
+import 'goals_screen.dart';
+import 'habits_screen.dart';
+import 'journal_screen.dart';
+import 'wellness_dashboard_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? initialMessage;
@@ -79,9 +85,19 @@ class _ChatScreenState extends State<ChatScreen> {
     final journalProvider = context.read<JournalProvider>();
     final pulseProvider = context.read<PulseProvider>();
     final winProvider = context.read<WinProvider>();
+    final templateProvider = context.read<CheckInTemplateProvider>();
     final exerciseProvider = context.read<ExerciseProvider>();
     final weightProvider = context.read<WeightProvider>();
     final foodLogProvider = context.read<FoodLogProvider>();
+
+    // Set providers for tool execution (habit/goal creation, etc.)
+    chatProvider.setProviders(
+      goalProvider: goalProvider,
+      habitProvider: habitProvider,
+      journalProvider: journalProvider,
+      templateProvider: templateProvider,
+      winProvider: winProvider,
+    );
 
     // Ensure food log data is loaded before accessing (async constructor issue)
     await foodLogProvider.ensureLoaded();
@@ -608,11 +624,28 @@ class _ChatScreenState extends State<ChatScreen> {
     switch (action.type) {
       case MentorActionType.navigate:
         if (action.destination != null) {
-          Navigator.pushNamed(
-            context,
-            action.destination!,
-            arguments: action.context,
-          );
+          // Use direct navigation since app doesn't use named routes
+          Widget? screen;
+          switch (action.destination) {
+            case '/goals':
+              screen = const GoalsScreen();
+              break;
+            case '/habits':
+              screen = const HabitsScreen();
+              break;
+            case '/journal':
+              screen = const JournalScreen();
+              break;
+            case '/pulse':
+              screen = const WellnessDashboardScreen();
+              break;
+          }
+          if (screen != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => screen!),
+            );
+          }
         }
         break;
       case MentorActionType.chat:
