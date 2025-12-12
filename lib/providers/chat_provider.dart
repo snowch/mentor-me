@@ -24,6 +24,7 @@ import '../services/notification_service.dart';
 import '../providers/goal_provider.dart';
 import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart' as journal;
+import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
 
@@ -47,6 +48,7 @@ class ChatProvider extends ChangeNotifier {
     required GoalProvider goalProvider,
     required HabitProvider habitProvider,
     required journal.JournalProvider journalProvider,
+    required JournalTemplateProvider journalTemplateProvider,
     required CheckInTemplateProvider templateProvider,
     required WinProvider winProvider,
   }) {
@@ -54,6 +56,7 @@ class ChatProvider extends ChangeNotifier {
       goalProvider: goalProvider,
       habitProvider: habitProvider,
       journalProvider: journalProvider,
+      journalTemplateProvider: journalTemplateProvider,
       templateProvider: templateProvider,
       winProvider: winProvider,
       notificationService: NotificationService(),
@@ -633,80 +636,63 @@ class ChatProvider extends ChangeNotifier {
 
         case 'create_checkin_template':
           // Log full input for debugging
-          final questionsRaw = input['questions'];
-          final questionsStr = questionsRaw?.toString() ?? '';
           await _debug.info(
             'ChatProvider',
             'create_checkin_template full input',
             metadata: {
               'inputKeys': input.keys.toList().toString(),
+              'hasFields': input.containsKey('fields').toString(),
               'hasQuestions': input.containsKey('questions').toString(),
-              'questionsType': questionsRaw?.runtimeType.toString() ?? 'null',
-              'questionsValue': questionsStr.length > 500 ? questionsStr.substring(0, 500) : questionsStr,
             },
           );
 
-          // Safely convert questions list - LLM may provide in various formats
-          final rawQuestions = input['questions'];
-          List<Map<String, dynamic>> questionsList = [];
-          if (rawQuestions is List) {
-            for (final q in rawQuestions) {
-              if (q is Map<String, dynamic>) {
-                questionsList.add(q);
-              } else if (q is Map) {
-                questionsList.add(Map<String, dynamic>.from(q));
+          // Support both 'fields' (new format) and 'questions' (legacy format)
+          final rawFields = input['fields'] ?? input['questions'];
+          List<Map<String, dynamic>> fieldsList = [];
+          if (rawFields is List) {
+            for (final f in rawFields) {
+              if (f is Map<String, dynamic>) {
+                fieldsList.add(f);
+              } else if (f is Map) {
+                fieldsList.add(Map<String, dynamic>.from(f));
               }
             }
           }
 
-          // Log parsed questions
-          await _debug.info(
-            'ChatProvider',
-            'Parsed questions for checkin template',
-            metadata: {
-              'rawQuestionsType': rawQuestions?.runtimeType.toString() ?? 'null',
-              'parsedCount': questionsList.length.toString(),
-            },
-          );
-
-          // Safely convert schedule - LLM may provide in various formats
+          // Safely convert schedule (now optional)
+          Map<String, dynamic>? scheduleMap;
           final rawSchedule = input['schedule'];
-          Map<String, dynamic> scheduleMap;
-          if (rawSchedule is Map<String, dynamic>) {
-            scheduleMap = rawSchedule;
-          } else if (rawSchedule is Map) {
-            scheduleMap = Map<String, dynamic>.from(rawSchedule);
-          } else {
-            // Default schedule if not provided
-            scheduleMap = {
-              'frequency': 'daily',
-              'time': {'hour': 9, 'minute': 0},
-            };
-            await _debug.warning(
-              'ChatProvider',
-              'Invalid schedule format for check-in template, using default',
-              metadata: {'rawSchedule': rawSchedule?.toString()},
-            );
+          if (rawSchedule != null) {
+            if (rawSchedule is Map<String, dynamic>) {
+              scheduleMap = rawSchedule;
+            } else if (rawSchedule is Map) {
+              scheduleMap = Map<String, dynamic>.from(rawSchedule);
+            }
           }
 
           final result = await _actionService!.createCheckInTemplate(
-            name: input['name'] as String? ?? 'Check-In',
+            name: input['name'] as String? ?? 'Template',
             description: input['description'] as String?,
-            questions: questionsList,
+            category: input['category'] as String?,
+            fields: fieldsList.isNotEmpty ? fieldsList : null,
+            questions: null, // Legacy - fields takes precedence
             schedule: scheduleMap,
             emoji: input['emoji'] as String?,
+            aiGuidance: input['aiGuidance'] as String?,
+            completionMessage: input['completionMessage'] as String?,
           );
           if (result.success) {
-            return '• Created check-in template: "${input['name'] ?? 'Check-In'}"';
+            final hasSchedule = scheduleMap != null && scheduleMap['frequency'] != 'none';
+            final templateType = hasSchedule ? 'scheduled template' : 'template';
+            return '• Created $templateType: "${input['name'] ?? 'Template'}"';
           } else {
             await _debug.error(
               'ChatProvider',
-              'Failed to create check-in template',
+              'Failed to create template',
               metadata: {
                 'error': result.message,
                 'name': input['name'],
-                'questionsCount': questionsList.length,
-                'schedule': scheduleMap.toString(),
+                'fieldsCount': fieldsList.length,
               },
             );
           }

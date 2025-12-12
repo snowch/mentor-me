@@ -335,46 +335,76 @@ class ReflectionFunctionSchemas {
   };
 
   // ==========================================================================
-  // CHECK-IN TEMPLATE TOOLS
+  // TEMPLATE TOOLS (Unified journaling/check-in templates)
   // ==========================================================================
 
+  /// Creates a journal template - can be used for:
+  /// - Structured journaling sessions (no schedule)
+  /// - Recurring check-ins with reminders (with schedule)
   static const Map<String, dynamic> createCheckInTemplateTool = {
     'name': 'create_checkin_template',
-    'description': 'Creates a custom recurring check-in with specific questions',
+    'description': 'Creates a custom template for structured reflection or recurring check-ins. '
+        'Templates can be used on-demand for guided journaling, or scheduled for regular reminders. '
+        'Schedule is optional - omit it for on-demand templates.',
     'input_schema': {
       'type': 'object',
       'properties': {
-        'name': {'type': 'string', 'description': 'Template name (e.g., "Weekly Urge Surfing Check-In")'},
-        'description': {'type': 'string', 'description': 'Optional description'},
-        'questions': {
+        'name': {
+          'type': 'string',
+          'description': 'Template name (e.g., "Weekly Urge Surfing Check-In", "Evening Reflection")',
+        },
+        'description': {
+          'type': 'string',
+          'description': 'Optional description explaining the purpose of this template',
+        },
+        'category': {
+          'type': 'string',
+          'enum': ['therapy', 'wellness', 'productivity', 'creative', 'custom'],
+          'description': 'Template category for organization',
+        },
+        'fields': {
           'type': 'array',
-          'description': 'List of questions to ask during check-in',
+          'description': 'List of prompts/questions for the template',
           'items': {
             'type': 'object',
             'properties': {
-              'text': {'type': 'string', 'description': 'Question text'},
+              'label': {
+                'type': 'string',
+                'description': 'Short label for the field (e.g., "Current Mood", "Today\'s Focus")',
+              },
+              'prompt': {
+                'type': 'string',
+                'description': 'The full question or prompt text',
+              },
               'type': {
                 'type': 'string',
-                'enum': ['freeform', 'scale1to5', 'yesNo', 'multipleChoice'],
-                'description': 'Question type',
+                'enum': ['text', 'longText', 'scale', 'multipleChoice', 'checklist', 'number'],
+                'description': 'Field type: text (short), longText (paragraph), scale (1-10), multipleChoice, checklist, number',
               },
-              'options': {
-                'type': 'array',
-                'items': {'type': 'string'},
-                'description': 'Options for multiple choice questions',
+              'required': {
+                'type': 'boolean',
+                'description': 'Whether this field must be answered',
               },
-              'isRequired': {'type': 'boolean'},
+              'helpText': {
+                'type': 'string',
+                'description': 'Optional hint text to help user answer',
+              },
+              'validation': {
+                'type': 'object',
+                'description': 'Optional validation: {min, max} for scale/number, {options: [...]} for multipleChoice/checklist',
+              },
             },
-            'required': ['text', 'type'],
+            'required': ['label', 'prompt', 'type'],
           },
         },
         'schedule': {
           'type': 'object',
-          'description': 'When to remind user',
+          'description': 'OPTIONAL: When to remind user to complete this template. Omit for on-demand templates.',
           'properties': {
             'frequency': {
               'type': 'string',
-              'enum': ['daily', 'weekly', 'biweekly', 'custom'],
+              'enum': ['daily', 'weekly', 'biweekly', 'custom', 'none'],
+              'description': 'How often to remind (use "none" or omit schedule entirely for no reminders)',
             },
             'time': {
               'type': 'object',
@@ -394,21 +424,52 @@ class ReflectionFunctionSchemas {
               'description': 'For custom frequency: check in every N days',
             },
           },
-          'required': ['frequency', 'time'],
         },
-        'emoji': {'type': 'string', 'description': 'Optional emoji for the template'},
+        'emoji': {
+          'type': 'string',
+          'description': 'Optional emoji for visual identification (e.g., "🧘", "✨")',
+        },
+        'aiGuidance': {
+          'type': 'string',
+          'description': 'Optional instructions for how AI should interact with responses',
+        },
+        'completionMessage': {
+          'type': 'string',
+          'description': 'Optional message to show when user completes the template',
+        },
       },
-      'required': ['name', 'questions', 'schedule'],
+      'required': ['name', 'fields'],
     },
   };
 
   static const Map<String, dynamic> scheduleCheckInReminderTool = {
     'name': 'schedule_checkin_reminder',
-    'description': 'Schedules a reminder for an existing check-in template',
+    'description': 'Schedules or updates a reminder for an existing template',
     'input_schema': {
       'type': 'object',
       'properties': {
         'templateId': {'type': 'string', 'description': 'ID of the template'},
+        'schedule': {
+          'type': 'object',
+          'description': 'New schedule configuration',
+          'properties': {
+            'frequency': {
+              'type': 'string',
+              'enum': ['daily', 'weekly', 'biweekly', 'custom', 'none'],
+            },
+            'time': {
+              'type': 'object',
+              'properties': {
+                'hour': {'type': 'integer'},
+                'minute': {'type': 'integer'},
+              },
+            },
+            'daysOfWeek': {
+              'type': 'array',
+              'items': {'type': 'integer'},
+            },
+          },
+        },
       },
       'required': ['templateId'],
     },

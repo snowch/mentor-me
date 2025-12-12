@@ -339,6 +339,30 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
                       ],
                     ],
                   ),
+                  // Show schedule info if template has active schedule
+                  if (template.hasActiveSchedule) ...[
+                    AppSpacing.gapXs,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        AppSpacing.gapHorizontalXs,
+                        Expanded(
+                          child: Text(
+                            template.schedule!.description,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 11,
+                                ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

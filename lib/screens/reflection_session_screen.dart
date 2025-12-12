@@ -12,6 +12,7 @@ import '../providers/journal_provider.dart';
 import '../providers/pulse_provider.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
 import '../services/reflection_session_service.dart';
@@ -99,6 +100,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
       goalProvider: context.read<GoalProvider>(),
       habitProvider: context.read<HabitProvider>(),
       journalProvider: context.read<JournalProvider>(),
+      journalTemplateProvider: context.read<JournalTemplateProvider>(),
       templateProvider: context.read<CheckInTemplateProvider>(),
       winProvider: context.read<WinProvider>(),
       notificationService: NotificationService(),

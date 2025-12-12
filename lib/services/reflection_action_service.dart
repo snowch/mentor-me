@@ -4,10 +4,13 @@ import 'package:mentor_me/models/goal.dart';
 import 'package:mentor_me/models/habit.dart';
 import 'package:mentor_me/models/milestone.dart';
 import 'package:mentor_me/models/journal_entry.dart';
-import 'package:mentor_me/models/checkin_template.dart';
+import 'package:mentor_me/models/journal_template.dart';
+import 'package:mentor_me/models/template_field.dart';
+import 'package:mentor_me/models/template_schedule.dart';
 import 'package:mentor_me/providers/goal_provider.dart';
 import 'package:mentor_me/providers/habit_provider.dart';
 import 'package:mentor_me/providers/journal_provider.dart';
+import 'package:mentor_me/providers/journal_template_provider.dart';
 import 'package:mentor_me/providers/checkin_template_provider.dart';
 import 'package:mentor_me/providers/win_provider.dart';
 import 'package:mentor_me/models/win.dart';
@@ -53,7 +56,8 @@ class ReflectionActionService {
   final GoalProvider goalProvider;
   final HabitProvider habitProvider;
   final JournalProvider journalProvider;
-  final CheckInTemplateProvider templateProvider;
+  final JournalTemplateProvider journalTemplateProvider;
+  final CheckInTemplateProvider templateProvider; // Legacy - for backward compatibility
   final WinProvider winProvider;
   final NotificationService notificationService;
   final DebugService _debug = DebugService();
@@ -63,6 +67,7 @@ class ReflectionActionService {
     required this.goalProvider,
     required this.habitProvider,
     required this.journalProvider,
+    required this.journalTemplateProvider,
     required this.templateProvider,
     required this.winProvider,
     required this.notificationService,
@@ -860,163 +865,221 @@ class ReflectionActionService {
   }
 
   // =============================================================================
-  // CHECK-IN TEMPLATE TOOLS
+  // TEMPLATE TOOLS (Unified journaling/check-in templates)
   // =============================================================================
 
-  /// Create a custom check-in template
+  /// Create a template for structured reflection or recurring check-ins
+  ///
+  /// Accepts either:
+  /// - `fields`: New format with label/prompt/type (preferred)
+  /// - `questions`: Legacy format with text/type (backward compatible)
+  /// Schedule is optional - omit for on-demand templates.
   Future<ActionResult> createCheckInTemplate({
     required String name,
     String? description,
-    required List<Map<String, dynamic>> questions,
-    required Map<String, dynamic> schedule,
+    String? category,
+    List<Map<String, dynamic>>? fields,
+    List<Map<String, dynamic>>? questions, // Legacy format support
+    Map<String, dynamic>? schedule, // Now optional
     String? emoji,
+    String? aiGuidance,
+    String? completionMessage,
   }) async {
     try {
-      // Validate questions
-      if (questions.isEmpty) {
-        return ActionResult.failure('Template must have at least one question');
+      // Use fields if provided, otherwise convert questions
+      final inputFields = fields ?? questions ?? [];
+
+      if (inputFields.isEmpty) {
+        return ActionResult.failure('Template must have at least one field/question');
       }
 
       // Log raw input for debugging
       await _debug.info(
         'ReflectionActionService',
-        'Creating check-in template with raw input',
+        'Creating template with raw input',
         metadata: {
           'name': name,
-          'questions': questions.toString(),
-          'schedule': schedule.toString(),
+          'fieldsCount': inputFields.length.toString(),
+          'hasSchedule': (schedule != null).toString(),
         },
       );
 
-      // Parse questions with robust error handling
-      final parsedQuestions = <CheckInQuestion>[];
-      for (int i = 0; i < questions.length; i++) {
-        final q = questions[i];
-        final questionText = q['text'] as String?;
-        if (questionText == null || questionText.isEmpty) {
+      // Parse fields with robust error handling
+      final parsedFields = <TemplateField>[];
+      for (int i = 0; i < inputFields.length; i++) {
+        final f = inputFields[i];
+
+        // Support both new format (label/prompt) and legacy format (text)
+        final label = f['label'] as String? ?? f['text'] as String? ?? 'Question ${i + 1}';
+        final prompt = f['prompt'] as String? ?? f['text'] as String?;
+
+        if (prompt == null || prompt.isEmpty) {
           await _debug.warning(
             'ReflectionActionService',
-            'Skipping question $i: missing text',
+            'Skipping field $i: missing prompt/text',
           );
           continue;
         }
 
-        // Parse question type with fallback
-        CheckInQuestionType questionType = CheckInQuestionType.freeform;
-        final typeStr = q['type'] as String?;
+        // Parse field type with fallback - support both new and legacy type names
+        FieldType fieldType = FieldType.longText;
+        final typeStr = f['type'] as String?;
         if (typeStr != null) {
-          try {
-            questionType = CheckInQuestionTypeExtension.fromJson(typeStr);
-          } catch (e) {
-            await _debug.warning(
-              'ReflectionActionService',
-              'Invalid question type "$typeStr", defaulting to freeform',
-            );
-          }
+          fieldType = _parseFieldType(typeStr);
         }
 
-        parsedQuestions.add(CheckInQuestion(
+        // Build validation map for choices/options
+        Map<String, dynamic>? validation;
+        final options = f['options'] ?? f['validation']?['options'];
+        if (options != null && options is List) {
+          validation = {'options': List<String>.from(options.map((e) => e.toString()))};
+        } else if (f['validation'] != null && f['validation'] is Map) {
+          validation = Map<String, dynamic>.from(f['validation'] as Map);
+        }
+
+        parsedFields.add(TemplateField(
           id: _uuid.v4(),
-          text: questionText,
-          questionType: questionType,
-          options: q['options'] != null ? List<String>.from(q['options'] as List) : null,
-          isRequired: q['isRequired'] as bool? ?? true,
+          label: label,
+          prompt: prompt,
+          type: fieldType,
+          required: f['required'] as bool? ?? f['isRequired'] as bool? ?? true,
+          helpText: f['helpText'] as String?,
+          aiCoaching: f['aiCoaching'] as String?,
+          validation: validation,
         ));
       }
 
-      if (parsedQuestions.isEmpty) {
-        return ActionResult.failure('No valid questions found in template');
+      if (parsedFields.isEmpty) {
+        return ActionResult.failure('No valid fields found in template');
       }
 
-      // Parse schedule with robust handling of various LLM output formats
-      final frequencyStr = schedule['frequency'] as String? ?? 'daily';
-      final frequency = TemplateFrequencyExtension.fromJson(frequencyStr);
+      // Parse schedule (optional)
+      TemplateSchedule? parsedSchedule;
+      if (schedule != null && schedule.isNotEmpty) {
+        final frequencyStr = schedule['frequency'] as String? ?? 'none';
+        final frequency = TemplateFrequencyExtension.fromJson(frequencyStr);
 
-      // Parse time - handle various formats the LLM might provide
-      TimeOfDay time;
-      final timeValue = schedule['time'];
-      if (timeValue is Map<String, dynamic>) {
-        // Expected format: {"hour": 9, "minute": 0}
-        final hour = (timeValue['hour'] as num?)?.toInt() ?? 9;
-        final minute = (timeValue['minute'] as num?)?.toInt() ?? 0;
-        time = TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
-      } else if (timeValue is String) {
-        // Handle string format like "09:00" or "9:00 AM"
-        time = _parseTimeString(timeValue) ?? const TimeOfDay(hour: 9, minute: 0);
-      } else if (timeValue is int) {
-        // Handle simple hour like 9 for 9:00 AM
-        time = TimeOfDay(hour: timeValue.clamp(0, 23), minute: 0);
-      } else {
-        // Default to 9:00 AM
-        await _debug.warning(
-          'ReflectionActionService',
-          'Invalid time format, defaulting to 9:00 AM',
-          metadata: {'timeValue': timeValue?.toString()},
-        );
-        time = const TimeOfDay(hour: 9, minute: 0);
-      }
+        if (frequency != TemplateFrequency.none) {
+          // Parse time
+          TimeOfDay? time;
+          final timeValue = schedule['time'];
+          if (timeValue is Map<String, dynamic>) {
+            final hour = (timeValue['hour'] as num?)?.toInt() ?? 9;
+            final minute = (timeValue['minute'] as num?)?.toInt() ?? 0;
+            time = TimeOfDay(hour: hour.clamp(0, 23), minute: minute.clamp(0, 59));
+          } else if (timeValue is String) {
+            time = _parseTimeString(timeValue) ?? const TimeOfDay(hour: 9, minute: 0);
+          } else if (timeValue is int) {
+            time = TimeOfDay(hour: timeValue.clamp(0, 23), minute: 0);
+          }
 
-      // Parse daysOfWeek
-      List<int>? daysOfWeek;
-      if (schedule['daysOfWeek'] != null) {
-        try {
-          daysOfWeek = List<int>.from(
-            (schedule['daysOfWeek'] as List).map((e) => (e as num).toInt()),
-          );
-        } catch (e) {
-          await _debug.warning(
-            'ReflectionActionService',
-            'Failed to parse daysOfWeek: $e',
+          // Parse daysOfWeek
+          List<int>? daysOfWeek;
+          if (schedule['daysOfWeek'] != null) {
+            try {
+              daysOfWeek = List<int>.from(
+                (schedule['daysOfWeek'] as List).map((e) => (e as num).toInt()),
+              );
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+
+          parsedSchedule = TemplateSchedule(
+            frequency: frequency,
+            time: time,
+            daysOfWeek: daysOfWeek,
+            customDayInterval: (schedule['customDayInterval'] as num?)?.toInt(),
           );
         }
       }
 
-      final parsedSchedule = TemplateSchedule(
-        frequency: frequency,
-        time: time,
-        daysOfWeek: daysOfWeek,
-        customDayInterval: (schedule['customDayInterval'] as num?)?.toInt(),
-      );
+      // Parse category
+      TemplateCategory? templateCategory;
+      if (category != null) {
+        try {
+          templateCategory = TemplateCategoryExtension.fromJson(category);
+        } catch (e) {
+          templateCategory = TemplateCategory.custom;
+        }
+      }
 
-      final template = CheckInTemplate(
+      final template = JournalTemplate(
         id: _uuid.v4(),
         name: name,
-        description: description,
-        questions: parsedQuestions,
-        schedule: parsedSchedule,
-        createdAt: DateTime.now(),
-        isActive: true,
+        description: description ?? '',
         emoji: emoji,
+        isSystemDefined: false,
+        fields: parsedFields,
+        aiGuidance: aiGuidance,
+        completionMessage: completionMessage,
+        createdAt: DateTime.now(),
+        category: templateCategory ?? TemplateCategory.custom,
+        schedule: parsedSchedule,
+        isActive: true,
       );
 
-      await templateProvider.addTemplate(template);
+      await journalTemplateProvider.addTemplate(template);
 
-      // Schedule reminder
-      await templateProvider.scheduleReminder(template.id);
+      // TODO: Schedule reminders if schedule is set
+      // This would need integration with notification service
 
       await _debug.info(
         'ReflectionActionService',
-        'Created check-in template: $name',
-        metadata: {'templateId': template.id, 'questionCount': parsedQuestions.length},
+        'Created template: $name',
+        metadata: {
+          'templateId': template.id,
+          'fieldCount': parsedFields.length.toString(),
+          'hasSchedule': (parsedSchedule != null).toString(),
+        },
       );
 
       return ActionResult.success(
-        'Created check-in template: $name',
+        'Created template: $name',
         resultId: template.id,
         data: template,
       );
     } catch (e, stackTrace) {
       await _debug.error(
         'ReflectionActionService',
-        'Failed to create check-in template',
+        'Failed to create template',
         metadata: {
           'error': e.toString(),
           'name': name,
-          'schedule': schedule.toString(),
         },
         stackTrace: stackTrace.toString(),
       );
-      return ActionResult.failure('Failed to create check-in template: $e');
+      return ActionResult.failure('Failed to create template: $e');
+    }
+  }
+
+  /// Convert type string to FieldType - supports both new and legacy type names
+  FieldType _parseFieldType(String typeStr) {
+    switch (typeStr.toLowerCase()) {
+      // New format types
+      case 'text':
+        return FieldType.text;
+      case 'longtext':
+        return FieldType.longText;
+      case 'scale':
+        return FieldType.scale;
+      case 'multiplechoice':
+        return FieldType.multipleChoice;
+      case 'checklist':
+        return FieldType.checklist;
+      case 'number':
+        return FieldType.number;
+      // Legacy format types (from CheckInQuestionType)
+      case 'freeform':
+        return FieldType.longText;
+      case 'scale1to5':
+        return FieldType.scale;
+      case 'yesno':
+        return FieldType.multipleChoice; // Convert Yes/No to choice
+      case 'multiplechoice_legacy':
+        return FieldType.multipleChoice;
+      default:
+        return FieldType.longText;
     }
   }
 

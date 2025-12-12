@@ -14,6 +14,7 @@ import '../providers/exercise_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/food_log_provider.dart';
 import '../providers/win_provider.dart';
+import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
@@ -85,6 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final journalProvider = context.read<JournalProvider>();
     final pulseProvider = context.read<PulseProvider>();
     final winProvider = context.read<WinProvider>();
+    final journalTemplateProvider = context.read<JournalTemplateProvider>();
     final templateProvider = context.read<CheckInTemplateProvider>();
     final exerciseProvider = context.read<ExerciseProvider>();
     final weightProvider = context.read<WeightProvider>();
@@ -95,6 +97,7 @@ class _ChatScreenState extends State<ChatScreen> {
       goalProvider: goalProvider,
       habitProvider: habitProvider,
       journalProvider: journalProvider,
+      journalTemplateProvider: journalTemplateProvider,
       templateProvider: templateProvider,
       winProvider: winProvider,
     );
