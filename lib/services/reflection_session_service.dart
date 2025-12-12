@@ -308,12 +308,28 @@ WHEN TO USE TOOLS:
 - Goal seems overwhelming → Offer to break it into milestones
 - User wants to check in regularly → Offer to create a custom check-in template
 
-IMPORTANT:
-- Get implicit consent before taking action ("Should I create a goal for that?")
-- Explain WHY the action would help
-- Don't overwhelm - max 1 action per turn
+CRITICAL - HOW TO USE TOOLS:
+When you want to help the user with an action, you MUST:
+1. Invoke the tool NOW in this same response (the user will see a confirmation dialog before it executes)
+2. In your text response, explain what you're offering and why
 
-Respond with your follow-up (1-3 sentences). If you want to propose an action, explain it in your response first.''';
+DO NOT just say "I can create X" or "Should I create X?" and wait - that does nothing!
+Instead, ACTUALLY CALL THE TOOL and explain in your message what you're proposing.
+
+Example - WRONG (tool not invoked):
+"Would you like me to create a check-in template for tracking your sleep?"
+
+Example - CORRECT (tool invoked):
+[Invoke create_checkin_template tool with appropriate parameters]
+"I've prepared a sleep tracking check-in for you. This will help you notice patterns between your sleep quality and how you feel during the day."
+
+The user will see a confirmation dialog asking if they want to proceed. They can approve or decline.
+
+IMPORTANT:
+- Don't overwhelm - max 1 action per turn
+- Make the action genuinely helpful for their specific situation
+
+Respond with your follow-up (1-3 sentences).''';
 
     try {
       // Call AI with function calling support
@@ -352,6 +368,28 @@ Respond with your follow-up (1-3 sentences). If you want to propose an action, e
           'actionTypes': proposedActions.map((a) => a.type.name).toList(),
         },
       );
+
+      // Diagnostic: Detect when AI talks about creating something but didn't invoke a tool
+      // This helps identify prompt issues where the AI describes actions without taking them
+      final lowerMessage = message.toLowerCase();
+      final mentionsCreation = lowerMessage.contains('create') ||
+          lowerMessage.contains('set up') ||
+          lowerMessage.contains("i've prepared") ||
+          lowerMessage.contains('i can make') ||
+          lowerMessage.contains('check-in') ||
+          lowerMessage.contains('checkin');
+
+      if (mentionsCreation && proposedActions.isEmpty) {
+        await _debug.warning(
+          'ReflectionSessionService',
+          'AI mentioned creating something but no tool was invoked - potential prompt issue',
+          metadata: {
+            'messageSnippet': message.length > 200
+                ? '${message.substring(0, 200)}...'
+                : message,
+          },
+        );
+      }
 
       return {
         'message': message.trim(),
@@ -493,11 +531,11 @@ If no clear patterns emerge, suggest general wellbeing practices.''';
         final parsed = json.decode(jsonMatch.group(0)!) as Map<String, dynamic>;
 
         // Parse patterns
-        final patterns = <DetectedPattern>[];
+        final rawPatterns = <DetectedPattern>[];
         final patternsJson = parsed['patterns'] as List<dynamic>?;
         if (patternsJson != null) {
           for (final p in patternsJson) {
-            patterns.add(DetectedPattern(
+            rawPatterns.add(DetectedPattern(
               type: _parsePatternType(p['name'] as String? ?? ''),
               confidence: (p['confidence'] as num?)?.toDouble() ?? 0.5,
               evidence: p['evidence'] as String? ?? '',
@@ -505,6 +543,39 @@ If no clear patterns emerge, suggest general wellbeing practices.''';
             ));
           }
         }
+
+        // Deduplicate patterns by type, keeping the highest confidence version
+        // and merging evidence from duplicates
+        final patternsByType = <PatternType, List<DetectedPattern>>{};
+        for (final pattern in rawPatterns) {
+          patternsByType.putIfAbsent(pattern.type, () => []).add(pattern);
+        }
+
+        final patterns = patternsByType.entries.map((entry) {
+          final patternsOfType = entry.value;
+          if (patternsOfType.length == 1) {
+            return patternsOfType.first;
+          }
+
+          // Merge multiple patterns of the same type
+          // Use highest confidence, combine evidence
+          patternsOfType.sort((a, b) => b.confidence.compareTo(a.confidence));
+          final highest = patternsOfType.first;
+
+          // Combine unique evidence strings
+          final allEvidence = patternsOfType
+              .map((p) => p.evidence)
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .join(' ... ');
+
+          return DetectedPattern(
+            type: highest.type,
+            confidence: highest.confidence,
+            evidence: allEvidence.isNotEmpty ? allEvidence : highest.evidence,
+            description: highest.description,
+          );
+        }).toList();
 
         // Parse recommendations
         final recommendations = <Intervention>[];

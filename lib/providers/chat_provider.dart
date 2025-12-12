@@ -24,6 +24,7 @@ import '../services/notification_service.dart';
 import '../providers/goal_provider.dart';
 import '../providers/habit_provider.dart';
 import '../providers/journal_provider.dart' as journal;
+import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
 
@@ -47,6 +48,7 @@ class ChatProvider extends ChangeNotifier {
     required GoalProvider goalProvider,
     required HabitProvider habitProvider,
     required journal.JournalProvider journalProvider,
+    required JournalTemplateProvider journalTemplateProvider,
     required CheckInTemplateProvider templateProvider,
     required WinProvider winProvider,
   }) {
@@ -54,6 +56,7 @@ class ChatProvider extends ChangeNotifier {
       goalProvider: goalProvider,
       habitProvider: habitProvider,
       journalProvider: journalProvider,
+      journalTemplateProvider: journalTemplateProvider,
       templateProvider: templateProvider,
       winProvider: winProvider,
       notificationService: NotificationService(),
@@ -628,6 +631,70 @@ class ChatProvider extends ChangeNotifier {
           );
           if (result.success) {
             return '• Recorded win: "$description"';
+          }
+          break;
+
+        case 'create_checkin_template':
+          // Log full input for debugging
+          await _debug.info(
+            'ChatProvider',
+            'create_checkin_template full input',
+            metadata: {
+              'inputKeys': input.keys.toList().toString(),
+              'hasFields': input.containsKey('fields').toString(),
+              'hasQuestions': input.containsKey('questions').toString(),
+            },
+          );
+
+          // Support both 'fields' (new format) and 'questions' (legacy format)
+          final rawFields = input['fields'] ?? input['questions'];
+          List<Map<String, dynamic>> fieldsList = [];
+          if (rawFields is List) {
+            for (final f in rawFields) {
+              if (f is Map<String, dynamic>) {
+                fieldsList.add(f);
+              } else if (f is Map) {
+                fieldsList.add(Map<String, dynamic>.from(f));
+              }
+            }
+          }
+
+          // Safely convert schedule (now optional)
+          Map<String, dynamic>? scheduleMap;
+          final rawSchedule = input['schedule'];
+          if (rawSchedule != null) {
+            if (rawSchedule is Map<String, dynamic>) {
+              scheduleMap = rawSchedule;
+            } else if (rawSchedule is Map) {
+              scheduleMap = Map<String, dynamic>.from(rawSchedule);
+            }
+          }
+
+          final result = await _actionService!.createCheckInTemplate(
+            name: input['name'] as String? ?? 'Template',
+            description: input['description'] as String?,
+            category: input['category'] as String?,
+            fields: fieldsList.isNotEmpty ? fieldsList : null,
+            questions: null, // Legacy - fields takes precedence
+            schedule: scheduleMap,
+            emoji: input['emoji'] as String?,
+            aiGuidance: input['aiGuidance'] as String?,
+            completionMessage: input['completionMessage'] as String?,
+          );
+          if (result.success) {
+            final hasSchedule = scheduleMap != null && scheduleMap['frequency'] != 'none';
+            final templateType = hasSchedule ? 'scheduled template' : 'template';
+            return '• Created $templateType: "${input['name'] ?? 'Template'}"';
+          } else {
+            await _debug.error(
+              'ChatProvider',
+              'Failed to create template',
+              metadata: {
+                'error': result.message,
+                'name': input['name'],
+                'fieldsCount': fieldsList.length,
+              },
+            );
           }
           break;
 

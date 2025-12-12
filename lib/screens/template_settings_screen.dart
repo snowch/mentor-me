@@ -2,10 +2,11 @@
 // Screen for managing 1-to-1 Mentor Session template visibility
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/storage_service.dart';
-import '../services/structured_journaling_service.dart';
 import '../services/auto_backup_service.dart';
 import '../models/journal_template.dart';
+import '../providers/journal_template_provider.dart';
 import '../theme/app_spacing.dart';
 
 class TemplateSettingsScreen extends StatefulWidget {
@@ -17,12 +18,10 @@ class TemplateSettingsScreen extends StatefulWidget {
 
 class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
   final _storage = StorageService();
-  final _service = StructuredJournalingService();
   final _autoBackupService = AutoBackupService();
 
   bool _isLoading = true;
   List<String> _enabledTemplates = [];
-  List<JournalTemplate> _allTemplates = [];
 
   // Soft max recommendation (not enforced)
   static const int _recommendedMax = 6;
@@ -37,7 +36,6 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
     setState(() => _isLoading = true);
 
     _enabledTemplates = await _storage.getEnabledTemplates();
-    _allTemplates = _service.getDefaultTemplates();
 
     setState(() => _isLoading = false);
   }
@@ -112,6 +110,9 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch provider for updates when new templates are created
+    final provider = context.watch<JournalTemplateProvider>();
+
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
@@ -121,11 +122,14 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
       );
     }
 
+    // Get fresh list from provider (includes both default and custom templates)
+    final allTemplates = provider.allTemplates;
+
     // Split templates into enabled and available
-    final enabledTemplatesList = _allTemplates
+    final enabledTemplatesList = allTemplates
         .where((t) => _enabledTemplates.contains(t.id))
         .toList();
-    final availableTemplatesList = _allTemplates
+    final availableTemplatesList = allTemplates
         .where((t) => !_enabledTemplates.contains(t.id))
         .toList();
 
@@ -194,7 +198,7 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
                         ),
                         AppSpacing.gapHorizontalXs,
                         Text(
-                          '${_enabledTemplates.length} of ${_allTemplates.length} templates enabled',
+                          '${_enabledTemplates.length} of ${allTemplates.length} templates enabled',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -339,6 +343,30 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
                       ],
                     ],
                   ),
+                  // Show schedule info if template has active schedule
+                  if (template.hasActiveSchedule) ...[
+                    AppSpacing.gapXs,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        AppSpacing.gapHorizontalXs,
+                        Expanded(
+                          child: Text(
+                            template.schedule!.description,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontSize: 11,
+                                ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

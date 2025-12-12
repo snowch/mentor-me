@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:mentor_me/models/template_field.dart';
+import 'package:mentor_me/models/template_schedule.dart';
 
 /// Categories for journal templates
 enum TemplateCategory {
@@ -53,6 +54,9 @@ extension TemplateCategoryExtension on TemplateCategory {
 }
 
 /// Represents a structured journaling template
+///
+/// This is the unified template model that supports both on-demand journaling
+/// (like 1-to-1 sessions) and scheduled check-ins (with reminders).
 @immutable
 class JournalTemplate {
   final String id;
@@ -70,6 +74,11 @@ class JournalTemplate {
   final bool showProgressIndicator;
   final TemplateCategory? category;
 
+  // Scheduling fields (optional - for recurring check-ins)
+  final TemplateSchedule? schedule; // When to remind user to complete
+  final bool isActive; // Whether scheduling is enabled
+  final String? linkedSessionId; // Links to reflection session that created it
+
   const JournalTemplate({
     required this.id,
     required this.name,
@@ -85,7 +94,14 @@ class JournalTemplate {
     this.allowSkipFields = false,
     this.showProgressIndicator = true,
     this.category,
+    this.schedule,
+    this.isActive = true,
+    this.linkedSessionId,
   });
+
+  /// Whether this template has an active schedule for reminders
+  bool get hasActiveSchedule =>
+      isActive && schedule != null && schedule!.hasSchedule;
 
   /// Create a copy with modified fields
   JournalTemplate copyWith({
@@ -103,6 +119,9 @@ class JournalTemplate {
     bool? allowSkipFields,
     bool? showProgressIndicator,
     TemplateCategory? category,
+    TemplateSchedule? schedule,
+    bool? isActive,
+    String? linkedSessionId,
   }) {
     return JournalTemplate(
       id: id ?? this.id,
@@ -119,6 +138,9 @@ class JournalTemplate {
       allowSkipFields: allowSkipFields ?? this.allowSkipFields,
       showProgressIndicator: showProgressIndicator ?? this.showProgressIndicator,
       category: category ?? this.category,
+      schedule: schedule ?? this.schedule,
+      isActive: isActive ?? this.isActive,
+      linkedSessionId: linkedSessionId ?? this.linkedSessionId,
     );
   }
 
@@ -139,6 +161,9 @@ class JournalTemplate {
       'allowSkipFields': allowSkipFields,
       'showProgressIndicator': showProgressIndicator,
       'category': category?.toJson(),
+      'schedule': schedule?.toJson(),
+      'isActive': isActive,
+      'linkedSessionId': linkedSessionId,
     };
   }
 
@@ -166,6 +191,11 @@ class JournalTemplate {
       category: json['category'] != null
           ? TemplateCategoryExtension.fromJson(json['category'] as String)
           : null,
+      schedule: json['schedule'] != null
+          ? TemplateSchedule.fromJson(json['schedule'] as Map<String, dynamic>)
+          : null,
+      isActive: json['isActive'] as bool? ?? true,
+      linkedSessionId: json['linkedSessionId'] as String?,
     );
   }
 
