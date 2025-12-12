@@ -632,6 +632,20 @@ class ChatProvider extends ChangeNotifier {
           break;
 
         case 'create_checkin_template':
+          // Log full input for debugging
+          final questionsRaw = input['questions'];
+          final questionsStr = questionsRaw?.toString() ?? '';
+          await _debug.info(
+            'ChatProvider',
+            'create_checkin_template full input',
+            metadata: {
+              'inputKeys': input.keys.toList().toString(),
+              'hasQuestions': input.containsKey('questions').toString(),
+              'questionsType': questionsRaw?.runtimeType.toString() ?? 'null',
+              'questionsValue': questionsStr.length > 500 ? questionsStr.substring(0, 500) : questionsStr,
+            },
+          );
+
           // Safely convert questions list - LLM may provide in various formats
           final rawQuestions = input['questions'];
           List<Map<String, dynamic>> questionsList = [];
@@ -644,6 +658,16 @@ class ChatProvider extends ChangeNotifier {
               }
             }
           }
+
+          // Log parsed questions
+          await _debug.info(
+            'ChatProvider',
+            'Parsed questions for checkin template',
+            metadata: {
+              'rawQuestionsType': rawQuestions?.runtimeType.toString() ?? 'null',
+              'parsedCount': questionsList.length.toString(),
+            },
+          );
 
           // Safely convert schedule - LLM may provide in various formats
           final rawSchedule = input['schedule'];
@@ -674,6 +698,17 @@ class ChatProvider extends ChangeNotifier {
           );
           if (result.success) {
             return '• Created check-in template: "${input['name'] ?? 'Check-In'}"';
+          } else {
+            await _debug.error(
+              'ChatProvider',
+              'Failed to create check-in template',
+              metadata: {
+                'error': result.message,
+                'name': input['name'],
+                'questionsCount': questionsList.length,
+                'schedule': scheduleMap.toString(),
+              },
+            );
           }
           break;
 
