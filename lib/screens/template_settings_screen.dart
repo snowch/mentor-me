@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
 import '../models/journal_template.dart';
+import '../models/template_field.dart';
 import '../providers/journal_template_provider.dart';
 import '../theme/app_spacing.dart';
 
@@ -259,6 +260,8 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
   }
 
   Widget _buildTemplateCard(JournalTemplate template, bool isEnabled) {
+    final isCustom = !template.isSystemDefined;
+
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       elevation: isEnabled ? 2 : 0,
@@ -295,11 +298,36 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    template.name,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          template.name,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
+                      ),
+                      // Custom badge for AI-created templates
+                      if (isCustom)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.tertiaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Custom',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onTertiaryContainer,
+                                  fontSize: 10,
+                                ),
+                          ),
+                        ),
+                    ],
                   ),
                   AppSpacing.gapXs,
                   Text(
@@ -367,6 +395,36 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
                       ],
                     ),
                   ],
+                  // Edit/Delete actions for custom templates
+                  if (isCustom) ...[
+                    AppSpacing.gapSm,
+                    Row(
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => _editTemplate(template),
+                          icon: const Icon(Icons.edit, size: 16),
+                          label: const Text('Edit'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                        AppSpacing.gapHorizontalSm,
+                        TextButton.icon(
+                          onPressed: () => _deleteTemplate(template),
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text('Delete'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Theme.of(context).colorScheme.error,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -380,6 +438,259 @@ class _TemplateSettingsScreenState extends State<TemplateSettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _editTemplate(JournalTemplate template) async {
+    final provider = context.read<JournalTemplateProvider>();
+
+    final nameController = TextEditingController(text: template.name);
+    final descriptionController = TextEditingController(text: template.description);
+    final emojiController = TextEditingController(text: template.emoji ?? '📝');
+
+    // Create editable list of prompts
+    final promptControllers = template.fields
+        .map((f) => TextEditingController(text: f.label))
+        .toList();
+
+    final result = await showDialog<JournalTemplate?>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Template'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name field
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Template Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  AppSpacing.gapMd,
+
+                  // Description field
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
+                  ),
+                  AppSpacing.gapMd,
+
+                  // Emoji field
+                  TextField(
+                    controller: emojiController,
+                    decoration: const InputDecoration(
+                      labelText: 'Emoji',
+                      border: OutlineInputBorder(),
+                      hintText: '📝',
+                    ),
+                  ),
+                  AppSpacing.gapLg,
+
+                  // Prompts section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Prompts',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          setDialogState(() {
+                            promptControllers.add(TextEditingController());
+                          });
+                        },
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Add prompt',
+                      ),
+                    ],
+                  ),
+                  AppSpacing.gapSm,
+
+                  // Prompt list
+                  ...promptControllers.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final controller = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: controller,
+                              decoration: InputDecoration(
+                                labelText: 'Prompt ${index + 1}',
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          if (promptControllers.length > 1)
+                            IconButton(
+                              onPressed: () {
+                                setDialogState(() {
+                                  promptControllers.removeAt(index);
+                                });
+                              },
+                              icon: const Icon(Icons.remove_circle_outline),
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                // Validate
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Name is required')),
+                  );
+                  return;
+                }
+
+                final validPrompts = promptControllers
+                    .where((c) => c.text.trim().isNotEmpty)
+                    .toList();
+
+                if (validPrompts.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('At least one prompt is required')),
+                  );
+                  return;
+                }
+
+                // Build updated fields
+                final updatedFields = validPrompts.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final controller = entry.value;
+                  // Preserve existing field if possible, otherwise create new
+                  if (index < template.fields.length) {
+                    return template.fields[index].copyWith(
+                      label: controller.text.trim(),
+                      prompt: controller.text.trim(),
+                    );
+                  } else {
+                    return TemplateField(
+                      id: 'field_${DateTime.now().millisecondsSinceEpoch}_$index',
+                      label: controller.text.trim(),
+                      prompt: controller.text.trim(),
+                      type: FieldType.longText,
+                    );
+                  }
+                }).toList();
+
+                // Create updated template
+                final updated = template.copyWith(
+                  name: nameController.text.trim(),
+                  description: descriptionController.text.trim(),
+                  emoji: emojiController.text.trim().isEmpty
+                      ? '📝'
+                      : emojiController.text.trim(),
+                  fields: updatedFields,
+                  lastModified: DateTime.now(),
+                );
+
+                Navigator.pop(context, updated);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Clean up controllers
+    nameController.dispose();
+    descriptionController.dispose();
+    emojiController.dispose();
+    for (final c in promptControllers) {
+      c.dispose();
+    }
+
+    if (result != null) {
+      await provider.updateTemplate(result);
+      await _autoBackupService.scheduleAutoBackup();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Template updated'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteTemplate(JournalTemplate template) async {
+    final provider = context.read<JournalTemplateProvider>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Template'),
+        content: Text(
+          'Are you sure you want to delete "${template.name}"?\n\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Remove from enabled templates if it was enabled
+      if (_enabledTemplates.contains(template.id)) {
+        setState(() {
+          _enabledTemplates.remove(template.id);
+        });
+        await _storage.toggleTemplate(template.id);
+      }
+
+      await provider.deleteTemplate(template.id);
+      await _autoBackupService.scheduleAutoBackup();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Template deleted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
   IconData _getCategoryIcon(TemplateCategory category) {
