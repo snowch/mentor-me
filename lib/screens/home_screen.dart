@@ -2,6 +2,7 @@
 // UPDATED: Enhanced branding with logo and improved typography
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:app_settings/app_settings.dart';
 import '../theme/app_spacing.dart';
@@ -11,8 +12,10 @@ import '../services/notification_service.dart';
 import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
+import '../services/voice_activation_service.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
+import '../widgets/voice_activation_overlay.dart';
 import 'journal_screen.dart';
 import 'actions_screen.dart';
 import 'settings_screen.dart' as settings;
@@ -35,6 +38,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storage = StorageService();
   bool _notificationsEnabled = true;
   bool _exactAlarmsEnabled = true;
+  bool _voiceActivationAvailable = false;
+  bool _showVoiceButton = true; // User preference
 
   @override
   void initState() {
@@ -43,6 +48,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _checkNotificationStatus();
     _checkAIStatus();
     _checkAndShowWelcomeDialog();
+    _initVoiceActivation();
+  }
+
+  Future<void> _initVoiceActivation() async {
+    if (kIsWeb) {
+      setState(() => _voiceActivationAvailable = false);
+      return;
+    }
+
+    await VoiceActivationService.instance.initialize();
+    final available = await VoiceActivationService.instance.isAvailable();
+
+    // Load user preference for voice button visibility
+    final settings = await _storage.loadSettings();
+    final showVoice = settings['showVoiceButton'] as bool? ?? true;
+
+    if (mounted) {
+      setState(() {
+        _voiceActivationAvailable = available;
+        _showVoiceButton = showVoice;
+      });
+    }
   }
 
   @override
@@ -334,11 +361,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
 
+  void _handleTodoCreated() {
+    // Navigate to Actions tab when todo is created via voice
+    if (_selectedIndex != 2) {
+      _navigateToTab(2);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Todo created via voice!'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final showNotificationWarning = !_notificationsEnabled || !_exactAlarmsEnabled;
+    final showVoiceFab = _voiceActivationAvailable && _showVoiceButton && !kIsWeb;
 
-    return Scaffold(
+    return VoiceActivationOverlay(
+      showFloatingButton: showVoiceFab,
+      onTodoCreated: _handleTodoCreated,
+      child: Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -591,6 +637,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: AppStrings.featureSettings,
           ),
         ],
+      ),
       ),
     );
   }
