@@ -271,23 +271,33 @@ class HandsFreeDiscoveryManager {
 
   /// Check if the discovery card should be shown
   Future<bool> shouldShowDiscoveryCard() async {
-    final settings = await _storage.loadSettings();
+    try {
+      final settings = await _storage.loadSettings();
 
-    // Don't show if already dismissed
-    final dismissed = settings[_dismissedKey] as bool? ?? false;
-    if (dismissed) return false;
+      // Don't show if already dismissed
+      final dismissed = settings[_dismissedKey] as bool? ?? false;
+      if (dismissed) return false;
 
-    // Don't show if hands-free mode is already enabled
-    final enabled = settings[_enabledKey] as bool? ?? false;
-    if (enabled) return false;
+      // Don't show if hands-free mode is already enabled
+      final enabled = settings[_enabledKey] as bool? ?? false;
+      if (enabled) return false;
 
-    return true;
+      return true;
+    } catch (e) {
+      // If there's any error loading settings, don't show the card
+      // This prevents crashes during backup restore or other edge cases
+      return false;
+    }
   }
 
   /// Mark the discovery card as dismissed
   Future<void> dismissDiscoveryCard() async {
-    final settings = await _storage.loadSettings();
-    settings[_dismissedKey] = true;
-    await _storage.saveSettings(settings);
+    try {
+      final settings = await _storage.loadSettings();
+      settings[_dismissedKey] = true;
+      await _storage.saveSettings(settings);
+    } catch (e) {
+      // Silently fail - not critical functionality
+    }
   }
 }

@@ -64,11 +64,15 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
   }
 
   Future<void> _checkHandsFreeDiscovery() async {
-    final shouldShow = await _discoveryManager.shouldShowDiscoveryCard();
-    if (mounted) {
-      setState(() {
-        _showHandsFreeDiscovery = shouldShow;
-      });
+    try {
+      final shouldShow = await _discoveryManager.shouldShowDiscoveryCard();
+      if (mounted) {
+        setState(() {
+          _showHandsFreeDiscovery = shouldShow;
+        });
+      }
+    } catch (e) {
+      // Silently fail - discovery card is not critical
     }
   }
 
