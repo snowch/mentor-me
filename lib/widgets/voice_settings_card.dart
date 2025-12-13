@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/voice_activation_service.dart';
+import '../services/lock_screen_voice_service.dart';
 import '../services/storage_service.dart';
 
 /// Settings card for voice activation options
@@ -13,11 +14,13 @@ class VoiceSettingsCard extends StatefulWidget {
 
 class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
   final _voiceService = VoiceActivationService.instance;
+  final _lockScreenService = LockScreenVoiceService.instance;
   final _storage = StorageService();
 
   bool _isAvailable = false;
   bool _showVoiceButton = true;
   bool _shakeToActivate = false;
+  bool _lockScreenVoice = false;
   bool _isLoading = true;
 
   @override
@@ -43,6 +46,7 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
         _isAvailable = available;
         _showVoiceButton = settings['showVoiceButton'] as bool? ?? true;
         _shakeToActivate = settings['shakeToActivateVoice'] as bool? ?? false;
+        _lockScreenVoice = settings['lockScreenVoiceEnabled'] as bool? ?? false;
         _isLoading = false;
       });
 
@@ -73,6 +77,16 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
     final settings = await _storage.loadSettings();
     settings['shakeToActivateVoice'] = value;
     await _storage.saveSettings(settings);
+  }
+
+  Future<void> _toggleLockScreenVoice(bool value) async {
+    setState(() => _lockScreenVoice = value);
+
+    if (value) {
+      await _lockScreenService.enable();
+    } else {
+      await _lockScreenService.disable();
+    }
   }
 
   Future<void> _testVoiceCapture() async {
@@ -301,6 +315,15 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
             value: _shakeToActivate,
             onChanged: _toggleShakeActivation,
             secondary: const Icon(Icons.vibration),
+          ),
+
+          // Lock screen voice capture toggle
+          SwitchListTile(
+            title: const Text('Lock Screen Voice'),
+            subtitle: const Text('Show notification for voice capture when screen is locked'),
+            value: _lockScreenVoice,
+            onChanged: _toggleLockScreenVoice,
+            secondary: const Icon(Icons.lock_open),
           ),
 
           // Tips section

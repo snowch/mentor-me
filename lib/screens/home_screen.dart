@@ -13,8 +13,10 @@ import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
 import '../services/voice_activation_service.dart';
+import '../services/lock_screen_voice_service.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
+import '../providers/todo_provider.dart';
 import '../widgets/voice_activation_overlay.dart';
 import 'journal_screen.dart';
 import 'actions_screen.dart';
@@ -59,6 +61,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     await VoiceActivationService.instance.initialize();
     final available = await VoiceActivationService.instance.isAvailable();
+
+    // Initialize lock screen voice service with todo provider
+    final todoProvider = context.read<TodoProvider>();
+    await LockScreenVoiceService.instance.initialize(todoProvider: todoProvider);
 
     // Load user preference for voice button visibility
     final settings = await _storage.loadSettings();

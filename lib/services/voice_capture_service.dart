@@ -154,11 +154,12 @@ class VoiceCaptureService {
     }
 
     // Parse the transcript for common patterns
-    return _parseVoiceTranscript(transcript);
+    return parseTranscript(transcript);
   }
 
   /// Parse voice transcript to extract structured todo data
-  Map<String, dynamic> _parseVoiceTranscript(String transcript) {
+  /// Public so it can be used by other services (e.g., LockScreenVoiceService)
+  Map<String, dynamic> parseTranscript(String transcript) {
     String title = transcript;
     DateTime? dueDate;
     String? priority;

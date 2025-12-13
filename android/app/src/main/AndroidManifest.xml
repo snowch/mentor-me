@@ -14,6 +14,10 @@
     <!-- Voice capture / Speech recognition permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
+    <!-- Foreground service permissions for lock screen voice capture -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+
     <!-- Storage permissions for file picker -->
     <!-- For Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -77,6 +81,13 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
+
+        <!-- Voice capture foreground service for lock screen access -->
+        <service
+            android:name=".VoiceCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone"/>
 
         <!-- Native libraries for LiteRT GPU acceleration with OpenCL -->
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>

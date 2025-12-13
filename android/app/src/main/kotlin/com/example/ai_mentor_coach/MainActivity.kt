@@ -36,6 +36,7 @@ import android.speech.SpeechRecognizer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlin.math.sqrt
+import io.flutter.embedding.engine.FlutterEngineCache
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -43,6 +44,7 @@ class MainActivity : FlutterActivity() {
         private const val REQUEST_CODE_OPEN_DOCUMENT_TREE = 42
         private const val SHAKE_THRESHOLD = 12.0f  // Acceleration threshold for shake detection
         private const val SHAKE_TIMEOUT_MS = 500L  // Minimum time between shake events
+        private const val FLUTTER_ENGINE_ID = "mentorme_engine"
     }
 
     private val CHANNEL = "com.mentorme/on_device_ai"
@@ -50,6 +52,7 @@ class MainActivity : FlutterActivity() {
     private val SAF_CHANNEL = "com.mentorme/saf"
     private val VOICE_CAPTURE_CHANNEL = "com.mentorme/voice_capture"
     private val SENSORS_CHANNEL = "com.mentorme/sensors"
+    private val LOCK_SCREEN_VOICE_CHANNEL = "com.mentorme/lock_screen_voice"
     private val AICORE_PACKAGE = "com.google.android.aicore"
     private val PERMISSION_REQUEST_RECORD_AUDIO = 100
 
@@ -352,6 +355,30 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        // Lock screen voice capture channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCK_SCREEN_VOICE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startService" -> {
+                    startLockScreenVoiceService()
+                    result.success(true)
+                }
+                "stopService" -> {
+                    stopLockScreenVoiceService()
+                    result.success(true)
+                }
+                "isServiceRunning" -> {
+                    result.success(isLockScreenVoiceServiceRunning())
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Cache Flutter engine for service communication
+        FlutterEngineCache.getInstance().put(FLUTTER_ENGINE_ID, flutterEngine)
+        Log.d(TAG, "Flutter engine cached for service communication")
     }
 
     private fun checkOnDeviceAIAvailability(): Map<String, Any?> {
@@ -1115,6 +1142,52 @@ class MainActivity : FlutterActivity() {
     /// Called when a shake is detected - notify Flutter
     private fun onShakeDetected() {
         sensorsChannel?.invokeMethod("onShakeDetected", null)
+    }
+
+    //
+    // Lock Screen Voice Service Methods
+    //
+
+    /// Track if service is running
+    private var lockScreenServiceRunning = false
+
+    /// Start the lock screen voice capture foreground service
+    private fun startLockScreenVoiceService() {
+        try {
+            val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
+                action = VoiceCaptureService.ACTION_START_SERVICE
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+
+            lockScreenServiceRunning = true
+            Log.d(TAG, "Lock screen voice service started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start lock screen voice service: ${e.message}")
+        }
+    }
+
+    /// Stop the lock screen voice capture foreground service
+    private fun stopLockScreenVoiceService() {
+        try {
+            val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
+                action = VoiceCaptureService.ACTION_STOP_SERVICE
+            }
+            startService(serviceIntent)
+            lockScreenServiceRunning = false
+            Log.d(TAG, "Lock screen voice service stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop lock screen voice service: ${e.message}")
+        }
+    }
+
+    /// Check if the lock screen voice service is running
+    private fun isLockScreenVoiceServiceRunning(): Boolean {
+        return lockScreenServiceRunning
     }
 
     /// Handle permission request result
