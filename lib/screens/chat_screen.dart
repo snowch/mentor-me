@@ -30,6 +30,30 @@ import 'habits_screen.dart';
 import 'journal_screen.dart';
 import 'wellness_dashboard_screen.dart';
 
+/// Context emphasis for data exploration prompts
+enum ContextEmphasis {
+  general,    // Standard context
+  weight,     // Load more weight entries
+  nutrition,  // Load more food entries
+  exercise,   // Load more workout data
+  mood,       // Load more pulse/wellness entries
+  goals,      // Focus on goals and milestones
+  habits,     // Focus on habit streaks and patterns
+}
+
+/// A suggestion prompt with optional context emphasis
+class SuggestionPrompt {
+  final String text;
+  final ContextEmphasis emphasis;
+  final String? systemHint; // Optional hint to prepend to AI context
+
+  const SuggestionPrompt(
+    this.text, {
+    this.emphasis = ContextEmphasis.general,
+    this.systemHint,
+  });
+}
+
 class ChatScreen extends StatefulWidget {
   final String? initialMessage;
 
@@ -319,50 +343,208 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: AppSpacing.screenPadding,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.psychology,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
-            ),
-            AppSpacing.gapLg,
-            Text(
-              'Start a conversation',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            AppSpacing.gapSm,
-            Text(
-              'Ask me about your goals, get advice, or just chat!',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            AppSpacing.gapXl,
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [
-                _buildSuggestionChip(context, 'How am I doing overall?'),
-                _buildSuggestionChip(context, 'What should I focus on today?'),
-                _buildSuggestionChip(context, 'Why am I not making progress?'),
-                _buildSuggestionChip(context, 'Help me reflect on my week'),
-              ],
-            ),
-          ],
-        ),
+    return SingleChildScrollView(
+      padding: AppSpacing.screenPadding,
+      child: Column(
+        children: [
+          AppSpacing.gapXl,
+          Icon(
+            Icons.psychology,
+            size: 64,
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+          ),
+          AppSpacing.gapMd,
+          Text(
+            'Start a conversation',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          AppSpacing.gapSm,
+          Text(
+            'Ask me about your goals, get advice, or explore your data!',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+            textAlign: TextAlign.center,
+          ),
+          AppSpacing.gapXl,
+
+          // General coaching
+          _buildPromptCategory(
+            context,
+            icon: Icons.lightbulb_outline,
+            title: 'Coaching',
+            prompts: const [
+              SuggestionPrompt('How am I doing overall?'),
+              SuggestionPrompt('What should I focus on today?'),
+              SuggestionPrompt('Help me reflect on my week'),
+            ],
+          ),
+
+          // Weight & Body
+          _buildPromptCategory(
+            context,
+            icon: Icons.monitor_weight_outlined,
+            title: 'Weight Tracking',
+            prompts: const [
+              SuggestionPrompt(
+                'Chart my weight progress this year',
+                emphasis: ContextEmphasis.weight,
+                systemHint: 'User wants to see their weight data visualized. Describe trends, patterns, and progress toward any weight goals.',
+              ),
+              SuggestionPrompt(
+                'How is my weight trending?',
+                emphasis: ContextEmphasis.weight,
+                systemHint: 'Analyze the weight trend direction and rate of change.',
+              ),
+              SuggestionPrompt(
+                'Am I on track to reach my weight goal?',
+                emphasis: ContextEmphasis.weight,
+                systemHint: 'Compare current progress against their weight goal if set.',
+              ),
+            ],
+          ),
+
+          // Nutrition
+          _buildPromptCategory(
+            context,
+            icon: Icons.restaurant_outlined,
+            title: 'Nutrition',
+            prompts: const [
+              SuggestionPrompt(
+                'Analyze my eating patterns this week',
+                emphasis: ContextEmphasis.nutrition,
+                systemHint: 'Look for meal timing patterns, food choices, and nutritional balance.',
+              ),
+              SuggestionPrompt(
+                'Am I hitting my protein goals?',
+                emphasis: ContextEmphasis.nutrition,
+                systemHint: 'Focus on protein intake across meals and days.',
+              ),
+              SuggestionPrompt(
+                'What are my calorie trends?',
+                emphasis: ContextEmphasis.nutrition,
+                systemHint: 'Analyze calorie intake patterns over time, including daily and weekly trends.',
+              ),
+            ],
+          ),
+
+          // Exercise
+          _buildPromptCategory(
+            context,
+            icon: Icons.fitness_center_outlined,
+            title: 'Exercise',
+            prompts: const [
+              SuggestionPrompt(
+                'Summarize my workouts this month',
+                emphasis: ContextEmphasis.exercise,
+                systemHint: 'Provide a comprehensive summary of workout frequency, types, and duration.',
+              ),
+              SuggestionPrompt(
+                'Am I exercising consistently?',
+                emphasis: ContextEmphasis.exercise,
+                systemHint: 'Analyze workout consistency and identify any patterns or gaps.',
+              ),
+              SuggestionPrompt(
+                'What exercise patterns do you see?',
+                emphasis: ContextEmphasis.exercise,
+                systemHint: 'Look for patterns in workout types, timing, and intensity.',
+              ),
+            ],
+          ),
+
+          // Mood & Wellness
+          _buildPromptCategory(
+            context,
+            icon: Icons.mood_outlined,
+            title: 'Mood & Wellness',
+            prompts: const [
+              SuggestionPrompt(
+                'How has my mood been lately?',
+                emphasis: ContextEmphasis.mood,
+                systemHint: 'Analyze mood trends from pulse entries and journal reflections.',
+              ),
+              SuggestionPrompt(
+                'What affects my energy levels?',
+                emphasis: ContextEmphasis.mood,
+                systemHint: 'Look for correlations between energy levels and other factors like sleep, exercise, or food.',
+              ),
+              SuggestionPrompt(
+                'Explore my stress patterns',
+                emphasis: ContextEmphasis.mood,
+                systemHint: 'Identify stress patterns and potential triggers from wellness data.',
+              ),
+            ],
+          ),
+
+          // Goals & Habits
+          _buildPromptCategory(
+            context,
+            icon: Icons.flag_outlined,
+            title: 'Goals & Habits',
+            prompts: const [
+              SuggestionPrompt(
+                'Which goals need attention?',
+                emphasis: ContextEmphasis.goals,
+                systemHint: 'Identify stalled or at-risk goals that need focus.',
+              ),
+              SuggestionPrompt(
+                'How are my habit streaks doing?',
+                emphasis: ContextEmphasis.habits,
+                systemHint: 'Review habit completion rates and streak status.',
+              ),
+              SuggestionPrompt(
+                'Why am I not making progress?',
+                emphasis: ContextEmphasis.goals,
+                systemHint: 'Analyze potential blockers and suggest ways to overcome them.',
+              ),
+            ],
+          ),
+
+          AppSpacing.gapXl,
+        ],
       ),
     );
   }
 
-  Widget _buildSuggestionChip(BuildContext context, String text) {
+  Widget _buildPromptCategory(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required List<SuggestionPrompt> prompts,
+  }) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: theme.colorScheme.primary),
+              AppSpacing.gapHorizontalSm,
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
+          AppSpacing.gapSm,
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: prompts.map((p) => _buildSuggestionChip(context, p)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuggestionChip(BuildContext context, SuggestionPrompt prompt) {
     return ActionChip(
-      label: Text(text),
+      label: Text(prompt.text),
       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       labelStyle: TextStyle(
         color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -371,10 +553,77 @@ class _ChatScreenState extends State<ChatScreen> {
         color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
       ),
       onPressed: () {
-        _messageController.text = text;
-        _sendMessage();
+        _sendMessageWithContext(prompt);
       },
     );
+  }
+
+  /// Send a message with context emphasis for data exploration
+  Future<void> _sendMessageWithContext(SuggestionPrompt prompt) async {
+    final chatProvider = context.read<ChatProvider>();
+    final goalProvider = context.read<GoalProvider>();
+    final habitProvider = context.read<HabitProvider>();
+    final journalProvider = context.read<JournalProvider>();
+    final pulseProvider = context.read<PulseProvider>();
+    final exerciseProvider = context.read<ExerciseProvider>();
+    final weightProvider = context.read<WeightProvider>();
+    final foodLogProvider = context.read<FoodLogProvider>();
+    final winProvider = context.read<WinProvider>();
+
+    // Prepare message with optional system hint
+    String messageToSend = prompt.text;
+    if (prompt.systemHint != null) {
+      // Prepend hint as context instruction for the AI
+      messageToSend = '[Analysis Focus: ${prompt.systemHint}]\n\n${prompt.text}';
+    }
+
+    // Determine extended data limits based on emphasis
+    int foodLimit = 50;     // Default
+    int weightLimit = 50;   // Default
+    int exerciseLimit = 30; // Default
+    int pulseLimit = 30;    // Default
+
+    switch (prompt.emphasis) {
+      case ContextEmphasis.nutrition:
+        foodLimit = 100; // Load more food entries for nutrition analysis
+        break;
+      case ContextEmphasis.weight:
+        weightLimit = 100; // Load more weight entries for weight analysis
+        break;
+      case ContextEmphasis.exercise:
+        exerciseLimit = 60; // Load more workout data
+        break;
+      case ContextEmphasis.mood:
+        pulseLimit = 60; // Load more wellness entries
+        break;
+      default:
+        break;
+    }
+
+    try {
+      await chatProvider.generateContextualResponse(
+        userMessage: messageToSend,
+        goals: goalProvider.goals,
+        habits: habitProvider.habits,
+        journalEntries: journalProvider.entries.take(10).toList(),
+        pulseEntries: pulseProvider.entries.take(pulseLimit).toList(),
+        exercisePlans: exerciseProvider.plans,
+        workoutLogs: exerciseProvider.workoutLogs.take(exerciseLimit).toList(),
+        weightEntries: weightProvider.entries.take(weightLimit).toList(),
+        weightGoal: weightProvider.goal,
+        foodEntries: foodLogProvider.entries.take(foodLimit).toList(),
+        nutritionGoal: foodLogProvider.effectiveGoal,
+        wins: winProvider.wins.take(20).toList(),
+      );
+
+      _scrollToBottom();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildMessageBubble(BuildContext context, ChatMessage message, {Key? key}) {
