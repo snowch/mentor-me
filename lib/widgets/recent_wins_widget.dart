@@ -441,6 +441,8 @@ class _WinItem extends StatelessWidget {
         return Icons.check_circle;
       case WinSource.streakMilestone:
         return Icons.local_fire_department;
+      case WinSource.habitGraduated:
+        return Icons.school;
     }
   }
 
@@ -458,6 +460,8 @@ class _WinItem extends StatelessWidget {
         return Colors.orange;
       case WinSource.streakMilestone:
         return Colors.amber.shade700;
+      case WinSource.habitGraduated:
+        return Colors.deepPurple;
     }
   }
 

@@ -11,6 +11,13 @@
     <!-- For Android 13+ (API 33+) notification permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Voice capture / Speech recognition permissions -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+    <!-- Foreground service permissions for lock screen voice capture -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+
     <!-- Storage permissions for file picker -->
     <!-- For Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -75,6 +82,13 @@
             </intent-filter>
         </receiver>
 
+        <!-- Voice capture foreground service for lock screen access -->
+        <service
+            android:name=".VoiceCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone"/>
+
         <!-- Native libraries for LiteRT GPU acceleration with OpenCL -->
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
@@ -102,6 +116,14 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.OPEN_DOCUMENT_TREE"/>
+        </intent>
+
+        <!-- Voice capture / Speech recognition queries -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
         </intent>
     </queries>
 </manifest>

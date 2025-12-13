@@ -23,17 +23,38 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.Manifest
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import kotlin.math.sqrt
+import io.flutter.embedding.engine.FlutterEngineCache
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MentorMe"
         private const val REQUEST_CODE_OPEN_DOCUMENT_TREE = 42
+        private const val SHAKE_THRESHOLD = 12.0f  // Acceleration threshold for shake detection
+        private const val SHAKE_TIMEOUT_MS = 500L  // Minimum time between shake events
+        private const val FLUTTER_ENGINE_ID = "mentorme_engine"
     }
 
     private val CHANNEL = "com.mentorme/on_device_ai"
     private val LOCAL_AI_CHANNEL = "com.mentorme/local_ai"
     private val SAF_CHANNEL = "com.mentorme/saf"
+    private val VOICE_CAPTURE_CHANNEL = "com.mentorme/voice_capture"
+    private val SENSORS_CHANNEL = "com.mentorme/sensors"
+    private val LOCK_SCREEN_VOICE_CHANNEL = "com.mentorme/lock_screen_voice"
     private val AICORE_PACKAGE = "com.google.android.aicore"
+    private val PERMISSION_REQUEST_RECORD_AUDIO = 100
 
     // LiteRT LLM Engine instance with thread-safe access
     // Note: We create a fresh Conversation for each inference to avoid context accumulation
@@ -42,6 +63,19 @@ class MainActivity : FlutterActivity() {
 
     // SAF callback result handler
     private var safResultHandler: MethodChannel.Result? = null
+
+    // Voice capture
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var voiceCaptureResultHandler: MethodChannel.Result? = null
+    private var pendingPermissionResultHandler: MethodChannel.Result? = null
+
+    // Shake detection
+    private var sensorManager: SensorManager? = null
+    private var accelerometer: Sensor? = null
+    private var shakeListener: SensorEventListener? = null
+    private var sensorsChannel: MethodChannel? = null
+    private var lastShakeTime: Long = 0
+    private var shakeDetectionEnabled = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -254,6 +288,97 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        // Voice Capture channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CAPTURE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isAvailable" -> {
+                    val available = SpeechRecognizer.isRecognitionAvailable(this)
+                    result.success(available)
+                }
+                "hasPermission" -> {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    result.success(hasPermission)
+                }
+                "requestPermission" -> {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (hasPermission) {
+                        result.success(true)
+                    } else {
+                        pendingPermissionResultHandler = result
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.RECORD_AUDIO),
+                            PERMISSION_REQUEST_RECORD_AUDIO
+                        )
+                    }
+                }
+                "startListening" -> {
+                    val promptHint = call.argument<String>("promptHint") ?: "Speak now"
+                    val timeoutMs = call.argument<Int>("timeoutMs") ?: 30000
+                    startVoiceCapture(result, promptHint, timeoutMs)
+                }
+                "stopListening" -> {
+                    stopVoiceCapture()
+                    result.success(true)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Sensors channel (shake detection for voice activation)
+        sensorsChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SENSORS_CHANNEL)
+        sensorsChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "enableShakeDetection" -> {
+                    enableShakeDetection()
+                    result.success(true)
+                }
+                "disableShakeDetection" -> {
+                    disableShakeDetection()
+                    result.success(true)
+                }
+                "isShakeDetectionEnabled" -> {
+                    result.success(shakeDetectionEnabled)
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Lock screen voice capture channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCK_SCREEN_VOICE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startService" -> {
+                    startLockScreenVoiceService()
+                    result.success(true)
+                }
+                "stopService" -> {
+                    stopLockScreenVoiceService()
+                    result.success(true)
+                }
+                "isServiceRunning" -> {
+                    result.success(isLockScreenVoiceServiceRunning())
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Cache Flutter engine for service communication
+        FlutterEngineCache.getInstance().put(FLUTTER_ENGINE_ID, flutterEngine)
+        Log.d(TAG, "Flutter engine cached for service communication")
     }
 
     private fun checkOnDeviceAIAvailability(): Map<String, Any?> {
@@ -796,8 +921,295 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    //
+    // Voice Capture Methods
+    //
+
+    /// Start voice capture using Android Speech Recognition
+    private fun startVoiceCapture(result: MethodChannel.Result, promptHint: String, timeoutMs: Int) {
+        // Check permission first
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            result.error("PERMISSION_DENIED", "Microphone permission not granted", null)
+            return
+        }
+
+        // Check if speech recognition is available
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            result.error("NOT_AVAILABLE", "Speech recognition not available on this device", null)
+            return
+        }
+
+        // Cancel any existing recognizer
+        stopVoiceCapture()
+
+        voiceCaptureResultHandler = result
+
+        // Create speech recognizer on main thread
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    Log.d(TAG, "Voice capture: Ready for speech")
+                }
+
+                override fun onBeginningOfSpeech() {
+                    Log.d(TAG, "Voice capture: Beginning of speech detected")
+                }
+
+                override fun onRmsChanged(rmsdB: Float) {
+                    // Audio level changed - can be used for visual feedback
+                }
+
+                override fun onBufferReceived(buffer: ByteArray?) {
+                    // Partial sound buffer received
+                }
+
+                override fun onEndOfSpeech() {
+                    Log.d(TAG, "Voice capture: End of speech detected")
+                }
+
+                override fun onError(error: Int) {
+                    val errorMessage = when (error) {
+                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                        SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
+                        SpeechRecognizer.ERROR_SERVER -> "Server error"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech timeout"
+                        else -> "Unknown error: $error"
+                    }
+                    Log.e(TAG, "Voice capture error: $errorMessage")
+
+                    // For "no match" - return null instead of error (user may not have spoken)
+                    if (error == SpeechRecognizer.ERROR_NO_MATCH ||
+                        error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                        voiceCaptureResultHandler?.success(null)
+                    } else {
+                        voiceCaptureResultHandler?.error("SPEECH_ERROR", errorMessage, null)
+                    }
+                    voiceCaptureResultHandler = null
+                    cleanupSpeechRecognizer()
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    val transcript = matches?.firstOrNull()
+
+                    Log.d(TAG, "Voice capture result: $transcript")
+
+                    voiceCaptureResultHandler?.success(transcript)
+                    voiceCaptureResultHandler = null
+                    cleanupSpeechRecognizer()
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    // Partial recognition results
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    Log.d(TAG, "Voice capture partial: ${matches?.firstOrNull()}")
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) {
+                    // Reserved for future use
+                }
+            })
+        }
+
+        // Create intent for speech recognition
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, promptHint)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 3000)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500)
+        }
+
+        Log.d(TAG, "Voice capture: Starting speech recognition")
+        speechRecognizer?.startListening(intent)
+    }
+
+    /// Stop voice capture
+    private fun stopVoiceCapture() {
+        try {
+            speechRecognizer?.cancel()
+            cleanupSpeechRecognizer()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping voice capture: ${e.message}")
+        }
+    }
+
+    /// Clean up speech recognizer resources
+    private fun cleanupSpeechRecognizer() {
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error destroying speech recognizer: ${e.message}")
+        }
+        speechRecognizer = null
+    }
+
+    //
+    // Shake Detection Methods
+    //
+
+    /// Enable shake detection for voice activation
+    private fun enableShakeDetection() {
+        if (shakeDetectionEnabled) return
+
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        if (accelerometer == null) {
+            Log.w(TAG, "Accelerometer not available on this device")
+            return
+        }
+
+        shakeListener = object : SensorEventListener {
+            private var lastX = 0f
+            private var lastY = 0f
+            private var lastZ = 0f
+            private var lastUpdate: Long = 0
+
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event == null) return
+
+                val currentTime = System.currentTimeMillis()
+
+                // Only check every 100ms to reduce CPU usage
+                if ((currentTime - lastUpdate) < 100) return
+
+                val diffTime = currentTime - lastUpdate
+                lastUpdate = currentTime
+
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+
+                // Calculate acceleration change
+                val deltaX = x - lastX
+                val deltaY = y - lastY
+                val deltaZ = z - lastZ
+
+                lastX = x
+                lastY = y
+                lastZ = z
+
+                // Calculate total acceleration (removing gravity)
+                val acceleration = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) / diffTime * 10000
+
+                if (acceleration > SHAKE_THRESHOLD) {
+                    // Check timeout to prevent multiple triggers
+                    if (currentTime - lastShakeTime > SHAKE_TIMEOUT_MS) {
+                        lastShakeTime = currentTime
+                        Log.d(TAG, "Shake detected! Acceleration: $acceleration")
+                        onShakeDetected()
+                    }
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+                // Not needed
+            }
+        }
+
+        sensorManager?.registerListener(
+            shakeListener,
+            accelerometer,
+            SensorManager.SENSOR_DELAY_GAME
+        )
+
+        shakeDetectionEnabled = true
+        Log.d(TAG, "Shake detection enabled")
+    }
+
+    /// Disable shake detection
+    private fun disableShakeDetection() {
+        if (!shakeDetectionEnabled) return
+
+        shakeListener?.let { listener ->
+            sensorManager?.unregisterListener(listener)
+        }
+        shakeListener = null
+        shakeDetectionEnabled = false
+        Log.d(TAG, "Shake detection disabled")
+    }
+
+    /// Called when a shake is detected - notify Flutter
+    private fun onShakeDetected() {
+        sensorsChannel?.invokeMethod("onShakeDetected", null)
+    }
+
+    //
+    // Lock Screen Voice Service Methods
+    //
+
+    /// Track if service is running
+    private var lockScreenServiceRunning = false
+
+    /// Start the lock screen voice capture foreground service
+    private fun startLockScreenVoiceService() {
+        try {
+            val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
+                action = VoiceCaptureService.ACTION_START_SERVICE
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+
+            lockScreenServiceRunning = true
+            Log.d(TAG, "Lock screen voice service started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start lock screen voice service: ${e.message}")
+        }
+    }
+
+    /// Stop the lock screen voice capture foreground service
+    private fun stopLockScreenVoiceService() {
+        try {
+            val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
+                action = VoiceCaptureService.ACTION_STOP_SERVICE
+            }
+            startService(serviceIntent)
+            lockScreenServiceRunning = false
+            Log.d(TAG, "Lock screen voice service stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to stop lock screen voice service: ${e.message}")
+        }
+    }
+
+    /// Check if the lock screen voice service is running
+    private fun isLockScreenVoiceServiceRunning(): Boolean {
+        return lockScreenServiceRunning
+    }
+
+    /// Handle permission request result
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == PERMISSION_REQUEST_RECORD_AUDIO) {
+            val granted = grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+            pendingPermissionResultHandler?.success(granted)
+            pendingPermissionResultHandler = null
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unloadLiteRTModel()
+        cleanupSpeechRecognizer()
+        disableShakeDetection()
     }
 }

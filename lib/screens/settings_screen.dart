@@ -22,6 +22,7 @@ import 'ai_settings_screen.dart';
 import 'backup_restore_screen.dart';
 import 'profile_settings_screen.dart';
 import 'template_settings_screen.dart';
+import '../widgets/voice_settings_card.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -278,6 +279,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _manageReminders,
             ),
           ),
+
+          AppSpacing.gapLg,
+
+          // Voice Capture Settings
+          const VoiceSettingsCard(),
 
           AppSpacing.gapLg,
 

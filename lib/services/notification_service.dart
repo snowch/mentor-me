@@ -913,6 +913,50 @@ class NotificationService {
     await _notifications.cancel(id);
   }
 
+  /// Schedule a reminder notification for a todo item
+  Future<void> scheduleTodoReminder({
+    required String todoId,
+    required String title,
+    required DateTime reminderTime,
+  }) async {
+    if (!_initialized) return;
+
+    // Generate a unique notification ID from the todo ID
+    final notificationId = todoId.hashCode.abs() % 100000 + 50000; // Use 50000-149999 range for todos
+
+    try {
+      await _notifications.zonedSchedule(
+        notificationId,
+        '⏰ Todo Reminder',
+        title,
+        tz.TZDateTime.from(reminderTime, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'todo_reminders',
+            'Todo Reminders',
+            channelDescription: 'Reminders for your todo items',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: 'ic_notification',
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      debugPrint('📅 Todo reminder scheduled for $title at $reminderTime');
+    } catch (e) {
+      debugPrint('❌ Failed to schedule todo reminder: $e');
+    }
+  }
+
+  /// Cancel a todo reminder notification
+  Future<void> cancelTodoReminder(String todoId) async {
+    final notificationId = todoId.hashCode.abs() % 100000 + 50000;
+    await _notifications.cancel(notificationId);
+    debugPrint('🗑️ Todo reminder cancelled for ID: $todoId');
+  }
+
   void addListener(Function() listener) {
     _listeners.add(listener);
   }

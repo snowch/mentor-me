@@ -7,6 +7,14 @@ enum HabitStatus {
   abandoned,  // Decided not to pursue
 }
 
+/// Habit maturity lifecycle - tracks progression from new habit to ingrained behavior
+/// Based on research that habits take ~66 days to form on average
+enum HabitMaturity {
+  forming,      // 0-21 days: Active tracking, needs reminders
+  established,  // 22-65 days: Consistent but still tracking
+  ingrained,    // 66+ days: Graduated - automatic behavior
+}
+
 /// Data model for habits and habit tracking.
 ///
 /// **JSON Schema:** lib/schemas/v2.json (habits field)
@@ -36,6 +44,11 @@ class Habit {
   final String? systemType; // e.g., 'daily_reflection', 'suggested', null for user-created
   final int sortOrder; // For drag-and-drop reordering
 
+  // Habit maturity lifecycle
+  final HabitMaturity maturity; // Current maturity stage
+  final int daysToFormation; // Target days to form habit (default 66)
+  final DateTime? graduatedAt; // When marked as ingrained
+
   Habit({
     String? id,
     required this.title,
@@ -53,6 +66,9 @@ class Habit {
     this.isSystemCreated = false,
     this.systemType,
     this.sortOrder = 0,
+    this.maturity = HabitMaturity.forming,
+    this.daysToFormation = 66,
+    this.graduatedAt,
   })  : id = id ?? const Uuid().v4(),
         completionDates = completionDates ?? [],
         createdAt = createdAt ?? DateTime.now(),
@@ -77,6 +93,9 @@ class Habit {
       'isSystemCreated': isSystemCreated,
       'systemType': systemType,
       'sortOrder': sortOrder,
+      'maturity': maturity.toString(),
+      'daysToFormation': daysToFormation,
+      'graduatedAt': graduatedAt?.toIso8601String(),
     };
   }
 
@@ -87,6 +106,15 @@ class Habit {
       parsedStatus = HabitStatus.values.firstWhere(
         (e) => e.toString() == json['status'],
         orElse: () => HabitStatus.active,
+      );
+    }
+
+    // Parse maturity, defaulting to forming for backwards compatibility
+    HabitMaturity parsedMaturity = HabitMaturity.forming;
+    if (json['maturity'] != null) {
+      parsedMaturity = HabitMaturity.values.firstWhere(
+        (e) => e.toString() == json['maturity'],
+        orElse: () => HabitMaturity.forming,
       );
     }
 
@@ -115,6 +143,11 @@ class Habit {
       isSystemCreated: json['isSystemCreated'] ?? false, // Default false for backwards compatibility
       systemType: json['systemType'],
       sortOrder: json['sortOrder'] ?? 0, // Default 0 for backwards compatibility
+      maturity: parsedMaturity,
+      daysToFormation: json['daysToFormation'] ?? 66, // Default 66 days for habit formation
+      graduatedAt: json['graduatedAt'] != null
+          ? DateTime.parse(json['graduatedAt'])
+          : null,
     );
   }
 
@@ -132,6 +165,9 @@ class Habit {
     bool? isSystemCreated,
     String? systemType,
     int? sortOrder,
+    HabitMaturity? maturity,
+    int? daysToFormation,
+    DateTime? graduatedAt,
   }) {
     // Auto-sync isActive with status if status is provided but isActive is not
     final newStatus = status ?? this.status;
@@ -155,8 +191,31 @@ class Habit {
       isSystemCreated: isSystemCreated ?? this.isSystemCreated,
       systemType: systemType ?? this.systemType,
       sortOrder: sortOrder ?? this.sortOrder,
+      maturity: maturity ?? this.maturity,
+      daysToFormation: daysToFormation ?? this.daysToFormation,
+      graduatedAt: graduatedAt ?? this.graduatedAt,
     );
   }
+
+  /// Graduate habit to ingrained status
+  Habit graduate() {
+    return copyWith(
+      maturity: HabitMaturity.ingrained,
+      graduatedAt: DateTime.now(),
+    );
+  }
+
+  /// Check if habit is ready to graduate (streak >= daysToFormation)
+  bool get canGraduate =>
+      currentStreak >= daysToFormation && maturity != HabitMaturity.ingrained;
+
+  /// Progress toward graduation (0.0 to 1.0)
+  double get formationProgress =>
+      (currentStreak / daysToFormation).clamp(0.0, 1.0);
+
+  /// Days remaining until graduation
+  int get daysUntilGraduation =>
+      (daysToFormation - currentStreak).clamp(0, daysToFormation);
 
   // Check if completed today
   bool get isCompletedToday {
@@ -226,6 +285,30 @@ extension HabitFrequencyExtension on HabitFrequency {
         return 5;
       case HabitFrequency.custom:
         return 1;
+    }
+  }
+}
+
+extension HabitMaturityExtension on HabitMaturity {
+  String get displayName {
+    switch (this) {
+      case HabitMaturity.forming:
+        return 'Forming';
+      case HabitMaturity.established:
+        return 'Established';
+      case HabitMaturity.ingrained:
+        return 'Ingrained';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case HabitMaturity.forming:
+        return 'Building this habit - keep tracking!';
+      case HabitMaturity.established:
+        return 'Getting consistent - almost there!';
+      case HabitMaturity.ingrained:
+        return 'This habit is now automatic';
     }
   }
 }

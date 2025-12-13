@@ -225,8 +225,8 @@ void main() {
       // Migrate legacy → current
       final currentData = await migrationService.migrateLegacy(legacyData);
 
-      // Should be at v2
-      expect(currentData['schemaVersion'], 2);
+      // Should be at current version (v3)
+      expect(currentData['schemaVersion'], 3);
 
       // Check that structured journal now has content
       final entries = json.decode(currentData['journal_entries']) as List;

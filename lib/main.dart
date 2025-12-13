@@ -8,6 +8,7 @@ import 'providers/goal_provider.dart';
 import 'providers/journal_provider.dart';
 import 'providers/checkin_provider.dart';
 import 'providers/habit_provider.dart';
+import 'providers/todo_provider.dart';
 import 'providers/pulse_provider.dart';
 import 'providers/pulse_type_provider.dart';
 import 'providers/chat_provider.dart';
@@ -191,6 +192,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => JournalProvider()),
         ChangeNotifierProvider(create: (_) => CheckinProvider()),
         ChangeNotifierProvider(create: (_) => HabitProvider()),
+        ChangeNotifierProvider(create: (_) => TodoProvider()),
         ChangeNotifierProvider(create: (_) => PulseProvider()),
         ChangeNotifierProvider(create: (_) => PulseTypeProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),

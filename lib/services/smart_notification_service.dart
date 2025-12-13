@@ -377,4 +377,26 @@ class SmartNotificationService {
       },
     );
   }
+
+  /// Send a celebration notification when a habit graduates to ingrained
+  ///
+  /// Called when user achieves full habit formation (default 66 days)
+  Future<void> sendHabitGraduationNotification({
+    required String habitTitle,
+    required int daysToFormation,
+  }) async {
+    await _notifications.showImmediateNotification(
+      '🎓 Habit Graduated!',
+      'Congratulations! "$habitTitle" is now an ingrained behavior after $daysToFormation days. This habit is now automatic!',
+    );
+
+    await _debug.info(
+      'SmartNotificationService',
+      'Sent habit graduation notification',
+      metadata: {
+        'habit_title': habitTitle,
+        'days_to_formation': daysToFormation,
+      },
+    );
+  }
 }

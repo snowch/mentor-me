@@ -131,6 +131,13 @@ class DashboardWidgetRegistry {
       color: Colors.green,
     ),
     DashboardWidgetInfo(
+      id: 'quickCapture',
+      name: 'Quick Capture',
+      description: 'Quickly add todos and see upcoming tasks',
+      icon: Icons.add_task,
+      color: Colors.deepPurple,
+    ),
+    DashboardWidgetInfo(
       id: 'goals',
       name: 'Active Goals',
       description: 'Quick view of your current goals',
