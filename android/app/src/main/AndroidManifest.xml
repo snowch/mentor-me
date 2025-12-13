@@ -82,12 +82,22 @@
             </intent-filter>
         </receiver>
 
-        <!-- Voice capture foreground service for lock screen access -->
+        <!-- Voice capture foreground service for lock screen and hands-free access -->
         <service
             android:name=".VoiceCaptureService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="microphone"/>
+
+        <!-- Media button receiver for Bluetooth headset hands-free voice control -->
+        <receiver
+            android:name=".MediaButtonReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON"/>
+            </intent-filter>
+        </receiver>
 
         <!-- Native libraries for LiteRT GPU acceleration with OpenCL -->
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>

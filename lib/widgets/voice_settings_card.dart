@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/voice_activation_service.dart';
 import '../services/lock_screen_voice_service.dart';
+import '../services/unified_voice_service.dart';
 import '../services/storage_service.dart';
 
 /// Settings card for voice activation options
@@ -15,12 +16,14 @@ class VoiceSettingsCard extends StatefulWidget {
 class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
   final _voiceService = VoiceActivationService.instance;
   final _lockScreenService = LockScreenVoiceService.instance;
+  final _unifiedVoiceService = UnifiedVoiceService.instance;
   final _storage = StorageService();
 
   bool _isAvailable = false;
   bool _showVoiceButton = true;
   bool _shakeToActivate = false;
   bool _lockScreenVoice = false;
+  bool _handsFreeModeEnabled = false;
   bool _isLoading = true;
 
   @override
@@ -47,6 +50,7 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
         _showVoiceButton = settings['showVoiceButton'] as bool? ?? true;
         _shakeToActivate = settings['shakeToActivateVoice'] as bool? ?? false;
         _lockScreenVoice = settings['lockScreenVoiceEnabled'] as bool? ?? false;
+        _handsFreeModeEnabled = settings['handsFreeModeEnabled'] as bool? ?? false;
         _isLoading = false;
       });
 
@@ -86,6 +90,24 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
       await _lockScreenService.enable();
     } else {
       await _lockScreenService.disable();
+    }
+  }
+
+  Future<void> _toggleHandsFreeMode(bool value) async {
+    setState(() => _handsFreeModeEnabled = value);
+
+    if (value) {
+      await _unifiedVoiceService.enableHandsFreeMode();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hands-free mode enabled. Press your headset button to add todos.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } else {
+      await _unifiedVoiceService.disableHandsFreeMode();
     }
   }
 
@@ -325,6 +347,65 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
             onChanged: _toggleLockScreenVoice,
             secondary: const Icon(Icons.lock_open),
           ),
+
+          // Hands-free driving mode toggle
+          SwitchListTile(
+            title: const Text('Hands-Free Mode'),
+            subtitle: const Text('Use Bluetooth headset button to add todos (for driving)'),
+            value: _handsFreeModeEnabled,
+            onChanged: _toggleHandsFreeMode,
+            secondary: const Icon(Icons.bluetooth_audio),
+          ),
+
+          // Hands-free info box (shown when hands-free is enabled)
+          if (_handsFreeModeEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: colorScheme.primary.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.directions_car,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Driving Mode Active',
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Press your headset button to start voice capture. '
+                            'You\'ll hear audio confirmation of what was added.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          if (_handsFreeModeEnabled) const SizedBox(height: 16),
 
           // Tips section
           Padding(

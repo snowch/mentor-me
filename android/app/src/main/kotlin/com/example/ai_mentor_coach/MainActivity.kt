@@ -356,11 +356,12 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // Lock screen voice capture channel
+        // Lock screen voice capture and hands-free mode channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCK_SCREEN_VOICE_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "startService" -> {
-                    startLockScreenVoiceService()
+                    val handsFreeModeEnabled = call.argument<Boolean>("handsFreeModeEnabled") ?: false
+                    startLockScreenVoiceService(handsFreeModeEnabled)
                     result.success(true)
                 }
                 "stopService" -> {
@@ -369,6 +370,14 @@ class MainActivity : FlutterActivity() {
                 }
                 "isServiceRunning" -> {
                     result.success(isLockScreenVoiceServiceRunning())
+                }
+                "enableHandsFree" -> {
+                    enableHandsFreeMode()
+                    result.success(true)
+                }
+                "disableHandsFree" -> {
+                    disableHandsFreeMode()
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()
@@ -1152,10 +1161,11 @@ class MainActivity : FlutterActivity() {
     private var lockScreenServiceRunning = false
 
     /// Start the lock screen voice capture foreground service
-    private fun startLockScreenVoiceService() {
+    private fun startLockScreenVoiceService(handsFreeModeEnabled: Boolean = false) {
         try {
             val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
                 action = VoiceCaptureService.ACTION_START_SERVICE
+                putExtra(VoiceCaptureService.EXTRA_HANDS_FREE_ENABLED, handsFreeModeEnabled)
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1165,7 +1175,7 @@ class MainActivity : FlutterActivity() {
             }
 
             lockScreenServiceRunning = true
-            Log.d(TAG, "Lock screen voice service started")
+            Log.d(TAG, "Lock screen voice service started (handsFreeModeEnabled: $handsFreeModeEnabled)")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start lock screen voice service: ${e.message}")
         }
@@ -1188,6 +1198,32 @@ class MainActivity : FlutterActivity() {
     /// Check if the lock screen voice service is running
     private fun isLockScreenVoiceServiceRunning(): Boolean {
         return lockScreenServiceRunning
+    }
+
+    /// Enable hands-free mode (Bluetooth button trigger + TTS feedback)
+    private fun enableHandsFreeMode() {
+        try {
+            val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
+                action = VoiceCaptureService.ACTION_ENABLE_HANDS_FREE
+            }
+            startService(serviceIntent)
+            Log.d(TAG, "Hands-free mode enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enable hands-free mode: ${e.message}")
+        }
+    }
+
+    /// Disable hands-free mode
+    private fun disableHandsFreeMode() {
+        try {
+            val serviceIntent = Intent(this, VoiceCaptureService::class.java).apply {
+                action = VoiceCaptureService.ACTION_DISABLE_HANDS_FREE
+            }
+            startService(serviceIntent)
+            Log.d(TAG, "Hands-free mode disabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to disable hands-free mode: ${e.message}")
+        }
     }
 
     /// Handle permission request result
