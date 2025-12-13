@@ -7,6 +7,14 @@ enum HabitStatus {
   abandoned,  // Decided not to pursue
 }
 
+/// Represents the maturity stage of a habit
+/// Based on research that habits take ~66 days to form on average
+enum HabitMaturity {
+  forming,      // 0-21 days: Initial habit formation
+  established,  // 22-65 days: Building consistency
+  ingrained,    // 66+ days: Habit is automatic/graduated
+}
+
 /// Data model for habits and habit tracking.
 ///
 /// **JSON Schema:** lib/schemas/v2.json (habits field)
@@ -36,6 +44,11 @@ class Habit {
   final String? systemType; // e.g., 'daily_reflection', 'suggested', null for user-created
   final int sortOrder; // For drag-and-drop reordering
 
+  // Habit maturity lifecycle fields
+  final HabitMaturity maturity; // Current maturity stage
+  final int daysToFormation; // Days required to consider habit formed (default 66)
+  final DateTime? graduatedAt; // When habit was marked as ingrained
+
   Habit({
     String? id,
     required this.title,
@@ -53,6 +66,9 @@ class Habit {
     this.isSystemCreated = false,
     this.systemType,
     this.sortOrder = 0,
+    this.maturity = HabitMaturity.forming,
+    this.daysToFormation = 66,
+    this.graduatedAt,
   })  : id = id ?? const Uuid().v4(),
         completionDates = completionDates ?? [],
         createdAt = createdAt ?? DateTime.now(),
@@ -77,6 +93,9 @@ class Habit {
       'isSystemCreated': isSystemCreated,
       'systemType': systemType,
       'sortOrder': sortOrder,
+      'maturity': maturity.toString(),
+      'daysToFormation': daysToFormation,
+      'graduatedAt': graduatedAt?.toIso8601String(),
     };
   }
 
@@ -87,6 +106,15 @@ class Habit {
       parsedStatus = HabitStatus.values.firstWhere(
         (e) => e.toString() == json['status'],
         orElse: () => HabitStatus.active,
+      );
+    }
+
+    // Parse maturity, defaulting to forming for backwards compatibility
+    HabitMaturity parsedMaturity = HabitMaturity.forming;
+    if (json['maturity'] != null) {
+      parsedMaturity = HabitMaturity.values.firstWhere(
+        (e) => e.toString() == json['maturity'],
+        orElse: () => HabitMaturity.forming,
       );
     }
 
@@ -115,6 +143,11 @@ class Habit {
       isSystemCreated: json['isSystemCreated'] ?? false, // Default false for backwards compatibility
       systemType: json['systemType'],
       sortOrder: json['sortOrder'] ?? 0, // Default 0 for backwards compatibility
+      maturity: parsedMaturity,
+      daysToFormation: json['daysToFormation'] ?? 66,
+      graduatedAt: json['graduatedAt'] != null
+          ? DateTime.parse(json['graduatedAt'])
+          : null,
     );
   }
 
@@ -132,6 +165,9 @@ class Habit {
     bool? isSystemCreated,
     String? systemType,
     int? sortOrder,
+    HabitMaturity? maturity,
+    int? daysToFormation,
+    DateTime? graduatedAt,
   }) {
     // Auto-sync isActive with status if status is provided but isActive is not
     final newStatus = status ?? this.status;
@@ -155,7 +191,23 @@ class Habit {
       isSystemCreated: isSystemCreated ?? this.isSystemCreated,
       systemType: systemType ?? this.systemType,
       sortOrder: sortOrder ?? this.sortOrder,
+      maturity: maturity ?? this.maturity,
+      daysToFormation: daysToFormation ?? this.daysToFormation,
+      graduatedAt: graduatedAt ?? this.graduatedAt,
     );
+  }
+
+  /// Check if habit is ready to graduate to ingrained status
+  bool get canGraduate {
+    if (maturity == HabitMaturity.ingrained) return false;
+    return currentStreak >= daysToFormation;
+  }
+
+  /// Days remaining until habit can graduate
+  int get daysUntilGraduation {
+    if (maturity == HabitMaturity.ingrained) return 0;
+    final remaining = daysToFormation - currentStreak;
+    return remaining > 0 ? remaining : 0;
   }
 
   // Check if completed today

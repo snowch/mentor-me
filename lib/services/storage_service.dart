@@ -20,6 +20,7 @@ import '../models/food_template.dart';
 import '../models/mindful_eating_entry.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
+import '../models/todo.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -65,6 +66,7 @@ class StorageService {
   static const String _deviceBoundariesKey = 'device_boundaries';
   static const String _userContextSummaryKey = 'user_context_summary';
   static const String _winsKey = 'wins';
+  static const String _todosKey = 'todos';
 
   // Weight tracking
   static const String _weightEntriesKey = 'weight_entries';
@@ -879,6 +881,29 @@ class StorageService {
     } catch (e) {
       debugPrint('Warning: Corrupted wins data, returning empty list. Error: $e');
       await prefs.remove(_winsKey);
+      return [];
+    }
+  }
+
+  // Save/Load Todos
+  Future<void> saveTodos(List<Todo> todos) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = todos.map((todo) => todo.toJson()).toList();
+    await prefs.setString(_todosKey, json.encode(jsonList));
+    await _notifyPersistence('todos');
+  }
+
+  Future<List<Todo>> loadTodos() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_todosKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((json) => Todo.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted todos data, returning empty list. Error: $e');
+      await prefs.remove(_todosKey);
       return [];
     }
   }
