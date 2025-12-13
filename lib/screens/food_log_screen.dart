@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:share_plus/share_plus.dart';
 import '../models/food_entry.dart';
 import '../models/food_template.dart';
 import '../models/mindful_eating_entry.dart';
@@ -38,6 +39,11 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       appBar: AppBar(
         title: const Text('Food Log'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: () => _showShareOptions(context),
+            tooltip: 'Share Food Log',
+          ),
           IconButton(
             icon: const Icon(Icons.menu_book_outlined),
             onPressed: () => Navigator.push(
@@ -565,6 +571,146 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => const _GoalSettingsSheet(),
+    );
+  }
+
+  void _showShareOptions(BuildContext context) {
+    final provider = context.read<FoodLogProvider>();
+    final entries = provider.entriesForDate(_selectedDate);
+
+    if (entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No food entries to share for this day')),
+      );
+      return;
+    }
+
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'Share Food Log',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.copy,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                title: const Text('Copy to Clipboard'),
+                subtitle: const Text('Copy food log as text'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _copyFoodLogToClipboard(context, provider);
+                },
+              ),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: theme.colorScheme.secondaryContainer,
+                  child: Icon(
+                    Icons.share,
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
+                ),
+                title: const Text('Share'),
+                subtitle: const Text('Share via other apps'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _shareFoodLog(context, provider);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatFoodLogForSharing(FoodLogProvider provider) {
+    final summary = provider.summaryForDate(_selectedDate);
+    final goal = provider.effectiveGoal;
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final dateStr = isToday ? 'Today' : DateFormat('EEEE, MMMM d, y').format(_selectedDate);
+
+    final buffer = StringBuffer();
+    buffer.writeln('📋 Food Log - $dateStr');
+    buffer.writeln('═══════════════════════════════');
+    buffer.writeln();
+
+    // Daily summary
+    buffer.writeln('📊 Daily Summary');
+    buffer.writeln('───────────────────────────────');
+    buffer.writeln('Calories: ${summary.totalCalories} / ${goal.targetCalories} cal');
+    buffer.writeln('Protein: ${summary.totalProtein}g / ${goal.targetProteinGrams ?? 0}g');
+    buffer.writeln('Carbs: ${summary.totalCarbs}g / ${goal.targetCarbsGrams ?? 0}g');
+    buffer.writeln('Fat: ${summary.totalFat}g / ${goal.targetFatGrams ?? 0}g');
+    if (summary.totalFiber > 0) {
+      buffer.writeln('Fiber: ${summary.totalFiber}g');
+    }
+    buffer.writeln();
+
+    // Group entries by meal type
+    final entriesByMeal = provider.entriesByMealType(_selectedDate);
+
+    for (final mealType in MealType.values) {
+      final mealEntries = entriesByMeal[mealType] ?? [];
+      if (mealEntries.isEmpty) continue;
+
+      buffer.writeln('${mealType.emoji} ${mealType.displayName}');
+      buffer.writeln('───────────────────────────────');
+
+      for (final entry in mealEntries) {
+        buffer.writeln('• ${entry.description}');
+        if (entry.nutrition != null) {
+          buffer.writeln('  ${entry.nutrition!.calories} cal · ${entry.nutrition!.proteinGrams}g P · ${entry.nutrition!.carbsGrams}g C · ${entry.nutrition!.fatGrams}g F');
+        }
+        if (entry.notes != null && entry.notes!.isNotEmpty) {
+          buffer.writeln('  📝 ${entry.notes}');
+        }
+      }
+      buffer.writeln();
+    }
+
+    buffer.writeln('───────────────────────────────');
+    buffer.writeln('Logged with MentorMe');
+
+    return buffer.toString();
+  }
+
+  void _copyFoodLogToClipboard(BuildContext context, FoodLogProvider provider) {
+    final text = _formatFoodLogForSharing(provider);
+    Clipboard.setData(ClipboardData(text: text));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Food log copied to clipboard'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _shareFoodLog(BuildContext context, FoodLogProvider provider) async {
+    final text = _formatFoodLogForSharing(provider);
+    final isToday = _isSameDay(_selectedDate, DateTime.now());
+    final dateStr = isToday ? 'Today' : DateFormat('MMM d').format(_selectedDate);
+
+    await Share.share(
+      text,
+      subject: 'Food Log - $dateStr',
     );
   }
 
