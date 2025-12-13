@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'debug_service.dart';
 import 'voice_capture_service.dart';
 
@@ -18,15 +17,13 @@ enum VoiceActivationState {
   error,       // Error occurred
 }
 
-/// Service for voice-activated recording with continuous listening support.
+/// Service for voice-activated recording.
 ///
 /// Provides:
 /// - Global voice activation that can be triggered from anywhere
-/// - Shake-to-activate voice capture (optional)
-/// - Continuous listening mode
 /// - Callback-based result handling
+/// - State management for UI feedback
 class VoiceActivationService {
-  static const _sensorChannel = MethodChannel('com.mentorme/sensors');
   static final _debug = DebugService();
 
   static VoiceActivationService? _instance;
@@ -39,9 +36,6 @@ class VoiceActivationService {
   VoiceActivationState _state = VoiceActivationState.idle;
   VoiceActivationState get state => _state;
 
-  bool _shakeActivationEnabled = false;
-  bool get shakeActivationEnabled => _shakeActivationEnabled;
-
   // Callbacks
   VoiceResultCallback? _onResult;
   VoiceStateCallback? _onStateChanged;
@@ -53,10 +47,6 @@ class VoiceActivationService {
   // Result stream for voice captures
   final _resultController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get resultStream => _resultController.stream;
-
-  // Shake cooldown tracking (additional protection against rapid triggers)
-  DateTime? _lastShakeActivation;
-  static const _shakeCooldownDuration = Duration(seconds: 5);
 
   /// Initialize the voice activation service
   Future<void> initialize() async {
@@ -190,82 +180,8 @@ class VoiceActivationService {
     await _debug.info('VoiceActivationService', 'Voice capture cancelled');
   }
 
-  /// Enable shake-to-activate voice capture
-  Future<void> enableShakeActivation() async {
-    if (kIsWeb) {
-      await _debug.warning(
-        'VoiceActivationService',
-        'Shake activation not supported on web',
-      );
-      return;
-    }
-
-    try {
-      await _sensorChannel.invokeMethod('enableShakeDetection');
-
-      // Listen for shake events
-      _sensorChannel.setMethodCallHandler((call) async {
-        if (call.method == 'onShakeDetected') {
-          // Check cooldown to prevent rapid triggers
-          final now = DateTime.now();
-          if (_lastShakeActivation != null &&
-              now.difference(_lastShakeActivation!) < _shakeCooldownDuration) {
-            await _debug.info(
-              'VoiceActivationService',
-              'Shake detected but in cooldown period, ignoring',
-            );
-            return;
-          }
-
-          // Check if already listening
-          if (_state == VoiceActivationState.listening ||
-              _state == VoiceActivationState.processing) {
-            await _debug.info(
-              'VoiceActivationService',
-              'Shake detected but already active, ignoring',
-            );
-            return;
-          }
-
-          _lastShakeActivation = now;
-          await _debug.info('VoiceActivationService', 'Shake detected - activating voice');
-          await activate(promptHint: 'Shake activated - what do you need?');
-        }
-      });
-
-      _shakeActivationEnabled = true;
-      await _debug.info('VoiceActivationService', 'Shake activation enabled');
-
-    } on PlatformException catch (e) {
-      await _debug.error(
-        'VoiceActivationService',
-        'Failed to enable shake activation: ${e.message}',
-      );
-    }
-  }
-
-  /// Disable shake-to-activate
-  Future<void> disableShakeActivation() async {
-    if (kIsWeb || !_shakeActivationEnabled) return;
-
-    try {
-      await _sensorChannel.invokeMethod('disableShakeDetection');
-      _sensorChannel.setMethodCallHandler(null);
-      _shakeActivationEnabled = false;
-
-      await _debug.info('VoiceActivationService', 'Shake activation disabled');
-
-    } on PlatformException catch (e) {
-      await _debug.error(
-        'VoiceActivationService',
-        'Failed to disable shake activation: ${e.message}',
-      );
-    }
-  }
-
   /// Dispose of resources
   void dispose() {
-    disableShakeActivation();
     _stateController.close();
     _resultController.close();
     _onResult = null;

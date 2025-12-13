@@ -25,25 +25,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.Manifest
 import android.content.Context
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import kotlin.math.sqrt
 import io.flutter.embedding.engine.FlutterEngineCache
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MentorMe"
         private const val REQUEST_CODE_OPEN_DOCUMENT_TREE = 42
-        private const val SHAKE_THRESHOLD = 30.0f  // Acceleration threshold for shake detection (high to avoid false triggers)
-        private const val SHAKE_TIMEOUT_MS = 3000L  // Minimum time between shake events (3 seconds cooldown)
         private const val FLUTTER_ENGINE_ID = "mentorme_engine"
     }
 
@@ -51,7 +44,6 @@ class MainActivity : FlutterActivity() {
     private val LOCAL_AI_CHANNEL = "com.mentorme/local_ai"
     private val SAF_CHANNEL = "com.mentorme/saf"
     private val VOICE_CAPTURE_CHANNEL = "com.mentorme/voice_capture"
-    private val SENSORS_CHANNEL = "com.mentorme/sensors"
     private val LOCK_SCREEN_VOICE_CHANNEL = "com.mentorme/lock_screen_voice"
     private val AICORE_PACKAGE = "com.google.android.aicore"
     private val PERMISSION_REQUEST_RECORD_AUDIO = 100
@@ -68,14 +60,6 @@ class MainActivity : FlutterActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var voiceCaptureResultHandler: MethodChannel.Result? = null
     private var pendingPermissionResultHandler: MethodChannel.Result? = null
-
-    // Shake detection
-    private var sensorManager: SensorManager? = null
-    private var accelerometer: Sensor? = null
-    private var shakeListener: SensorEventListener? = null
-    private var sensorsChannel: MethodChannel? = null
-    private var lastShakeTime: Long = 0
-    private var shakeDetectionEnabled = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -328,27 +312,6 @@ class MainActivity : FlutterActivity() {
                 "stopListening" -> {
                     stopVoiceCapture()
                     result.success(true)
-                }
-                else -> {
-                    result.notImplemented()
-                }
-            }
-        }
-
-        // Sensors channel (shake detection for voice activation)
-        sensorsChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SENSORS_CHANNEL)
-        sensorsChannel?.setMethodCallHandler { call, result ->
-            when (call.method) {
-                "enableShakeDetection" -> {
-                    enableShakeDetection()
-                    result.success(true)
-                }
-                "disableShakeDetection" -> {
-                    disableShakeDetection()
-                    result.success(true)
-                }
-                "isShakeDetectionEnabled" -> {
-                    result.success(shakeDetectionEnabled)
                 }
                 else -> {
                     result.notImplemented()
@@ -1063,97 +1026,6 @@ class MainActivity : FlutterActivity() {
     }
 
     //
-    // Shake Detection Methods
-    //
-
-    /// Enable shake detection for voice activation
-    private fun enableShakeDetection() {
-        if (shakeDetectionEnabled) return
-
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-
-        if (accelerometer == null) {
-            Log.w(TAG, "Accelerometer not available on this device")
-            return
-        }
-
-        shakeListener = object : SensorEventListener {
-            private var lastX = 0f
-            private var lastY = 0f
-            private var lastZ = 0f
-            private var lastUpdate: Long = 0
-
-            override fun onSensorChanged(event: SensorEvent?) {
-                if (event == null) return
-
-                val currentTime = System.currentTimeMillis()
-
-                // Only check every 100ms to reduce CPU usage
-                if ((currentTime - lastUpdate) < 100) return
-
-                val diffTime = currentTime - lastUpdate
-                lastUpdate = currentTime
-
-                val x = event.values[0]
-                val y = event.values[1]
-                val z = event.values[2]
-
-                // Calculate acceleration change
-                val deltaX = x - lastX
-                val deltaY = y - lastY
-                val deltaZ = z - lastZ
-
-                lastX = x
-                lastY = y
-                lastZ = z
-
-                // Calculate total acceleration (removing gravity)
-                val acceleration = sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ) / diffTime * 10000
-
-                if (acceleration > SHAKE_THRESHOLD) {
-                    // Check timeout to prevent multiple triggers
-                    if (currentTime - lastShakeTime > SHAKE_TIMEOUT_MS) {
-                        lastShakeTime = currentTime
-                        Log.d(TAG, "Shake detected! Acceleration: $acceleration")
-                        onShakeDetected()
-                    }
-                }
-            }
-
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-                // Not needed
-            }
-        }
-
-        sensorManager?.registerListener(
-            shakeListener,
-            accelerometer,
-            SensorManager.SENSOR_DELAY_GAME
-        )
-
-        shakeDetectionEnabled = true
-        Log.d(TAG, "Shake detection enabled")
-    }
-
-    /// Disable shake detection
-    private fun disableShakeDetection() {
-        if (!shakeDetectionEnabled) return
-
-        shakeListener?.let { listener ->
-            sensorManager?.unregisterListener(listener)
-        }
-        shakeListener = null
-        shakeDetectionEnabled = false
-        Log.d(TAG, "Shake detection disabled")
-    }
-
-    /// Called when a shake is detected - notify Flutter
-    private fun onShakeDetected() {
-        sensorsChannel?.invokeMethod("onShakeDetected", null)
-    }
-
-    //
     // Lock Screen Voice Service Methods
     //
 
@@ -1246,6 +1118,5 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
         unloadLiteRTModel()
         cleanupSpeechRecognizer()
-        disableShakeDetection()
     }
 }

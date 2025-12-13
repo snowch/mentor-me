@@ -20,8 +20,6 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
   final _storage = StorageService();
 
   bool _isAvailable = false;
-  bool _showVoiceButton = true;
-  bool _shakeToActivate = false;
   bool _lockScreenVoice = false;
   bool _handsFreeModeEnabled = false;
   bool _isLoading = true;
@@ -47,40 +45,11 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
     if (mounted) {
       setState(() {
         _isAvailable = available;
-        _showVoiceButton = settings['showVoiceButton'] as bool? ?? true;
-        _shakeToActivate = settings['shakeToActivateVoice'] as bool? ?? false;
         _lockScreenVoice = settings['lockScreenVoiceEnabled'] as bool? ?? false;
         _handsFreeModeEnabled = settings['handsFreeModeEnabled'] as bool? ?? false;
         _isLoading = false;
       });
-
-      // Enable shake if it was previously enabled
-      if (_shakeToActivate && available) {
-        _voiceService.enableShakeActivation();
-      }
     }
-  }
-
-  Future<void> _toggleVoiceButton(bool value) async {
-    setState(() => _showVoiceButton = value);
-
-    final settings = await _storage.loadSettings();
-    settings['showVoiceButton'] = value;
-    await _storage.saveSettings(settings);
-  }
-
-  Future<void> _toggleShakeActivation(bool value) async {
-    setState(() => _shakeToActivate = value);
-
-    if (value) {
-      await _voiceService.enableShakeActivation();
-    } else {
-      await _voiceService.disableShakeActivation();
-    }
-
-    final settings = await _storage.loadSettings();
-    settings['shakeToActivateVoice'] = value;
-    await _storage.saveSettings(settings);
   }
 
   Future<void> _toggleLockScreenVoice(bool value) async {
@@ -321,24 +290,6 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
 
           const Divider(height: 1),
 
-          // Show floating button toggle
-          SwitchListTile(
-            title: const Text('Show Voice Button'),
-            subtitle: const Text('Display floating mic button on home screen'),
-            value: _showVoiceButton,
-            onChanged: _toggleVoiceButton,
-            secondary: const Icon(Icons.touch_app),
-          ),
-
-          // Shake to activate toggle
-          SwitchListTile(
-            title: const Text('Shake to Activate'),
-            subtitle: const Text('Shake your phone to start voice capture'),
-            value: _shakeToActivate,
-            onChanged: _toggleShakeActivation,
-            secondary: const Icon(Icons.vibration),
-          ),
-
           // Lock screen voice capture toggle
           SwitchListTile(
             title: const Text('Lock Screen Voice'),
@@ -364,10 +315,10 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withOpacity(0.5),
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: colorScheme.primary.withOpacity(0.3),
+                    color: colorScheme.primary.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -394,7 +345,7 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
                             'You\'ll hear audio confirmation of what was added.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: colorScheme.onSurface.withOpacity(0.7),
+                              color: colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                           ),
                         ],

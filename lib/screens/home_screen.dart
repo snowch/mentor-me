@@ -17,7 +17,6 @@ import '../services/lock_screen_voice_service.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
 import '../providers/todo_provider.dart';
-import '../widgets/voice_activation_overlay.dart';
 import 'journal_screen.dart';
 import 'actions_screen.dart';
 import 'settings_screen.dart' as settings;
@@ -40,8 +39,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storage = StorageService();
   bool _notificationsEnabled = true;
   bool _exactAlarmsEnabled = true;
-  bool _voiceActivationAvailable = false;
-  bool _showVoiceButton = true; // User preference
 
   @override
   void initState() {
@@ -54,42 +51,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initVoiceActivation() async {
-    if (kIsWeb) {
-      setState(() => _voiceActivationAvailable = false);
-      return;
-    }
+    if (kIsWeb) return;
 
     try {
       await VoiceActivationService.instance.initialize();
-      final available = await VoiceActivationService.instance.isAvailable();
 
-      // Initialize lock screen voice service with todo provider
+      // Initialize lock screen voice service with todo provider for hands-free mode
       final todoProvider = context.read<TodoProvider>();
       await LockScreenVoiceService.instance.initialize(todoProvider: todoProvider);
-
-      // Load user preference for voice button visibility
-      bool showVoice = true;
-      try {
-        final settings = await _storage.loadSettings();
-        showVoice = settings['showVoiceButton'] as bool? ?? true;
-      } catch (e) {
-        debugPrint('Warning: Failed to load voice settings: $e');
-      }
-
-      if (mounted) {
-        setState(() {
-          _voiceActivationAvailable = available;
-          _showVoiceButton = showVoice;
-        });
-      }
     } catch (e) {
       debugPrint('Warning: Voice activation initialization failed: $e');
-      if (mounted) {
-        setState(() {
-          _voiceActivationAvailable = false;
-          _showVoiceButton = true;
-        });
-      }
     }
   }
 
@@ -387,30 +358,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
 
-  void _handleTodoCreated() {
-    // Navigate to Actions tab when todo is created via voice
-    if (_selectedIndex != 2) {
-      _navigateToTab(2);
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Todo created via voice!'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final showNotificationWarning = !_notificationsEnabled || !_exactAlarmsEnabled;
-    final showVoiceFab = _voiceActivationAvailable && _showVoiceButton && !kIsWeb;
 
-    return VoiceActivationOverlay(
-      showFloatingButton: showVoiceFab,
-      onTodoCreated: _handleTodoCreated,
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -663,7 +615,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: AppStrings.featureSettings,
           ),
         ],
-      ),
       ),
     );
   }
