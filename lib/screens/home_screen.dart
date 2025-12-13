@@ -59,22 +59,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return;
     }
 
-    await VoiceActivationService.instance.initialize();
-    final available = await VoiceActivationService.instance.isAvailable();
+    try {
+      await VoiceActivationService.instance.initialize();
+      final available = await VoiceActivationService.instance.isAvailable();
 
-    // Initialize lock screen voice service with todo provider
-    final todoProvider = context.read<TodoProvider>();
-    await LockScreenVoiceService.instance.initialize(todoProvider: todoProvider);
+      // Initialize lock screen voice service with todo provider
+      final todoProvider = context.read<TodoProvider>();
+      await LockScreenVoiceService.instance.initialize(todoProvider: todoProvider);
 
-    // Load user preference for voice button visibility
-    final settings = await _storage.loadSettings();
-    final showVoice = settings['showVoiceButton'] as bool? ?? true;
+      // Load user preference for voice button visibility
+      bool showVoice = true;
+      try {
+        final settings = await _storage.loadSettings();
+        showVoice = settings['showVoiceButton'] as bool? ?? true;
+      } catch (e) {
+        debugPrint('Warning: Failed to load voice settings: $e');
+      }
 
-    if (mounted) {
-      setState(() {
-        _voiceActivationAvailable = available;
-        _showVoiceButton = showVoice;
-      });
+      if (mounted) {
+        setState(() {
+          _voiceActivationAvailable = available;
+          _showVoiceButton = showVoice;
+        });
+      }
+    } catch (e) {
+      debugPrint('Warning: Voice activation initialization failed: $e');
+      if (mounted) {
+        setState(() {
+          _voiceActivationAvailable = false;
+          _showVoiceButton = true;
+        });
+      }
     }
   }
 
@@ -157,23 +172,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   */
 
   Future<void> _checkAndShowWelcomeDialog() async {
-    // Check if user just completed onboarding and hasn't seen the welcome dialog
-    final settings = await _storage.loadSettings();
-    final hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
-    final hasSeenWelcome = settings['hasSeenPostOnboardingWelcome'] as bool? ?? false;
+    try {
+      // Check if user just completed onboarding and hasn't seen the welcome dialog
+      final settings = await _storage.loadSettings();
+      final hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
+      final hasSeenWelcome = settings['hasSeenPostOnboardingWelcome'] as bool? ?? false;
 
-    // Show welcome dialog if they completed onboarding but haven't seen the welcome yet
-    if (hasCompletedOnboarding && !hasSeenWelcome && mounted) {
-      // Schedule dialog to show after the first frame is rendered
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showWelcomeDialog();
-        }
-      });
+      // Show welcome dialog if they completed onboarding but haven't seen the welcome yet
+      if (hasCompletedOnboarding && !hasSeenWelcome && mounted) {
+        // Schedule dialog to show after the first frame is rendered
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showWelcomeDialog();
+          }
+        });
 
-      // Mark as seen
-      settings['hasSeenPostOnboardingWelcome'] = true;
-      await _storage.saveSettings(settings);
+        // Mark as seen
+        settings['hasSeenPostOnboardingWelcome'] = true;
+        await _storage.saveSettings(settings);
+      }
+    } catch (e) {
+      debugPrint('Warning: Failed to check/show welcome dialog: $e');
+      // If settings are corrupted, skip the welcome dialog
     }
   }
 
