@@ -830,6 +830,27 @@ class ChatProvider extends ChangeNotifier {
       'content': formattedContent,
       'goalIds': linkedGoalIds,
       'conversationTitle': conversation.title,
+      'savedJournalId': conversation.savedJournalId,
     };
   }
+
+  /// Update the savedJournalId for the current conversation
+  Future<void> setSavedJournalId(String journalId) async {
+    if (_currentConversation == null) return;
+
+    _currentConversation = _currentConversation!.copyWith(
+      savedJournalId: journalId,
+    );
+
+    final index = _conversations.indexWhere((c) => c.id == _currentConversation!.id);
+    if (index != -1) {
+      _conversations[index] = _currentConversation!;
+    }
+
+    await _saveConversations();
+    notifyListeners();
+  }
+
+  /// Get the savedJournalId for the current conversation
+  String? get currentSavedJournalId => _currentConversation?.savedJournalId;
 }

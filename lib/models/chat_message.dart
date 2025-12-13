@@ -113,6 +113,7 @@ class Conversation {
   final DateTime createdAt;
   final DateTime? lastMessageAt;
   final List<ChatMessage> messages;
+  final String? savedJournalId; // ID of journal entry if conversation was saved
 
   Conversation({
     String? id,
@@ -120,6 +121,7 @@ class Conversation {
     DateTime? createdAt,
     this.lastMessageAt,
     List<ChatMessage>? messages,
+    this.savedJournalId,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         messages = messages ?? [];
@@ -131,6 +133,7 @@ class Conversation {
       'createdAt': createdAt.toIso8601String(),
       'lastMessageAt': lastMessageAt?.toIso8601String(),
       'messages': messages.map((m) => m.toJson()).toList(),
+      'savedJournalId': savedJournalId,
     };
   }
 
@@ -146,6 +149,7 @@ class Conversation {
               ?.map((m) => ChatMessage.fromJson(m))
               .toList() ??
           [],
+      savedJournalId: json['savedJournalId'],
     );
   }
 
@@ -153,6 +157,7 @@ class Conversation {
     String? title,
     DateTime? lastMessageAt,
     List<ChatMessage>? messages,
+    String? savedJournalId,
   }) {
     return Conversation(
       id: id,
@@ -160,9 +165,11 @@ class Conversation {
       createdAt: createdAt,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       messages: messages ?? this.messages,
+      savedJournalId: savedJournalId ?? this.savedJournalId,
     );
   }
 
   int get messageCount => messages.length;
   bool get hasMessages => messages.isNotEmpty;
+  bool get hasSavedJournal => savedJournalId != null;
 }

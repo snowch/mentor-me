@@ -324,7 +324,7 @@ class ContextManagementService {
       }
       // Recent food entries with detailed nutrition and mindful eating data
       int foodCount = 0;
-      for (final entry in foodEntries.take(10)) {
+      for (final entry in foodEntries.take(50)) {
         final nutritionParts = <String>[];
         if (entry.nutrition != null) {
           nutritionParts.add('${entry.nutrition!.calories} cal');
@@ -822,14 +822,14 @@ class ContextManagementService {
       final recentFood = foodEntries
           .where((f) => f.timestamp.isAfter(cutoffDate))
           .toList();
-      for (final entry in recentFood.take(10)) {
+      for (final entry in recentFood.take(50)) {
         final nutrition = entry.nutrition != null
             ? ' (${entry.nutrition!.calories} cal, ${entry.nutrition!.proteinGrams}g protein)'
             : '';
         buffer.writeln('- ${_formatDate(entry.timestamp)} ${entry.mealType.displayName}: ${entry.description}$nutrition');
       }
       buffer.writeln();
-      itemCounts['food_entries'] = recentFood.take(10).length;
+      itemCounts['food_entries'] = recentFood.take(50).length;
     }
 
     // LAYER 3e: Recent Wins (since summary cutoff)
