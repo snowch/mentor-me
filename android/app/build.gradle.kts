@@ -101,4 +101,7 @@ dependencies {
 
     // AndroidX Media for MediaSession (Bluetooth headset button handling for hands-free voice)
     implementation("androidx.media:media:1.7.0")
+
+    // Android Auto Car App Library for hands-free voice todo creation while driving
+    implementation("androidx.car.app:app:1.4.0")
 }

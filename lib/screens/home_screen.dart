@@ -15,6 +15,7 @@ import '../services/auto_backup_service.dart';
 import '../services/voice_activation_service.dart';
 import '../services/unified_voice_service.dart';
 import '../services/app_actions_service.dart';
+import '../services/android_auto_service.dart';
 import '../models/todo.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
@@ -67,8 +68,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onCreateTodo: (title, dueDate) => _handleAppActionCreateTodo(title, dueDate),
         onOpenAddTodo: () => _handleAppActionOpenAddTodo(),
       );
+
+      // Initialize Android Auto service for hands-free driving
+      await AndroidAutoService.instance.initialize(
+        todoProvider: todoProvider,
+        onTodoCreated: (title) => _handleAndroidAutoTodoCreated(title),
+      );
     } catch (e) {
       debugPrint('Warning: Voice activation initialization failed: $e');
+    }
+  }
+
+  /// Handle todo creation from Android Auto
+  void _handleAndroidAutoTodoCreated(String title) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Todo added from Android Auto: $title'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      // Navigate to Actions screen to show the new todo
+      setState(() => _selectedIndex = 1);
     }
   }
 

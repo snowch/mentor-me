@@ -113,6 +113,21 @@
         <!-- Native libraries for LiteRT GPU acceleration with OpenCL -->
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
         <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+
+        <!-- Android Auto CarAppService for hands-free voice todo creation while driving -->
+        <service
+            android:name=".MentorMeCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService"/>
+                <category android:name="androidx.car.app.category.POI"/>
+            </intent-filter>
+        </service>
+
+        <!-- Android Auto app description metadata -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
