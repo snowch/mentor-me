@@ -54,6 +54,7 @@ import '../models/digital_wellness.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
 import '../models/food_template.dart';
+import '../models/todo.dart';
 import '../config/build_info.dart';
 
 // Conditional import: web implementation when dart:html is available, stub otherwise
@@ -75,6 +76,7 @@ class BackupService {
     final journalEntries = await _storage.loadJournalEntries();
     final checkin = await _storage.loadCheckin();
     final habits = await _storage.loadHabits();
+    final todos = await _storage.loadTodos();
     final pulseEntries = await _storage.loadPulseEntries();
     final pulseTypes = await _storage.loadPulseTypes();
     final conversations = await _storage.getConversations();
@@ -172,6 +174,7 @@ class BackupService {
       'journal_entries': json.encode(journalEntries.map((e) => e.toJson()).toList()),
       'goals': json.encode(goals.map((g) => g.toJson()).toList()),
       'habits': json.encode(habits.map((h) => h.toJson()).toList()),
+      'todos': json.encode(todos.map((t) => t.toJson()).toList()),
       'checkins': checkin != null ? json.encode(checkin.toJson()) : null,
       'pulse_entries': json.encode(pulseEntries.map((m) => m.toJson()).toList()),
       'pulse_types': json.encode(pulseTypes.map((t) => t.toJson()).toList()),
@@ -248,6 +251,7 @@ class BackupService {
         'totalGoals': goals.length,
         'totalJournalEntries': journalEntries.length,
         'totalHabits': habits.length,
+        'totalTodos': todos.length,
         'totalPulseEntries': pulseEntries.length,
         'totalPulseTypes': pulseTypes.length,
         'totalConversations': conversations?.length ?? 0,
@@ -934,6 +938,39 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Habits',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import todos
+    try {
+      if (data.containsKey('todos') && data['todos'] != null) {
+        final todosJson = json.decode(data['todos'] as String) as List;
+        final todos = todosJson.map((json) => Todo.fromJson(json)).toList();
+        await _storage.saveTodos(todos);
+        await _debug.info('BackupService', 'Imported ${todos.length} todos');
+        results.add(ImportItemResult(
+          dataType: 'Todos',
+          success: true,
+          count: todos.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Todos',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import todos: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Todos',
         success: false,
         count: 0,
         errorMessage: e.toString(),

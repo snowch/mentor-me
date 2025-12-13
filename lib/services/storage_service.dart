@@ -20,6 +20,7 @@ import '../models/food_template.dart';
 import '../models/mindful_eating_entry.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
+import '../models/todo.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -93,6 +94,9 @@ class StorageService {
   // Symptom tracking
   static const String _symptomTypesKey = 'symptom_types';
   static const String _symptomEntriesKey = 'symptom_entries';
+
+  // Todos (unified actions)
+  static const String _todosKey = 'todos';
 
   /// All storage keys that contain USER DATA and should be backed up.
   /// This is the SINGLE SOURCE OF TRUTH for backup coverage.
@@ -168,6 +172,9 @@ class StorageService {
     // Symptom tracking
     'symptom_types',
     'symptom_entries',
+
+    // Todos (unified actions)
+    'todos',
 
     // Safety plan
     'safety_plan',
@@ -328,6 +335,29 @@ class StorageService {
     } catch (e) {
       debugPrint('Warning: Corrupted habits data, returning empty list. Error: $e');
       await prefs.remove(_habitsKey);
+      return [];
+    }
+  }
+
+  // Save/Load Todos
+  Future<void> saveTodos(List<Todo> todos) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = todos.map((todo) => todo.toJson()).toList();
+    await prefs.setString(_todosKey, json.encode(jsonList));
+    await _notifyPersistence('todos');
+  }
+
+  Future<List<Todo>> loadTodos() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_todosKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((json) => Todo.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted todos data, returning empty list. Error: $e');
+      await prefs.remove(_todosKey);
       return [];
     }
   }

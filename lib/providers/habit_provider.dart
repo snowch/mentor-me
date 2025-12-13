@@ -22,6 +22,14 @@ class HabitProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get lastCelebrationMessage => _lastCelebrationMessage;
 
+  /// Get habits that are ready for graduation (streak >= daysToFormation)
+  List<Habit> get habitsReadyForGraduation =>
+      _habits.where((h) => h.canGraduate && h.status == HabitStatus.active).toList();
+
+  /// Get ingrained (graduated) habits
+  List<Habit> get ingrainedHabits =>
+      _habits.where((h) => h.maturity == HabitMaturity.ingrained).toList();
+
   HabitProvider() {
     _loadHabits();
   }
@@ -97,6 +105,9 @@ class HabitProvider extends ChangeNotifier {
     );
 
     await updateHabit(updatedHabit);
+
+    // Update maturity based on progress
+    await _updateHabitMaturity(updatedHabit);
 
     // Track activity completion in analytics
     await _analytics.trackActivityCompleted(activityType: 'habit');
@@ -342,5 +353,94 @@ class HabitProvider extends ChangeNotifier {
       await _storage.saveHabits(_habits);
       notifyListeners();
     }
+  }
+
+  /// Graduate a habit to ingrained status
+  /// This marks the habit as a successfully formed behavior
+  Future<void> graduateHabit(String habitId) async {
+    final habit = getHabitById(habitId);
+    if (habit == null) return;
+
+    if (!habit.canGraduate) {
+      throw Exception('Habit is not ready for graduation');
+    }
+
+    final graduatedHabit = habit.graduate();
+    await updateHabit(graduatedHabit);
+
+    // Record win for habit graduation
+    await _recordHabitGraduationWin(habit: graduatedHabit);
+
+    // Send celebration notification
+    await _smartNotifications.sendHabitGraduationNotification(
+      habitTitle: graduatedHabit.title,
+      daysToFormation: graduatedHabit.daysToFormation,
+    );
+  }
+
+  /// Records a win when a habit graduates to ingrained
+  Future<void> _recordHabitGraduationWin({required Habit habit}) async {
+    try {
+      final wins = await _storage.loadWins();
+      final win = Win(
+        description: 'Habit "${habit.title}" is now ingrained! (${habit.daysToFormation} days)',
+        source: WinSource.habitGraduated,
+        category: WinCategory.habit,
+        linkedHabitId: habit.id,
+      );
+      wins.add(win);
+      await _storage.saveWins(wins);
+    } catch (e) {
+      debugPrint('Failed to record habit graduation win: $e');
+    }
+  }
+
+  /// Update habit maturity based on current progress
+  /// Called automatically when completing a habit
+  Future<void> _updateHabitMaturity(Habit habit) async {
+    if (habit.maturity == HabitMaturity.ingrained) {
+      // Already at highest maturity
+      return;
+    }
+
+    HabitMaturity newMaturity = habit.maturity;
+    final progress = habit.formationProgress;
+
+    // Update maturity based on formation progress
+    if (progress >= 1.0) {
+      // 100% - ready to graduate (but don't auto-graduate, let user confirm)
+      newMaturity = HabitMaturity.established;
+    } else if (progress >= 0.5 && habit.maturity == HabitMaturity.forming) {
+      // 50% - transition from forming to established
+      newMaturity = HabitMaturity.established;
+    }
+
+    if (newMaturity != habit.maturity) {
+      final updatedHabit = habit.copyWith(maturity: newMaturity);
+      await updateHabit(updatedHabit);
+    }
+  }
+
+  /// Check if any habits are ready for graduation
+  /// Returns list of habit IDs that can graduate
+  List<String> checkGraduationReady() {
+    return habitsReadyForGraduation.map((h) => h.id).toList();
+  }
+
+  /// Revert a graduated habit back to active tracking
+  /// Useful if the user feels the habit isn't fully ingrained
+  Future<void> revertGraduation(String habitId) async {
+    final habit = getHabitById(habitId);
+    if (habit == null) return;
+
+    if (habit.maturity != HabitMaturity.ingrained) {
+      return; // Not graduated, nothing to revert
+    }
+
+    final revertedHabit = habit.copyWith(
+      maturity: HabitMaturity.established,
+    );
+
+    await updateHabit(revertedHabit);
   }
 }

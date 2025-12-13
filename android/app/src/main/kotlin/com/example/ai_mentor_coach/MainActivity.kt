@@ -23,6 +23,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.Manifest
+import android.content.Context
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -33,7 +41,9 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.mentorme/on_device_ai"
     private val LOCAL_AI_CHANNEL = "com.mentorme/local_ai"
     private val SAF_CHANNEL = "com.mentorme/saf"
+    private val VOICE_CAPTURE_CHANNEL = "com.mentorme/voice_capture"
     private val AICORE_PACKAGE = "com.google.android.aicore"
+    private val PERMISSION_REQUEST_RECORD_AUDIO = 100
 
     // LiteRT LLM Engine instance with thread-safe access
     // Note: We create a fresh Conversation for each inference to avoid context accumulation
@@ -42,6 +52,11 @@ class MainActivity : FlutterActivity() {
 
     // SAF callback result handler
     private var safResultHandler: MethodChannel.Result? = null
+
+    // Voice capture
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var voiceCaptureResultHandler: MethodChannel.Result? = null
+    private var pendingPermissionResultHandler: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -248,6 +263,52 @@ class MainActivity : FlutterActivity() {
                     } else {
                         result.error("INVALID_ARGUMENT", "URI is required", null)
                     }
+                }
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Voice Capture channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CAPTURE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isAvailable" -> {
+                    val available = SpeechRecognizer.isRecognitionAvailable(this)
+                    result.success(available)
+                }
+                "hasPermission" -> {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                    result.success(hasPermission)
+                }
+                "requestPermission" -> {
+                    val hasPermission = ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    if (hasPermission) {
+                        result.success(true)
+                    } else {
+                        pendingPermissionResultHandler = result
+                        ActivityCompat.requestPermissions(
+                            this,
+                            arrayOf(Manifest.permission.RECORD_AUDIO),
+                            PERMISSION_REQUEST_RECORD_AUDIO
+                        )
+                    }
+                }
+                "startListening" -> {
+                    val promptHint = call.argument<String>("promptHint") ?: "Speak now"
+                    val timeoutMs = call.argument<Int>("timeoutMs") ?: 30000
+                    startVoiceCapture(result, promptHint, timeoutMs)
+                }
+                "stopListening" -> {
+                    stopVoiceCapture()
+                    result.success(true)
                 }
                 else -> {
                     result.notImplemented()
@@ -796,8 +857,157 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    //
+    // Voice Capture Methods
+    //
+
+    /// Start voice capture using Android Speech Recognition
+    private fun startVoiceCapture(result: MethodChannel.Result, promptHint: String, timeoutMs: Int) {
+        // Check permission first
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            result.error("PERMISSION_DENIED", "Microphone permission not granted", null)
+            return
+        }
+
+        // Check if speech recognition is available
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            result.error("NOT_AVAILABLE", "Speech recognition not available on this device", null)
+            return
+        }
+
+        // Cancel any existing recognizer
+        stopVoiceCapture()
+
+        voiceCaptureResultHandler = result
+
+        // Create speech recognizer on main thread
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    Log.d(TAG, "Voice capture: Ready for speech")
+                }
+
+                override fun onBeginningOfSpeech() {
+                    Log.d(TAG, "Voice capture: Beginning of speech detected")
+                }
+
+                override fun onRmsChanged(rmsdB: Float) {
+                    // Audio level changed - can be used for visual feedback
+                }
+
+                override fun onBufferReceived(buffer: ByteArray?) {
+                    // Partial sound buffer received
+                }
+
+                override fun onEndOfSpeech() {
+                    Log.d(TAG, "Voice capture: End of speech detected")
+                }
+
+                override fun onError(error: Int) {
+                    val errorMessage = when (error) {
+                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                        SpeechRecognizer.ERROR_CLIENT -> "Client side error"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
+                        SpeechRecognizer.ERROR_SERVER -> "Server error"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech timeout"
+                        else -> "Unknown error: $error"
+                    }
+                    Log.e(TAG, "Voice capture error: $errorMessage")
+
+                    // For "no match" - return null instead of error (user may not have spoken)
+                    if (error == SpeechRecognizer.ERROR_NO_MATCH ||
+                        error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                        voiceCaptureResultHandler?.success(null)
+                    } else {
+                        voiceCaptureResultHandler?.error("SPEECH_ERROR", errorMessage, null)
+                    }
+                    voiceCaptureResultHandler = null
+                    cleanupSpeechRecognizer()
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    val transcript = matches?.firstOrNull()
+
+                    Log.d(TAG, "Voice capture result: $transcript")
+
+                    voiceCaptureResultHandler?.success(transcript)
+                    voiceCaptureResultHandler = null
+                    cleanupSpeechRecognizer()
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    // Partial recognition results
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    Log.d(TAG, "Voice capture partial: ${matches?.firstOrNull()}")
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) {
+                    // Reserved for future use
+                }
+            })
+        }
+
+        // Create intent for speech recognition
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, promptHint)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 3000)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500)
+        }
+
+        Log.d(TAG, "Voice capture: Starting speech recognition")
+        speechRecognizer?.startListening(intent)
+    }
+
+    /// Stop voice capture
+    private fun stopVoiceCapture() {
+        try {
+            speechRecognizer?.cancel()
+            cleanupSpeechRecognizer()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping voice capture: ${e.message}")
+        }
+    }
+
+    /// Clean up speech recognizer resources
+    private fun cleanupSpeechRecognizer() {
+        try {
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error destroying speech recognizer: ${e.message}")
+        }
+        speechRecognizer = null
+    }
+
+    /// Handle permission request result
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == PERMISSION_REQUEST_RECORD_AUDIO) {
+            val granted = grantResults.isNotEmpty() &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED
+            pendingPermissionResultHandler?.success(granted)
+            pendingPermissionResultHandler = null
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unloadLiteRTModel()
+        cleanupSpeechRecognizer()
     }
 }

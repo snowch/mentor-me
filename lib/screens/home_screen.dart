@@ -13,9 +13,8 @@ import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
-import 'goals_screen.dart';
 import 'journal_screen.dart';
-import 'habits_screen.dart';
+import 'actions_screen.dart';
 import 'settings_screen.dart' as settings;
 import 'mentor_screen.dart';
 import 'ai_settings_screen.dart';
@@ -557,8 +556,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             onNavigateToTab: _navigateToTab,
           ),
           const JournalScreen(),
-          const HabitsScreen(),
-          const GoalsScreen(),
+          const ActionsScreen(),
           const WellnessDashboardScreen(),
           const settings.SettingsScreen(),
         ],
@@ -578,14 +576,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: AppStrings.featureJournal,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.check_circle_outline),
-            selectedIcon: const Icon(Icons.check_circle),
-            label: AppStrings.featureHabits,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.flag_outlined),
-            selectedIcon: const Icon(Icons.flag),
-            label: AppStrings.featureGoals,
+            icon: const Icon(Icons.task_alt_outlined),
+            selectedIcon: const Icon(Icons.task_alt),
+            label: 'Actions',
           ),
           NavigationDestination(
             icon: const Icon(Icons.spa_outlined),

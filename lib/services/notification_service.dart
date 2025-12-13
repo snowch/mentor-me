@@ -486,6 +486,7 @@ class NotificationService {
   static const int _periodicCheckAlarmId = 101;
   static const int _streakBaseId = 1000; // Habit IDs will be hashCode + this
   static const int _deadlineBaseId = 2000; // Goal IDs will be hashCode + this
+  static const int _todoBaseId = 3000; // Todo IDs will be hashCode + this
 
   // Trust score thresholds for notification frequency
   static const double _highTrustThreshold = 70.0;
@@ -1157,6 +1158,63 @@ class NotificationService {
       await AndroidAlarmManager.cancel(alarmIdBase + 1);
       debugPrint('🗑️ Cancelled deadline reminders for goal $goalId');
     }
+  }
+
+  /// 5. Schedule todo reminder notification
+  Future<void> scheduleTodoReminder({
+    required String todoId,
+    required String title,
+    required DateTime reminderTime,
+  }) async {
+    if (!kIsWeb) {
+      try {
+        debugPrint('📋 Scheduling todo reminder for "$title" at $reminderTime');
+
+        final alarmId = _todoBaseId + todoId.hashCode;
+
+        // Cancel existing reminder for this todo
+        await AndroidAlarmManager.cancel(alarmId);
+
+        // Only schedule if reminder time is in the future
+        if (reminderTime.isAfter(DateTime.now())) {
+          await AndroidAlarmManager.oneShotAt(
+            reminderTime,
+            alarmId,
+            () => _todoReminderCallback(todoId),
+            exact: true,
+            wakeup: true,
+          );
+
+          debugPrint('✅ Todo reminder scheduled for "$title" at $reminderTime');
+          await _debug.info('NotificationService', 'Todo reminder scheduled', metadata: {
+            'todo': title,
+            'reminder_time': reminderTime.toIso8601String(),
+          });
+        } else {
+          debugPrint('⚠️ Skipped todo reminder - time is in the past');
+        }
+      } catch (e, stackTrace) {
+        debugPrint('❌ Error scheduling todo reminder: $e');
+        await _debug.error('NotificationService', 'Failed to schedule todo reminder: $e',
+          stackTrace: stackTrace.toString());
+      }
+    }
+  }
+
+  /// Cancel todo reminder (when completed, cancelled, or deleted)
+  Future<void> cancelTodoReminder(String todoId) async {
+    if (!kIsWeb) {
+      final alarmId = _todoBaseId + todoId.hashCode;
+      await AndroidAlarmManager.cancel(alarmId);
+      debugPrint('🗑️ Cancelled todo reminder for todo $todoId');
+    }
+  }
+
+  /// Helper callback for todo reminders
+  static void _todoReminderCallback(String todoId) async {
+    // This would load todo data and show notification
+    // For now, placeholder
+    debugPrint('📋 Todo reminder callback for todo $todoId');
   }
 
   /// Helper callback for deadline reminders

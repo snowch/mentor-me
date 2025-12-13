@@ -8,6 +8,7 @@ enum WinSource {
   goalComplete, // Auto-captured from goal completion
   milestoneComplete, // Auto-captured from milestone completion
   streakMilestone,   // Auto-captured from habit streak milestone
+  habitGraduated,    // Auto-captured from habit graduation to ingrained
 }
 
 /// Category for organizing wins.
@@ -142,6 +143,8 @@ extension WinSourceExtension on WinSource {
         return 'Milestone Completed';
       case WinSource.streakMilestone:
         return 'Streak Milestone';
+      case WinSource.habitGraduated:
+        return 'Habit Graduated';
     }
   }
 
@@ -159,6 +162,8 @@ extension WinSourceExtension on WinSource {
         return '🏆';
       case WinSource.streakMilestone:
         return '🔥';
+      case WinSource.habitGraduated:
+        return '🎓';
     }
   }
 }

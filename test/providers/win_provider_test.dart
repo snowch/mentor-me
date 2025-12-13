@@ -273,13 +273,14 @@ void main() {
     });
 
     test('WinSource should have correct values', () {
-      expect(WinSource.values.length, 6);
+      expect(WinSource.values.length, 7);
       expect(WinSource.reflection.name, 'reflection');
       expect(WinSource.journal.name, 'journal');
       expect(WinSource.manual.name, 'manual');
       expect(WinSource.goalComplete.name, 'goalComplete');
       expect(WinSource.milestoneComplete.name, 'milestoneComplete');
       expect(WinSource.streakMilestone.name, 'streakMilestone');
+      expect(WinSource.habitGraduated.name, 'habitGraduated');
     });
 
     test('WinCategory should have display names', () {

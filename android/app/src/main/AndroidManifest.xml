@@ -11,6 +11,9 @@
     <!-- For Android 13+ (API 33+) notification permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Voice capture / Speech recognition permissions -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
     <!-- Storage permissions for file picker -->
     <!-- For Android 13+ (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -102,6 +105,14 @@
         </intent>
         <intent>
             <action android:name="android.intent.action.OPEN_DOCUMENT_TREE"/>
+        </intent>
+
+        <!-- Voice capture / Speech recognition queries -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH"/>
         </intent>
     </queries>
 </manifest>

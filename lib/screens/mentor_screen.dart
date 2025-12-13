@@ -30,6 +30,7 @@ import '../providers/settings_provider.dart';
 import 'dashboard_settings_screen.dart';
 import '../widgets/recent_wins_widget.dart';
 import '../widgets/food_log_widget.dart';
+import '../widgets/quick_capture_widget.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -684,6 +685,8 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         return const ExerciseWidget();
       case 'foodLog':
         return const FoodLogWidget();
+      case 'quickCapture':
+        return const QuickCaptureWidget();
       case 'goals':
         return _buildGlanceableGoals(context, goalProvider);
       case 'habits':
