@@ -749,21 +749,58 @@ class _ChatScreenState extends State<ChatScreen> {
         return;
       }
 
-      // Create journal entry
-      final journalEntry = JournalEntry(
-        type: JournalEntryType.quickNote,
-        content: result['content'] as String,
-        goalIds: result['goalIds'] as List<String>,
-      );
+      final existingJournalId = result['savedJournalId'] as String?;
+      final content = result['content'] as String;
+      final goalIds = result['goalIds'] as List<String>;
+      String message;
 
-      await journalProvider.addEntry(journalEntry);
+      if (existingJournalId != null) {
+        // Update existing journal entry
+        final existingEntry = journalProvider.entries
+            .where((e) => e.id == existingJournalId)
+            .firstOrNull;
+
+        if (existingEntry != null) {
+          // Create updated entry with same ID
+          final updatedEntry = JournalEntry(
+            id: existingEntry.id,
+            createdAt: existingEntry.createdAt,
+            type: existingEntry.type,
+            content: content,
+            goalIds: goalIds,
+          );
+          await journalProvider.updateEntry(updatedEntry);
+          message = goalIds.isNotEmpty
+              ? 'Journal entry updated and linked to ${goalIds.length} goal${goalIds.length > 1 ? 's' : ''}!'
+              : 'Journal entry updated!';
+        } else {
+          // Entry was deleted, create new one
+          final journalEntry = JournalEntry(
+            type: JournalEntryType.quickNote,
+            content: content,
+            goalIds: goalIds,
+          );
+          await journalProvider.addEntry(journalEntry);
+          await chatProvider.setSavedJournalId(journalEntry.id);
+          message = 'Saved to journal!';
+        }
+      } else {
+        // Create new journal entry
+        final journalEntry = JournalEntry(
+          type: JournalEntryType.quickNote,
+          content: content,
+          goalIds: goalIds,
+        );
+        await journalProvider.addEntry(journalEntry);
+        // Store the journal ID in the conversation
+        await chatProvider.setSavedJournalId(journalEntry.id);
+
+        message = goalIds.isNotEmpty
+            ? 'Saved to journal and linked to ${goalIds.length} goal${goalIds.length > 1 ? 's' : ''}!'
+            : 'Saved to journal!';
+      }
 
       if (mounted) {
-        final goalCount = (result['goalIds'] as List<String>).length;
-        final message = goalCount > 0
-            ? 'Saved to journal and linked to $goalCount goal${goalCount > 1 ? 's' : ''}!'
-            : 'Saved to journal!';
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
