@@ -52,8 +52,12 @@ class LockScreenVoiceService {
     _channel.setMethodCallHandler(_handleMethodCall);
 
     // Load saved preference
-    final settings = await _storage.loadSettings();
-    _isEnabled = settings['lockScreenVoiceEnabled'] as bool? ?? false;
+    try {
+      final settings = await _storage.loadSettings();
+      _isEnabled = settings['lockScreenVoiceEnabled'] as bool? ?? false;
+    } catch (e) {
+      _isEnabled = false;
+    }
 
     // Check if service is running
     try {
@@ -62,10 +66,10 @@ class LockScreenVoiceService {
       _isServiceRunning = false;
     }
 
-    // Start service if it was enabled
-    if (_isEnabled && !_isServiceRunning) {
-      await startService();
-    }
+    // NOTE: Do NOT auto-start service here!
+    // The service requires RECORD_AUDIO permission which must be granted first.
+    // The service should only be started when the user explicitly enables it
+    // from the voice settings screen, which handles the permission request.
 
     await _debug.info(
       'LockScreenVoiceService',
