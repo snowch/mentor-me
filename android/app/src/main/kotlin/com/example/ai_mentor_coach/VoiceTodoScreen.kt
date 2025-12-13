@@ -355,8 +355,12 @@ class VoiceTodoScreen(carContext: CarContext) : Screen(carContext) {
         }
     }
 
-    override fun onDestroy(owner: androidx.lifecycle.LifecycleOwner) {
-        super.onDestroy(owner)
-        cleanupRecognizer()
+    init {
+        // Register lifecycle observer for cleanup
+        lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onDestroy(owner: androidx.lifecycle.LifecycleOwner) {
+                cleanupRecognizer()
+            }
+        })
     }
 }
