@@ -13,11 +13,13 @@ import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
 import '../services/voice_activation_service.dart';
-import '../services/lock_screen_voice_service.dart';
+import '../services/unified_voice_service.dart';
+import '../services/app_actions_service.dart';
+import '../services/android_auto_service.dart';
+import '../models/todo.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
 import '../providers/settings_provider.dart';
 import '../providers/todo_provider.dart';
-import '../widgets/voice_activation_overlay.dart';
 import 'journal_screen.dart';
 import 'actions_screen.dart';
 import 'settings_screen.dart' as settings;
@@ -40,8 +42,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final _storage = StorageService();
   bool _notificationsEnabled = true;
   bool _exactAlarmsEnabled = true;
-  bool _voiceActivationAvailable = false;
-  bool _showVoiceButton = true; // User preference
 
   @override
   void initState() {
@@ -54,26 +54,99 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initVoiceActivation() async {
-    if (kIsWeb) {
-      setState(() => _voiceActivationAvailable = false);
-      return;
+    if (kIsWeb) return;
+
+    try {
+      await VoiceActivationService.instance.initialize();
+
+      // Initialize unified voice service with todo provider for hands-free mode
+      final todoProvider = context.read<TodoProvider>();
+      await UnifiedVoiceService.instance.initialize(todoProvider: todoProvider);
+
+      // Initialize App Actions service for Google Assistant integration
+      await AppActionsService.instance.initialize(
+        onCreateTodo: (title, dueDate) => _handleAppActionCreateTodo(title, dueDate),
+        onOpenAddTodo: () => _handleAppActionOpenAddTodo(),
+      );
+
+      // Initialize Android Auto service for hands-free driving
+      await AndroidAutoService.instance.initialize(
+        todoProvider: todoProvider,
+        onTodoCreated: (title) => _handleAndroidAutoTodoCreated(title),
+      );
+    } catch (e) {
+      debugPrint('Warning: Voice activation initialization failed: $e');
+    }
+  }
+
+  /// Handle todo creation from Android Auto
+  void _handleAndroidAutoTodoCreated(String title) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Todo added from Android Auto: $title'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      // Navigate to Actions screen to show the new todo
+      setState(() => _selectedIndex = 1);
+    }
+  }
+
+  /// Handle todo creation from Google Assistant App Action
+  void _handleAppActionCreateTodo(String title, String? dueDate) {
+    final todoProvider = context.read<TodoProvider>();
+
+    // Parse due date if provided
+    DateTime? parsedDueDate;
+    if (dueDate != null && dueDate.isNotEmpty) {
+      try {
+        parsedDueDate = DateTime.parse(dueDate);
+      } catch (e) {
+        debugPrint('Warning: Could not parse due date from App Action: $dueDate');
+      }
     }
 
-    await VoiceActivationService.instance.initialize();
-    final available = await VoiceActivationService.instance.isAvailable();
+    // Create the todo
+    final todo = Todo(
+      title: title,
+      dueDate: parsedDueDate,
+      wasVoiceCaptured: true,
+      voiceTranscript: title,
+    );
 
-    // Initialize lock screen voice service with todo provider
-    final todoProvider = context.read<TodoProvider>();
-    await LockScreenVoiceService.instance.initialize(todoProvider: todoProvider);
+    todoProvider.addTodo(todo);
 
-    // Load user preference for voice button visibility
-    final settings = await _storage.loadSettings();
-    final showVoice = settings['showVoiceButton'] as bool? ?? true;
-
+    // Navigate to Actions screen to show the new todo
     if (mounted) {
       setState(() {
-        _voiceActivationAvailable = available;
-        _showVoiceButton = showVoice;
+        _selectedIndex = 1; // Actions screen index
+      });
+
+      // Show confirmation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Added: "$title"'),
+              ),
+            ],
+          ),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  /// Handle open add todo from Google Assistant App Action
+  void _handleAppActionOpenAddTodo() {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = 1; // Actions screen index
       });
     }
   }
@@ -157,23 +230,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   */
 
   Future<void> _checkAndShowWelcomeDialog() async {
-    // Check if user just completed onboarding and hasn't seen the welcome dialog
-    final settings = await _storage.loadSettings();
-    final hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
-    final hasSeenWelcome = settings['hasSeenPostOnboardingWelcome'] as bool? ?? false;
+    try {
+      // Check if user just completed onboarding and hasn't seen the welcome dialog
+      final settings = await _storage.loadSettings();
+      final hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
+      final hasSeenWelcome = settings['hasSeenPostOnboardingWelcome'] as bool? ?? false;
 
-    // Show welcome dialog if they completed onboarding but haven't seen the welcome yet
-    if (hasCompletedOnboarding && !hasSeenWelcome && mounted) {
-      // Schedule dialog to show after the first frame is rendered
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showWelcomeDialog();
-        }
-      });
+      // Show welcome dialog if they completed onboarding but haven't seen the welcome yet
+      if (hasCompletedOnboarding && !hasSeenWelcome && mounted) {
+        // Schedule dialog to show after the first frame is rendered
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showWelcomeDialog();
+          }
+        });
 
-      // Mark as seen
-      settings['hasSeenPostOnboardingWelcome'] = true;
-      await _storage.saveSettings(settings);
+        // Mark as seen
+        settings['hasSeenPostOnboardingWelcome'] = true;
+        await _storage.saveSettings(settings);
+      }
+    } catch (e) {
+      debugPrint('Warning: Failed to check/show welcome dialog: $e');
+      // If settings are corrupted, skip the welcome dialog
     }
   }
 
@@ -367,30 +445,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
 
-  void _handleTodoCreated() {
-    // Navigate to Actions tab when todo is created via voice
-    if (_selectedIndex != 2) {
-      _navigateToTab(2);
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Todo created via voice!'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final showNotificationWarning = !_notificationsEnabled || !_exactAlarmsEnabled;
-    final showVoiceFab = _voiceActivationAvailable && _showVoiceButton && !kIsWeb;
 
-    return VoiceActivationOverlay(
-      showFloatingButton: showVoiceFab,
-      onTodoCreated: _handleTodoCreated,
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -643,7 +702,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: AppStrings.featureSettings,
           ),
         ],
-      ),
       ),
     );
   }

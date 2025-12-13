@@ -34,6 +34,22 @@ class ActionColors {
 
 class _ActionsScreenState extends State<ActionsScreen> {
   ActionFilter _filter = ActionFilter.all;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Filter items by search query
+  bool _matchesSearch(String title, [String? description]) {
+    if (_searchQuery.isEmpty) return true;
+    final query = _searchQuery.toLowerCase();
+    return title.toLowerCase().contains(query) ||
+        (description?.toLowerCase().contains(query) ?? false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,21 +59,57 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
     final isLoading = goalProvider.isLoading || habitProvider.isLoading || todoProvider.isLoading;
 
-    // Get filtered data
-    final activeGoals = goalProvider.goals.where((g) => g.status == GoalStatus.active).toList();
-    final activeHabits = habitProvider.habits.where((h) => h.status == HabitStatus.active).toList();
-    final pendingTodos = todoProvider.pendingTodos;
-    final overdueTodos = todoProvider.getOverdueTodos();
+    // Get filtered data (apply search filter)
+    final activeGoals = goalProvider.goals
+        .where((g) => g.status == GoalStatus.active && _matchesSearch(g.title, g.description))
+        .toList();
+    final activeHabits = habitProvider.habits
+        .where((h) => h.status == HabitStatus.active && _matchesSearch(h.title, h.description))
+        .toList();
+    final pendingTodos = todoProvider.pendingTodos
+        .where((t) => _matchesSearch(t.title, t.description))
+        .toList();
+    final overdueTodos = todoProvider.getOverdueTodos()
+        .where((t) => _matchesSearch(t.title, t.description))
+        .toList();
 
     return Scaffold(
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : CustomScrollView(
               slivers: [
-                // Filter chips
+                // Search bar
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: SearchBar(
+                      controller: _searchController,
+                      hintText: 'Search goals, habits, todos...',
+                      leading: const Icon(Icons.search),
+                      trailing: _searchQuery.isNotEmpty
+                          ? [
+                              IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              ),
+                            ]
+                          : null,
+                      onChanged: (value) => setState(() => _searchQuery = value),
+                      elevation: WidgetStateProperty.all(0),
+                      backgroundColor: WidgetStateProperty.all(
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Filter chips
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(

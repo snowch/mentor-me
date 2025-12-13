@@ -122,9 +122,16 @@ void main() async {
       // Continue app launch even if auto-backup fails
     }
 
-    // Check if first launch
-    final settings = await storage.loadSettings();
-    final hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
+    // Check if first launch - wrap in try-catch to handle corrupted settings
+    bool hasCompletedOnboarding = false;
+    try {
+      final settings = await storage.loadSettings();
+      hasCompletedOnboarding = settings['hasCompletedOnboarding'] as bool? ?? false;
+    } catch (e) {
+      debugPrint('Warning: Failed to load settings, showing onboarding: $e');
+      // If settings are corrupted, show onboarding to let user start fresh or restore
+      hasCompletedOnboarding = false;
+    }
 
     // Schedule mentor reminders (Android only)
     try {

@@ -31,6 +31,7 @@ import 'dashboard_settings_screen.dart';
 import '../widgets/recent_wins_widget.dart';
 import '../widgets/food_log_widget.dart';
 import '../widgets/quick_capture_widget.dart';
+import '../widgets/hands_free_discovery_card.dart';
 
 class MentorScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -50,11 +51,38 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
   String _lastStateHash = '';
   bool _isLoadingCard = false;
 
+  // Hands-free discovery card state
+  final _discoveryManager = HandsFreeDiscoveryManager();
+  bool _showHandsFreeDiscovery = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadUserName();
+    _checkHandsFreeDiscovery();
+  }
+
+  Future<void> _checkHandsFreeDiscovery() async {
+    try {
+      final shouldShow = await _discoveryManager.shouldShowDiscoveryCard();
+      if (mounted) {
+        setState(() {
+          _showHandsFreeDiscovery = shouldShow;
+        });
+      }
+    } catch (e) {
+      // Silently fail - discovery card is not critical
+    }
+  }
+
+  Future<void> _dismissHandsFreeDiscovery() async {
+    await _discoveryManager.dismissDiscoveryCard();
+    if (mounted) {
+      setState(() {
+        _showHandsFreeDiscovery = false;
+      });
+    }
   }
 
   @override
@@ -623,6 +651,20 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
 
     // Build widgets based on dashboard layout ORDER (not hardcoded)
     final widgets = <Widget>[];
+
+    // Show hands-free discovery card if applicable (at the very top)
+    if (_showHandsFreeDiscovery) {
+      widgets.add(
+        HandsFreeDiscoveryCard(
+          onEnablePressed: () {
+            // Navigate to settings screen (tab 5) - voice settings is there
+            widget.onNavigateToTab(5);
+          },
+          onDismissed: _dismissHandsFreeDiscovery,
+        ),
+      );
+      widgets.add(AppSpacing.gapMd);
+    }
 
     // Iterate through visible widgets in their configured order
     for (final config in layout.visibleWidgets) {

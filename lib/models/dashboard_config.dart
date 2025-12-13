@@ -266,27 +266,33 @@ class DashboardLayout {
   }
 
   factory DashboardLayout.fromJson(Map<String, dynamic> json) {
-    final widgetsList = json['widgets'] as List?;
-    if (widgetsList == null || widgetsList.isEmpty) {
+    try {
+      final widgetsList = json['widgets'] as List?;
+      if (widgetsList == null || widgetsList.isEmpty) {
+        return DashboardLayout.defaultLayout();
+      }
+
+      final widgets = widgetsList
+          .map((w) => DashboardWidgetConfig.fromJson(w as Map<String, dynamic>))
+          .toList();
+
+      // Ensure all available widgets are present (for forward compatibility)
+      final existingIds = widgets.map((w) => w.id).toSet();
+      for (final info in DashboardWidgetRegistry.availableWidgets) {
+        if (!existingIds.contains(info.id)) {
+          widgets.add(DashboardWidgetConfig(
+            id: info.id,
+            visible: true,
+            order: widgets.length,
+          ));
+        }
+      }
+
+      return DashboardLayout(widgets: widgets);
+    } catch (e) {
+      // If JSON is corrupted, return default layout
+      debugPrint('Warning: Corrupted dashboard layout, using default. Error: $e');
       return DashboardLayout.defaultLayout();
     }
-
-    final widgets = widgetsList
-        .map((w) => DashboardWidgetConfig.fromJson(w as Map<String, dynamic>))
-        .toList();
-
-    // Ensure all available widgets are present (for forward compatibility)
-    final existingIds = widgets.map((w) => w.id).toSet();
-    for (final info in DashboardWidgetRegistry.availableWidgets) {
-      if (!existingIds.contains(info.id)) {
-        widgets.add(DashboardWidgetConfig(
-          id: info.id,
-          visible: true,
-          order: widgets.length,
-        ));
-      }
-    }
-
-    return DashboardLayout(widgets: widgets);
   }
 }

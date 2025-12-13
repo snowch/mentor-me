@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  App Actions for Google Assistant integration.
+
+  Allows users to create todos via voice commands like:
+  - "Hey Google, add a todo on MentorMe: buy groceries"
+  - "Hey Google, create a task in MentorMe"
+  - "Hey Google, add buy milk to MentorMe"
+
+  Documentation: https://developer.android.com/guide/app-actions/overview
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Capability: Create a new todo/task -->
+    <capability android:name="actions.intent.CREATE_TASK">
+        <!-- Intent that handles the action -->
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+
+            <!-- Pass the task name from voice input -->
+            <parameter
+                android:name="task.name"
+                android:key="todo_title" />
+
+            <!-- Optional: due date extraction -->
+            <parameter
+                android:name="task.dueDate"
+                android:key="todo_due_date" />
+        </intent>
+    </capability>
+
+    <!-- Capability: Open the app to view todos -->
+    <capability android:name="actions.intent.OPEN_APP_FEATURE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+
+            <parameter
+                android:name="feature"
+                android:key="feature_name" />
+        </intent>
+
+        <!-- Inline inventory for supported features -->
+        <slice-as-shortcut>
+            <shortcut android:shortcutId="view_todos">
+                <capability-binding android:key="feature">
+                    <parameter-binding android:value="todos" />
+                    <parameter-binding android:value="tasks" />
+                    <parameter-binding android:value="actions" />
+                </capability-binding>
+            </shortcut>
+        </slice-as-shortcut>
+    </capability>
+
+    <!-- Static shortcut for quick access -->
+    <shortcut
+        android:shortcutId="add_todo"
+        android:shortcutShortLabel="@string/shortcut_add_todo"
+        android:shortcutLongLabel="@string/shortcut_add_todo_long"
+        android:icon="@drawable/ic_add_task">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+            <extra android:name="action" android:value="add_todo" />
+        </intent>
+
+        <!-- Link this shortcut to the CREATE_TASK capability -->
+        <capability-binding android:key="actions.intent.CREATE_TASK" />
+    </shortcut>
+
+</shortcuts>

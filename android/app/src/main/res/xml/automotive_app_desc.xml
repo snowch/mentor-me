@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android Auto app description for MentorMe.
+    This file describes the app's Android Auto capabilities to the system.
+-->
+<automotiveApp>
+    <!-- Declare that this app uses the Car App Library template system -->
+    <uses name="template"/>
+</automotiveApp>

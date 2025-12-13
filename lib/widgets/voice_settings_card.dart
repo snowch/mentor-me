@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/voice_activation_service.dart';
-import '../services/lock_screen_voice_service.dart';
+import '../services/unified_voice_service.dart';
 import '../services/storage_service.dart';
 
 /// Settings card for voice activation options
@@ -14,13 +14,11 @@ class VoiceSettingsCard extends StatefulWidget {
 
 class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
   final _voiceService = VoiceActivationService.instance;
-  final _lockScreenService = LockScreenVoiceService.instance;
+  final _unifiedVoiceService = UnifiedVoiceService.instance;
   final _storage = StorageService();
 
   bool _isAvailable = false;
-  bool _showVoiceButton = true;
-  bool _shakeToActivate = false;
-  bool _lockScreenVoice = false;
+  bool _handsFreeModeEnabled = false;
   bool _isLoading = true;
 
   @override
@@ -44,48 +42,27 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
     if (mounted) {
       setState(() {
         _isAvailable = available;
-        _showVoiceButton = settings['showVoiceButton'] as bool? ?? true;
-        _shakeToActivate = settings['shakeToActivateVoice'] as bool? ?? false;
-        _lockScreenVoice = settings['lockScreenVoiceEnabled'] as bool? ?? false;
+        _handsFreeModeEnabled = settings['handsFreeModeEnabled'] as bool? ?? false;
         _isLoading = false;
       });
+    }
+  }
 
-      // Enable shake if it was previously enabled
-      if (_shakeToActivate && available) {
-        _voiceService.enableShakeActivation();
+  Future<void> _toggleHandsFreeMode(bool value) async {
+    setState(() => _handsFreeModeEnabled = value);
+
+    if (value) {
+      await _unifiedVoiceService.enableHandsFreeMode();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hands-free mode enabled. Press your headset button to add todos.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
       }
-    }
-  }
-
-  Future<void> _toggleVoiceButton(bool value) async {
-    setState(() => _showVoiceButton = value);
-
-    final settings = await _storage.loadSettings();
-    settings['showVoiceButton'] = value;
-    await _storage.saveSettings(settings);
-  }
-
-  Future<void> _toggleShakeActivation(bool value) async {
-    setState(() => _shakeToActivate = value);
-
-    if (value) {
-      await _voiceService.enableShakeActivation();
     } else {
-      await _voiceService.disableShakeActivation();
-    }
-
-    final settings = await _storage.loadSettings();
-    settings['shakeToActivateVoice'] = value;
-    await _storage.saveSettings(settings);
-  }
-
-  Future<void> _toggleLockScreenVoice(bool value) async {
-    setState(() => _lockScreenVoice = value);
-
-    if (value) {
-      await _lockScreenService.enable();
-    } else {
-      await _lockScreenService.disable();
+      await _unifiedVoiceService.disableHandsFreeMode();
     }
   }
 
@@ -299,34 +276,66 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
 
           const Divider(height: 1),
 
-          // Show floating button toggle
+          // Hands-free driving mode toggle
           SwitchListTile(
-            title: const Text('Show Voice Button'),
-            subtitle: const Text('Display floating mic button on home screen'),
-            value: _showVoiceButton,
-            onChanged: _toggleVoiceButton,
-            secondary: const Icon(Icons.touch_app),
+            title: const Text('Hands-Free Mode'),
+            subtitle: const Text('Use Bluetooth headset button to add todos (for driving)'),
+            value: _handsFreeModeEnabled,
+            onChanged: _toggleHandsFreeMode,
+            secondary: const Icon(Icons.bluetooth_audio),
           ),
 
-          // Shake to activate toggle
-          SwitchListTile(
-            title: const Text('Shake to Activate'),
-            subtitle: const Text('Shake your phone to start voice capture'),
-            value: _shakeToActivate,
-            onChanged: _toggleShakeActivation,
-            secondary: const Icon(Icons.vibration),
-          ),
+          // Hands-free info box (shown when hands-free is enabled)
+          if (_handsFreeModeEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.directions_car,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Driving Mode Active',
+                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Press your headset button to start voice capture. '
+                            'You\'ll hear audio confirmation of what was added.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-          // Lock screen voice capture toggle
-          SwitchListTile(
-            title: const Text('Lock Screen Voice'),
-            subtitle: const Text('Show notification for voice capture when screen is locked'),
-            value: _lockScreenVoice,
-            onChanged: _toggleLockScreenVoice,
-            secondary: const Icon(Icons.lock_open),
-          ),
+          if (_handsFreeModeEnabled) const SizedBox(height: 16),
 
-          // Tips section
+          // Google Assistant tip
           Padding(
             padding: const EdgeInsets.all(16),
             child: Container(
@@ -340,10 +349,10 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber),
+                      Icon(Icons.assistant, size: 16, color: colorScheme.primary),
                       const SizedBox(width: 8),
                       Text(
-                        'Voice Commands',
+                        'Google Assistant',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -352,15 +361,13 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Try saying things like:',
+                    'You can also add todos by saying:',
                     style: TextStyle(fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '  \u2022 "Buy groceries tomorrow"\n'
-                    '  \u2022 "Urgent: call the doctor"\n'
-                    '  \u2022 "Finish report by Friday"\n'
-                    '  \u2022 "Low priority: clean garage"',
+                    '  \u2022 "Hey Google, add a todo on MentorMe: buy groceries"\n'
+                    '  \u2022 "Hey Google, create a task in MentorMe"',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
