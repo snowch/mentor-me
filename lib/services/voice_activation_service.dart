@@ -54,6 +54,10 @@ class VoiceActivationService {
   final _resultController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get resultStream => _resultController.stream;
 
+  // Shake cooldown tracking (additional protection against rapid triggers)
+  DateTime? _lastShakeActivation;
+  static const _shakeCooldownDuration = Duration(seconds: 5);
+
   /// Initialize the voice activation service
   Future<void> initialize() async {
     await _debug.info('VoiceActivationService', 'Initializing voice activation service');
@@ -202,6 +206,28 @@ class VoiceActivationService {
       // Listen for shake events
       _sensorChannel.setMethodCallHandler((call) async {
         if (call.method == 'onShakeDetected') {
+          // Check cooldown to prevent rapid triggers
+          final now = DateTime.now();
+          if (_lastShakeActivation != null &&
+              now.difference(_lastShakeActivation!) < _shakeCooldownDuration) {
+            await _debug.info(
+              'VoiceActivationService',
+              'Shake detected but in cooldown period, ignoring',
+            );
+            return;
+          }
+
+          // Check if already listening
+          if (_state == VoiceActivationState.listening ||
+              _state == VoiceActivationState.processing) {
+            await _debug.info(
+              'VoiceActivationService',
+              'Shake detected but already active, ignoring',
+            );
+            return;
+          }
+
+          _lastShakeActivation = now;
           await _debug.info('VoiceActivationService', 'Shake detected - activating voice');
           await activate(promptHint: 'Shake activated - what do you need?');
         }

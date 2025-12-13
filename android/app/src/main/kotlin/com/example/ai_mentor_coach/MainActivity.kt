@@ -42,8 +42,8 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MentorMe"
         private const val REQUEST_CODE_OPEN_DOCUMENT_TREE = 42
-        private const val SHAKE_THRESHOLD = 12.0f  // Acceleration threshold for shake detection
-        private const val SHAKE_TIMEOUT_MS = 500L  // Minimum time between shake events
+        private const val SHAKE_THRESHOLD = 30.0f  // Acceleration threshold for shake detection (high to avoid false triggers)
+        private const val SHAKE_TIMEOUT_MS = 3000L  // Minimum time between shake events (3 seconds cooldown)
         private const val FLUTTER_ENGINE_ID = "mentorme_engine"
     }
 
