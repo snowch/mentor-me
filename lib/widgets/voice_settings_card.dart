@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/voice_activation_service.dart';
-import '../services/lock_screen_voice_service.dart';
 import '../services/unified_voice_service.dart';
 import '../services/storage_service.dart';
 
@@ -15,12 +14,10 @@ class VoiceSettingsCard extends StatefulWidget {
 
 class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
   final _voiceService = VoiceActivationService.instance;
-  final _lockScreenService = LockScreenVoiceService.instance;
   final _unifiedVoiceService = UnifiedVoiceService.instance;
   final _storage = StorageService();
 
   bool _isAvailable = false;
-  bool _lockScreenVoice = false;
   bool _handsFreeModeEnabled = false;
   bool _isLoading = true;
 
@@ -45,20 +42,9 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
     if (mounted) {
       setState(() {
         _isAvailable = available;
-        _lockScreenVoice = settings['lockScreenVoiceEnabled'] as bool? ?? false;
         _handsFreeModeEnabled = settings['handsFreeModeEnabled'] as bool? ?? false;
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _toggleLockScreenVoice(bool value) async {
-    setState(() => _lockScreenVoice = value);
-
-    if (value) {
-      await _lockScreenService.enable();
-    } else {
-      await _lockScreenService.disable();
     }
   }
 
@@ -290,15 +276,6 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
 
           const Divider(height: 1),
 
-          // Lock screen voice capture toggle
-          SwitchListTile(
-            title: const Text('Lock Screen Voice'),
-            subtitle: const Text('Show notification for voice capture when screen is locked'),
-            value: _lockScreenVoice,
-            onChanged: _toggleLockScreenVoice,
-            secondary: const Icon(Icons.lock_open),
-          ),
-
           // Hands-free driving mode toggle
           SwitchListTile(
             title: const Text('Hands-Free Mode'),
@@ -358,7 +335,7 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
 
           if (_handsFreeModeEnabled) const SizedBox(height: 16),
 
-          // Tips section
+          // Google Assistant tip
           Padding(
             padding: const EdgeInsets.all(16),
             child: Container(
@@ -372,10 +349,10 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber),
+                      Icon(Icons.assistant, size: 16, color: colorScheme.primary),
                       const SizedBox(width: 8),
                       Text(
-                        'Voice Commands',
+                        'Google Assistant',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -384,15 +361,13 @@ class _VoiceSettingsCardState extends State<VoiceSettingsCard> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Try saying things like:',
+                    'You can also add todos by saying:',
                     style: TextStyle(fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    '  \u2022 "Buy groceries tomorrow"\n'
-                    '  \u2022 "Urgent: call the doctor"\n'
-                    '  \u2022 "Finish report by Friday"\n'
-                    '  \u2022 "Low priority: clean garage"',
+                    '  \u2022 "Hey Google, add a todo on MentorMe: buy groceries"\n'
+                    '  \u2022 "Hey Google, create a task in MentorMe"',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],

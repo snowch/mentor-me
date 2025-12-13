@@ -10,9 +10,8 @@ import '../providers/todo_provider.dart';
 /// Trigger source for voice capture - how the recording was initiated
 enum VoiceTriggerSource {
   uiButton, // User pressed mic button in app
-  shake, // Shake gesture detected
-  lockScreen, // Lock screen notification action
   handsFree, // Bluetooth/media button (hands-free driving mode)
+  googleAssistant, // Google Assistant App Action
 }
 
 /// Current state of voice recording
@@ -83,15 +82,11 @@ class VoiceResult {
   }
 }
 
-/// Unified voice service - single entry point for voice recording
-/// regardless of app state (foreground, background, lock screen, hands-free)
+/// Unified voice service for hands-free voice todo creation.
 ///
 /// Features:
-/// - Works consistently across all app states
 /// - Bluetooth headset button support for hands-free driving
 /// - Text-to-Speech audio feedback confirmation
-/// - Lock screen persistent notification
-/// - Shake-to-activate gesture
 class UnifiedVoiceService {
   static const _channel = MethodChannel('com.mentorme/lock_screen_voice');
   static final _debug = DebugService();
@@ -121,9 +116,6 @@ class UnifiedVoiceService {
   bool _isHandsFreeModeEnabled = false;
   bool get isHandsFreeModeEnabled => _isHandsFreeModeEnabled;
 
-  bool _isLockScreenEnabled = false;
-  bool get isLockScreenEnabled => _isLockScreenEnabled;
-
   // Provider reference
   TodoProvider? _todoProvider;
 
@@ -149,28 +141,26 @@ class UnifiedVoiceService {
     // Load saved preferences
     await _loadPreferences();
 
-    // Start service if features are enabled
-    if (_isLockScreenEnabled || _isHandsFreeModeEnabled) {
+    // Start service if hands-free is enabled
+    if (_isHandsFreeModeEnabled) {
       await _startService();
     }
 
     await _debug.info(
       'UnifiedVoiceService',
-      'Initialized (lockScreen: $_isLockScreenEnabled, handsFree: $_isHandsFreeModeEnabled)',
+      'Initialized (handsFree: $_isHandsFreeModeEnabled)',
     );
   }
 
   /// Load preferences from storage
   Future<void> _loadPreferences() async {
     final settings = await _storage.loadSettings();
-    _isLockScreenEnabled = settings['lockScreenVoiceEnabled'] as bool? ?? false;
     _isHandsFreeModeEnabled = settings['handsFreeModeEnabled'] as bool? ?? false;
   }
 
   /// Save preferences to storage
   Future<void> _savePreferences() async {
     final settings = await _storage.loadSettings();
-    settings['lockScreenVoiceEnabled'] = _isLockScreenEnabled;
     settings['handsFreeModeEnabled'] = _isHandsFreeModeEnabled;
     await _storage.saveSettings(settings);
   }
@@ -182,7 +172,7 @@ class UnifiedVoiceService {
         final args = call.arguments as Map<dynamic, dynamic>?;
         final transcript = args?['transcript'] as String?;
         final error = args?['error'] as String?;
-        final sourceStr = args?['source'] as String? ?? 'lockScreen';
+        final sourceStr = args?['source'] as String? ?? 'handsFree';
 
         if (error != null) {
           await _debug.error(
@@ -212,12 +202,11 @@ class UnifiedVoiceService {
     switch (source) {
       case 'uiButton':
         return VoiceTriggerSource.uiButton;
-      case 'shake':
-        return VoiceTriggerSource.shake;
+      case 'googleAssistant':
+        return VoiceTriggerSource.googleAssistant;
       case 'handsFree':
-        return VoiceTriggerSource.handsFree;
       default:
-        return VoiceTriggerSource.lockScreen;
+        return VoiceTriggerSource.handsFree;
     }
   }
 
@@ -356,40 +345,13 @@ class UnifiedVoiceService {
         'Hands-free mode disabled',
       );
 
-      // Stop service if nothing else needs it
-      if (!_isLockScreenEnabled) {
-        await _stopService();
-      }
+      // Stop service since hands-free is the only feature now
+      await _stopService();
     } on PlatformException catch (e) {
       await _debug.error(
         'UnifiedVoiceService',
         'Failed to disable hands-free: ${e.message}',
       );
-    }
-  }
-
-  /// Enable lock screen voice capture (notification button)
-  Future<void> enableLockScreen() async {
-    if (kIsWeb) return;
-
-    _isLockScreenEnabled = true;
-    await _savePreferences();
-
-    if (!_isServiceRunning) {
-      await _startService();
-    }
-  }
-
-  /// Disable lock screen voice capture
-  Future<void> disableLockScreen() async {
-    if (kIsWeb) return;
-
-    _isLockScreenEnabled = false;
-    await _savePreferences();
-
-    // Stop service if nothing else needs it
-    if (!_isHandsFreeModeEnabled) {
-      await _stopService();
     }
   }
 
@@ -399,15 +361,6 @@ class UnifiedVoiceService {
       await disableHandsFreeMode();
     } else {
       await enableHandsFreeMode();
-    }
-  }
-
-  /// Toggle lock screen voice capture
-  Future<void> toggleLockScreen() async {
-    if (_isLockScreenEnabled) {
-      await disableLockScreen();
-    } else {
-      await enableLockScreen();
     }
   }
 

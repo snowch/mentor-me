@@ -13,7 +13,7 @@ import '../services/ai_service.dart';
 import '../services/storage_service.dart';
 import '../services/auto_backup_service.dart';
 import '../services/voice_activation_service.dart';
-import '../services/lock_screen_voice_service.dart';
+import '../services/unified_voice_service.dart';
 import '../services/app_actions_service.dart';
 import '../models/todo.dart';
 // import '../models/ai_provider.dart';  // Local AI - commented out
@@ -58,9 +58,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       await VoiceActivationService.instance.initialize();
 
-      // Initialize lock screen voice service with todo provider for hands-free mode
+      // Initialize unified voice service with todo provider for hands-free mode
       final todoProvider = context.read<TodoProvider>();
-      await LockScreenVoiceService.instance.initialize(todoProvider: todoProvider);
+      await UnifiedVoiceService.instance.initialize(todoProvider: todoProvider);
 
       // Initialize App Actions service for Google Assistant integration
       await AppActionsService.instance.initialize(

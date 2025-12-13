@@ -5,11 +5,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
@@ -40,16 +38,17 @@ import android.Manifest
 import java.util.Locale
 
 /**
- * Foreground service for voice capture that works from the lock screen
- * and via Bluetooth headset buttons for hands-free operation while driving.
+ * Foreground service for hands-free voice capture via Bluetooth headset buttons.
+ * Designed for safe, eyes-free operation while driving.
  *
  * Features:
- * - Persistent notification visible on lock screen
- * - Quick action button to start voice capture
  * - Bluetooth/media button trigger for hands-free recording
  * - Text-to-Speech audio feedback (confirmation of captured text)
  * - Wakes device for voice capture when screen is off
  * - Communicates results back to Flutter via method channel
+ *
+ * Note: This service is only active when hands-free mode is enabled.
+ * For Google Assistant integration, see App Actions (shortcuts.xml).
  */
 class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
     companion object {
@@ -98,32 +97,12 @@ class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
     // Handler for delayed operations
     private val handler = Handler(Looper.getMainLooper())
 
-    // Broadcast receiver for notification actions
-    private val actionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                ACTION_START_VOICE_CAPTURE -> {
-                    Log.d(TAG, "Voice capture action triggered from notification")
-                    startVoiceCapture()
-                }
-            }
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
         instance = this
 
         createNotificationChannel()
-
-        // Register broadcast receiver for notification actions
-        val filter = IntentFilter(ACTION_START_VOICE_CAPTURE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(actionReceiver, filter)
-        }
 
         // Set up method channel to communicate with Flutter
         setupMethodChannel()
@@ -379,18 +358,6 @@ class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Intent for voice capture action
-        val voiceCaptureIntent = Intent(ACTION_START_VOICE_CAPTURE).apply {
-            setPackage(packageName)
-        }
-
-        val voiceCapturePendingIntent = PendingIntent.getBroadcast(
-            this,
-            1,
-            voiceCaptureIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         // Intent to stop service
         val stopIntent = Intent(this, VoiceCaptureService::class.java).apply {
             action = ACTION_STOP_SERVICE
@@ -404,17 +371,9 @@ class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
         )
 
         // Determine notification title and text based on state
-        val title = when {
-            isListening -> "Listening..."
-            handsFreeModeEnabled -> "MentorMe Hands-Free"
-            else -> "MentorMe Voice Capture"
-        }
-
-        val text = when {
-            isListening -> "Say what you need to do"
-            handsFreeModeEnabled -> "Press headset button to add todo"
-            else -> "Tap mic to add a todo by voice"
-        }
+        // Service only runs in hands-free mode now
+        val title = if (isListening) "Listening..." else "MentorMe Hands-Free"
+        val text = if (isListening) "Say what you need to do" else "Press headset button to add todo"
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
@@ -426,15 +385,6 @@ class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
-        if (!isListening) {
-            // Add voice capture action when not listening
-            builder.addAction(
-                android.R.drawable.ic_btn_speak_now,
-                "🎤 Add Todo",
-                voiceCapturePendingIntent
-            )
-        }
-
         // Always add stop action
         builder.addAction(
             android.R.drawable.ic_menu_close_clear_cancel,
@@ -442,8 +392,8 @@ class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
             stopPendingIntent
         )
 
-        // Set style with media session if hands-free mode is active
-        if (handsFreeModeEnabled && mediaSession != null) {
+        // Set style with media session for hands-free mode
+        if (mediaSession != null) {
             builder.setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
                     .setMediaSession(mediaSession?.sessionToken)
@@ -679,12 +629,6 @@ class VoiceCaptureService : Service(), TextToSpeech.OnInitListener {
         Log.d(TAG, "Service destroyed")
 
         instance = null
-
-        try {
-            unregisterReceiver(actionReceiver)
-        } catch (e: Exception) {
-            Log.w(TAG, "Error unregistering receiver: ${e.message}")
-        }
 
         cleanupSpeechRecognizer()
         releaseWakeLock()
