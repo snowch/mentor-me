@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'urge_surfing.g.dart';
 
 /// Types of urge management techniques
 ///
@@ -353,6 +356,7 @@ extension UrgeCategoryExtension on UrgeCategory {
 /// Research: Bowen et al. (2014) JAMA Psychiatry, Kristeller & Wolever (2011)
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/urgeSurfingSession_v1
+@JsonSerializable()
 class UrgeSurfingSession {
   final String id;
   final UrgeTechnique technique;
@@ -361,6 +365,7 @@ class UrgeSurfingSession {
   final DateTime completedAt;
   final int urgeIntensityBefore;    // 1-10 scale
   final int? urgeIntensityAfter;    // 1-10 scale (after technique)
+  @JsonKey(defaultValue: false)
   final bool didActOnUrge;          // Did user give in?
   final String? notes;
   final String? linkedHaltCheckId;  // Link to HALT check if triggered from there
@@ -381,50 +386,9 @@ class UrgeSurfingSession {
   })  : id = id ?? const Uuid().v4(),
         completedAt = completedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'technique': technique.name,
-      'urgeCategory': urgeCategory?.name,
-      'trigger': trigger?.name,
-      'completedAt': completedAt.toIso8601String(),
-      'urgeIntensityBefore': urgeIntensityBefore,
-      'urgeIntensityAfter': urgeIntensityAfter,
-      'didActOnUrge': didActOnUrge,
-      'notes': notes,
-      'linkedHaltCheckId': linkedHaltCheckId,
-      'durationSeconds': durationSeconds,
-    };
-  }
-
-  factory UrgeSurfingSession.fromJson(Map<String, dynamic> json) {
-    return UrgeSurfingSession(
-      id: json['id'] as String,
-      technique: UrgeTechnique.values.firstWhere(
-        (e) => e.name == json['technique'],
-        orElse: () => UrgeTechnique.urgeSurfing,
-      ),
-      urgeCategory: json['urgeCategory'] != null
-          ? UrgeCategory.values.firstWhere(
-              (e) => e.name == json['urgeCategory'],
-              orElse: () => UrgeCategory.other,
-            )
-          : null,
-      trigger: json['trigger'] != null
-          ? UrgeTrigger.values.firstWhere(
-              (e) => e.name == json['trigger'],
-              orElse: () => UrgeTrigger.other,
-            )
-          : null,
-      completedAt: DateTime.parse(json['completedAt'] as String),
-      urgeIntensityBefore: json['urgeIntensityBefore'] as int,
-      urgeIntensityAfter: json['urgeIntensityAfter'] as int?,
-      didActOnUrge: json['didActOnUrge'] as bool? ?? false,
-      notes: json['notes'] as String?,
-      linkedHaltCheckId: json['linkedHaltCheckId'] as String?,
-      durationSeconds: json['durationSeconds'] as int,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory UrgeSurfingSession.fromJson(Map<String, dynamic> json) => _$UrgeSurfingSessionFromJson(json);
+  Map<String, dynamic> toJson() => _$UrgeSurfingSessionToJson(this);
 
   UrgeSurfingSession copyWith({
     String? id,

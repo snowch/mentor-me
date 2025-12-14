@@ -6,7 +6,10 @@
 // when recent data exceeds a token threshold, providing the AI mentor
 // with deep historical context without overwhelming the context window.
 
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'user_context_summary.g.dart';
 
 /// Rolling context summary containing AI-generated user profile.
 ///
@@ -15,6 +18,7 @@ import 'package:uuid/uuid.dart';
 /// It's regenerated when recent data exceeds a token threshold.
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/userContextSummary
+@JsonSerializable()
 class UserContextSummary {
   final String id;
 
@@ -30,12 +34,15 @@ class UserContextSummary {
 
   // Staleness tracking - what was included when generated
   /// Total journal entries at generation time
+  @JsonKey(defaultValue: 0)
   final int journalEntriesCount;
 
   /// Total goals at generation time
+  @JsonKey(defaultValue: 0)
   final int goalsCount;
 
   /// Total habits at generation time
+  @JsonKey(defaultValue: 0)
   final int habitsCount;
 
   /// ID of most recent journal entry absorbed into summary
@@ -51,9 +58,11 @@ class UserContextSummary {
 
   // Metadata
   /// Which Claude model generated this summary
+  @JsonKey(defaultValue: 'unknown')
   final String modelUsed;
 
   /// Estimated token count of the summary text
+  @JsonKey(defaultValue: 0)
   final int estimatedTokens;
 
   UserContextSummary({
@@ -72,41 +81,10 @@ class UserContextSummary {
   })  : id = id ?? const Uuid().v4(),
         generatedAt = generatedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'summary': summary,
-      'generatedAt': generatedAt.toIso8601String(),
-      'schemaVersion': schemaVersion,
-      'journalEntriesCount': journalEntriesCount,
-      'goalsCount': goalsCount,
-      'habitsCount': habitsCount,
-      'lastJournalEntryId': lastJournalEntryId,
-      'generationNumber': generationNumber,
-      'lastFullRegenNumber': lastFullRegenNumber,
-      'modelUsed': modelUsed,
-      'estimatedTokens': estimatedTokens,
-    };
-  }
-
-  factory UserContextSummary.fromJson(Map<String, dynamic> json) {
-    return UserContextSummary(
-      id: json['id'] as String?,
-      summary: json['summary'] as String,
-      generatedAt: json['generatedAt'] != null
-          ? DateTime.parse(json['generatedAt'] as String)
-          : null,
-      schemaVersion: json['schemaVersion'] as int? ?? 1,
-      journalEntriesCount: json['journalEntriesCount'] as int? ?? 0,
-      goalsCount: json['goalsCount'] as int? ?? 0,
-      habitsCount: json['habitsCount'] as int? ?? 0,
-      lastJournalEntryId: json['lastJournalEntryId'] as String?,
-      generationNumber: json['generationNumber'] as int? ?? 1,
-      lastFullRegenNumber: json['lastFullRegenNumber'] as int? ?? 1,
-      modelUsed: json['modelUsed'] as String? ?? 'unknown',
-      estimatedTokens: json['estimatedTokens'] as int? ?? 0,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory UserContextSummary.fromJson(Map<String, dynamic> json) =>
+      _$UserContextSummaryFromJson(json);
+  Map<String, dynamic> toJson() => _$UserContextSummaryToJson(this);
 
   UserContextSummary copyWith({
     String? summary,
@@ -144,6 +122,7 @@ class UserContextSummary {
   }
 
   /// How old is this summary in days
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get ageInDays => DateTime.now().difference(generatedAt).inDays;
 
   @override

@@ -236,7 +236,7 @@ class FoodLogProvider extends ChangeNotifier {
     final recentEntries = entriesForLastDays(days);
     if (recentEntries.isEmpty) return 0;
 
-    final totalCalories = recentEntries.fold<int>(
+    final totalCalories = recentEntries.fold<double>(
       0,
       (sum, e) => sum + (e.nutrition?.calories ?? 0),
     );
@@ -267,8 +267,8 @@ class FoodLogProvider extends ChangeNotifier {
   }
 
   /// Get calorie trend data for charts (last N days)
-  List<MapEntry<DateTime, int>> calorieHistory(int days) {
-    final result = <MapEntry<DateTime, int>>[];
+  List<MapEntry<DateTime, double>> calorieHistory(int days) {
+    final result = <MapEntry<DateTime, double>>[];
     final now = DateTime.now();
 
     for (var i = days - 1; i >= 0; i--) {

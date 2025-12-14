@@ -1238,11 +1238,11 @@ JSON:''';
       final Map<String, dynamic> parsed = json.decode(jsonString);
 
       // Helper to safely parse numbers from various formats
-      int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+      double parseDoubleSafe(dynamic value, [double defaultValue = 0]) {
         if (value == null) return defaultValue;
-        if (value is int) return value;
-        if (value is double) return value.toInt();
-        if (value is String) return int.tryParse(value) ?? defaultValue;
+        if (value is int) return value.toDouble();
+        if (value is double) return value;
+        if (value is String) return double.tryParse(value) ?? defaultValue;
         return defaultValue;
       }
 
@@ -1250,19 +1250,19 @@ JSON:''';
       // Handle both old field names (protein) and new field names (proteinGrams)
       // Also handle string vs numeric values from AI response
       final normalized = <String, dynamic>{
-        'calories': parseIntSafe(parsed['calories'] ?? parsed['cal']),
-        'proteinGrams': parseIntSafe(parsed['proteinGrams'] ?? parsed['protein']),
-        'carbsGrams': parseIntSafe(parsed['carbsGrams'] ?? parsed['carbs']),
-        'fatGrams': parseIntSafe(parsed['fatGrams'] ?? parsed['fat']),
-        'saturatedFatGrams': parseIntSafe(parsed['saturatedFatGrams'] ?? parsed['saturatedFat']),
-        'unsaturatedFatGrams': parseIntSafe(parsed['unsaturatedFatGrams'] ?? parsed['unsaturatedFat']),
-        'transFatGrams': parseIntSafe(parsed['transFatGrams'] ?? parsed['transFat']),
-        'fiberGrams': parseIntSafe(parsed['fiberGrams'] ?? parsed['fiber']),
-        'sugarGrams': parseIntSafe(parsed['sugarGrams'] ?? parsed['sugar']),
+        'calories': parseDoubleSafe(parsed['calories'] ?? parsed['cal']),
+        'proteinGrams': parseDoubleSafe(parsed['proteinGrams'] ?? parsed['protein']),
+        'carbsGrams': parseDoubleSafe(parsed['carbsGrams'] ?? parsed['carbs']),
+        'fatGrams': parseDoubleSafe(parsed['fatGrams'] ?? parsed['fat']),
+        'saturatedFatGrams': parseDoubleSafe(parsed['saturatedFatGrams'] ?? parsed['saturatedFat']),
+        'unsaturatedFatGrams': parseDoubleSafe(parsed['unsaturatedFatGrams'] ?? parsed['unsaturatedFat']),
+        'transFatGrams': parseDoubleSafe(parsed['transFatGrams'] ?? parsed['transFat']),
+        'fiberGrams': parseDoubleSafe(parsed['fiberGrams'] ?? parsed['fiber']),
+        'sugarGrams': parseDoubleSafe(parsed['sugarGrams'] ?? parsed['sugar']),
         // Micronutrients for health-specific tracking
-        'sodiumMg': parsed['sodiumMg'] != null ? parseIntSafe(parsed['sodiumMg'] ?? parsed['sodium']) : null,
-        'potassiumMg': parsed['potassiumMg'] != null ? parseIntSafe(parsed['potassiumMg'] ?? parsed['potassium']) : null,
-        'cholesterolMg': parsed['cholesterolMg'] != null ? parseIntSafe(parsed['cholesterolMg'] ?? parsed['cholesterol']) : null,
+        'sodiumMg': parsed['sodiumMg'] != null ? parseDoubleSafe(parsed['sodiumMg'] ?? parsed['sodium']) : null,
+        'potassiumMg': parsed['potassiumMg'] != null ? parseDoubleSafe(parsed['potassiumMg'] ?? parsed['potassium']) : null,
+        'cholesterolMg': parsed['cholesterolMg'] != null ? parseDoubleSafe(parsed['cholesterolMg'] ?? parsed['cholesterol']) : null,
         'confidence': parsed['confidence']?.toString(),
         'notes': parsed['notes']?.toString(),
       };
@@ -1394,20 +1394,20 @@ JSON:''';
       final Map<String, dynamic> parsed = json.decode(jsonString);
 
       // Helper to safely parse numbers
-      int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+      double parseDoubleSafe(dynamic value, [double defaultValue = 0]) {
         if (value == null) return defaultValue;
-        if (value is int) return value;
-        if (value is double) return value.toInt();
-        if (value is String) return int.tryParse(value) ?? defaultValue;
+        if (value is int) return value.toDouble();
+        if (value is double) return value;
+        if (value is String) return double.tryParse(value) ?? defaultValue;
         return defaultValue;
       }
 
-      final calories = parseIntSafe(parsed['calories']);
+      final calories = parseDoubleSafe(parsed['calories']);
       final confidence = parsed['confidence']?.toString() ?? 'medium';
       final notes = parsed['notes']?.toString();
 
       final estimate = CalorieEstimate(
-        calories: calories,
+        calories: calories.round(),
         confidence: confidence,
         notes: notes,
       );
@@ -1562,11 +1562,11 @@ JSON:''',
         }
 
         // Helper to safely parse numbers
-        int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+        double parseDoubleSafe(dynamic value, [double defaultValue = 0]) {
           if (value == null) return defaultValue;
-          if (value is int) return value;
-          if (value is double) return value.toInt();
-          if (value is String) return int.tryParse(value) ?? defaultValue;
+          if (value is int) return value.toDouble();
+          if (value is double) return value;
+          if (value is String) return double.tryParse(value) ?? defaultValue;
           return defaultValue;
         }
 
@@ -1576,18 +1576,18 @@ JSON:''',
 
         // Build nutrition estimate
         final nutrition = NutritionEstimate(
-          calories: parseIntSafe(parsed['calories']),
-          proteinGrams: parseIntSafe(parsed['proteinGrams'] ?? parsed['protein']),
-          carbsGrams: parseIntSafe(parsed['carbsGrams'] ?? parsed['carbs']),
-          fatGrams: parseIntSafe(parsed['fatGrams'] ?? parsed['fat']),
-          saturatedFatGrams: parseIntSafe(parsed['saturatedFatGrams']),
-          unsaturatedFatGrams: parseIntSafe(parsed['unsaturatedFatGrams']),
-          transFatGrams: parseIntSafe(parsed['transFatGrams']),
-          fiberGrams: parseIntSafe(parsed['fiberGrams']),
-          sugarGrams: parseIntSafe(parsed['sugarGrams']),
-          sodiumMg: parsed['sodiumMg'] != null ? parseIntSafe(parsed['sodiumMg']) : null,
-          potassiumMg: parsed['potassiumMg'] != null ? parseIntSafe(parsed['potassiumMg']) : null,
-          cholesterolMg: parsed['cholesterolMg'] != null ? parseIntSafe(parsed['cholesterolMg']) : null,
+          calories: parseDoubleSafe(parsed['calories']),
+          proteinGrams: parseDoubleSafe(parsed['proteinGrams'] ?? parsed['protein']),
+          carbsGrams: parseDoubleSafe(parsed['carbsGrams'] ?? parsed['carbs']),
+          fatGrams: parseDoubleSafe(parsed['fatGrams'] ?? parsed['fat']),
+          saturatedFatGrams: parseDoubleSafe(parsed['saturatedFatGrams']),
+          unsaturatedFatGrams: parseDoubleSafe(parsed['unsaturatedFatGrams']),
+          transFatGrams: parseDoubleSafe(parsed['transFatGrams']),
+          fiberGrams: parseDoubleSafe(parsed['fiberGrams']),
+          sugarGrams: parseDoubleSafe(parsed['sugarGrams']),
+          sodiumMg: parsed['sodiumMg'] != null ? parseDoubleSafe(parsed['sodiumMg']) : null,
+          potassiumMg: parsed['potassiumMg'] != null ? parseDoubleSafe(parsed['potassiumMg']) : null,
+          cholesterolMg: parsed['cholesterolMg'] != null ? parseDoubleSafe(parsed['cholesterolMg']) : null,
           confidence: confidence,
           notes: notes,
         );
@@ -1835,11 +1835,11 @@ JSON:''',
         return null;
       }
 
-      int parseIntSafe(dynamic value, [int defaultValue = 0]) {
+      double parseDoubleSafe(dynamic value, [double defaultValue = 0]) {
         if (value == null) return defaultValue;
-        if (value is int) return value;
-        if (value is double) return value.toInt();
-        if (value is String) return int.tryParse(value) ?? defaultValue;
+        if (value is int) return value.toDouble();
+        if (value is double) return value;
+        if (value is String) return double.tryParse(value) ?? defaultValue;
         return defaultValue;
       }
 
@@ -1855,15 +1855,15 @@ JSON:''',
         photoType: FoodPhotoType.packagedProduct,
         confidence: confidence,
         nutrition: NutritionEstimate(
-          calories: parseIntSafe(parsed['calories']),
-          proteinGrams: parseIntSafe(parsed['proteinGrams']),
-          carbsGrams: parseIntSafe(parsed['carbsGrams']),
-          fatGrams: parseIntSafe(parsed['fatGrams']),
-          saturatedFatGrams: parseIntSafe(parsed['saturatedFatGrams']),
-          fiberGrams: parseIntSafe(parsed['fiberGrams']),
-          sugarGrams: parseIntSafe(parsed['sugarGrams']),
-          sodiumMg: parseIntSafe(parsed['sodiumMg']),
-          cholesterolMg: parseIntSafe(parsed['cholesterolMg']),
+          calories: parseDoubleSafe(parsed['calories']),
+          proteinGrams: parseDoubleSafe(parsed['proteinGrams']),
+          carbsGrams: parseDoubleSafe(parsed['carbsGrams']),
+          fatGrams: parseDoubleSafe(parsed['fatGrams']),
+          saturatedFatGrams: parseDoubleSafe(parsed['saturatedFatGrams']),
+          fiberGrams: parseDoubleSafe(parsed['fiberGrams']),
+          sugarGrams: parseDoubleSafe(parsed['sugarGrams']),
+          sodiumMg: parseDoubleSafe(parsed['sodiumMg']),
+          cholesterolMg: parseDoubleSafe(parsed['cholesterolMg']),
           confidence: fromLabel ? 'high' : confidence,
           notes: parsed['notes'] as String?,
         ),

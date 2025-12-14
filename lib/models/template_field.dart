@@ -1,4 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'template_field.g.dart';
 
 /// Defines the type of input field for a journal template
 enum FieldType {
@@ -53,10 +56,15 @@ extension FieldTypeExtension on FieldType {
 
 /// Represents a single field in a journal template
 @immutable
+@JsonSerializable()
 class TemplateField {
   final String id;
   final String label; // "Situation", "Emotion"
   final String prompt; // "Describe the situation..."
+  @JsonKey(
+    fromJson: FieldTypeExtension.fromJson,
+    toJson: _fieldTypeToJson,
+  )
   final FieldType type; // text, longText, scale, etc.
   final bool required;
   final String? helpText;
@@ -97,33 +105,9 @@ class TemplateField {
     );
   }
 
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'label': label,
-      'prompt': prompt,
-      'type': type.toJson(),
-      'required': required,
-      'helpText': helpText,
-      'aiCoaching': aiCoaching,
-      'validation': validation,
-    };
-  }
-
-  /// Create from JSON
-  factory TemplateField.fromJson(Map<String, dynamic> json) {
-    return TemplateField(
-      id: json['id'] as String,
-      label: json['label'] as String,
-      prompt: json['prompt'] as String,
-      type: FieldTypeExtension.fromJson(json['type'] as String),
-      required: json['required'] as bool? ?? true,
-      helpText: json['helpText'] as String?,
-      aiCoaching: json['aiCoaching'] as String?,
-      validation: json['validation'] as Map<String, dynamic>?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory TemplateField.fromJson(Map<String, dynamic> json) => _$TemplateFieldFromJson(json);
+  Map<String, dynamic> toJson() => _$TemplateFieldToJson(this);
 
   @override
   bool operator ==(Object other) {
@@ -152,3 +136,6 @@ class TemplateField {
     );
   }
 }
+
+/// Helper function for FieldType serialization
+String _fieldTypeToJson(FieldType type) => type.toJson();

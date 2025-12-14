@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'pulse_entry.g.dart';
 
 /// Represents a pulse/wellness check-in with extensible metrics.
 /// All metrics are stored in customMetrics map with 1-5 scale.
@@ -12,6 +15,7 @@ import 'package:uuid/uuid.dart';
 /// 2. Migration (lib/migrations/) if needed
 /// 3. Schema validator (lib/services/schema_validator.dart)
 /// See CLAUDE.md "Data Schema Management" section for full checklist.
+@JsonSerializable()
 class PulseEntry {
   final String id;
   final DateTime timestamp;
@@ -24,9 +28,11 @@ class PulseEntry {
   final String? journalEntryId;  // Link to a specific journal entry
   final String? notes;            // Optional text note about this pulse check-in
 
-  // Deprecated: Legacy fields kept for data migration only
+  // Deprecated: Legacy fields kept for data migration only - not serialized
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @Deprecated('Use customMetrics instead')
   final MoodRating mood;
+  @JsonKey(includeFromJson: false, includeToJson: false)
   @Deprecated('Use customMetrics instead')
   final int energyLevel;
 
@@ -42,48 +48,38 @@ class PulseEntry {
         timestamp = timestamp ?? DateTime.now(),
         customMetrics = customMetrics ?? {};
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'timestamp': timestamp.toIso8601String(),
-      'customMetrics': customMetrics,
-      'journalEntryId': journalEntryId,
-      'notes': notes,
-      // Legacy fields no longer saved
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$PulseEntryToJson(this);
 
+  /// Custom deserialization with legacy migration support
   factory PulseEntry.fromJson(Map<String, dynamic> json) {
-    // Load customMetrics from JSON
-    Map<String, int> metrics = {};
+    // Handle legacy format migration before using generated code
+    final Map<String, dynamic> migratedJson = Map.from(json);
 
-    if (json['customMetrics'] != null) {
-      // New format: customMetrics exists
-      metrics = Map<String, int>.from(json['customMetrics']);
-    } else {
+    if (json['customMetrics'] == null) {
       // Legacy format: migrate mood and energyLevel to customMetrics
-      final mood = MoodRating.values.firstWhere(
-        (e) => e.toString() == json['mood'],
-        orElse: () => MoodRating.notSet,
-      );
-      final energyLevel = json['energyLevel'] ?? 0;
+      final Map<String, int> metrics = {};
 
-      if (mood.isSet) {
-        // Convert mood enum to 1-5 scale
-        metrics['Mood'] = mood.index; // veryBad=1, bad=2, neutral=3, good=4, excellent=5
+      if (json['mood'] != null) {
+        final mood = MoodRating.values.firstWhere(
+          (e) => e.toString() == json['mood'],
+          orElse: () => MoodRating.notSet,
+        );
+        if (mood.isSet) {
+          // Convert mood enum to 1-5 scale
+          metrics['Mood'] = mood.index; // veryBad=1, bad=2, neutral=3, good=4, excellent=5
+        }
       }
-      if (energyLevel > 0) {
-        metrics['Energy'] = energyLevel;
+
+      if (json['energyLevel'] != null && json['energyLevel'] > 0) {
+        metrics['Energy'] = json['energyLevel'];
       }
+
+      migratedJson['customMetrics'] = metrics;
     }
 
-    return PulseEntry(
-      id: json['id'],
-      timestamp: DateTime.parse(json['timestamp']),
-      customMetrics: metrics,
-      journalEntryId: json['journalEntryId'],
-      notes: json['notes'],
-    );
+    // Use generated fromJson with migrated data
+    return _$PulseEntryFromJson(migratedJson);
   }
 
   PulseEntry copyWith({

@@ -1,8 +1,12 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'safety_plan.g.dart';
 
 /// Contact for crisis support
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/crisisContact_v1
+@JsonSerializable()
 class CrisisContact {
   final String id;
   final String name;
@@ -18,25 +22,9 @@ class CrisisContact {
     this.isEmergency = false,
   }) : id = id ?? const Uuid().v4();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'phone': phone,
-      'relationship': relationship,
-      'isEmergency': isEmergency,
-    };
-  }
-
-  factory CrisisContact.fromJson(Map<String, dynamic> json) {
-    return CrisisContact(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      phone: json['phone'] as String,
-      relationship: json['relationship'] as String,
-      isEmergency: json['isEmergency'] as bool? ?? false,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory CrisisContact.fromJson(Map<String, dynamic> json) => _$CrisisContactFromJson(json);
+  Map<String, dynamic> toJson() => _$CrisisContactToJson(this);
 
   CrisisContact copyWith({
     String? id,
@@ -61,6 +49,7 @@ class CrisisContact {
 /// Helps users identify warning signs, coping strategies, and support contacts.
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/safetyPlan_v1
+@JsonSerializable(explicitToJson: true)
 class SafetyPlan {
   final String id;
   final DateTime createdAt;
@@ -178,39 +167,9 @@ class SafetyPlan {
     return (complete / total * 100).round();
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'createdAt': createdAt.toIso8601String(),
-      'lastUpdated': lastUpdated.toIso8601String(),
-      'warningSignsPersonal': warningSignsPersonal,
-      'copingStrategiesInternal': copingStrategiesInternal,
-      'socialSupports': socialSupports.map((c) => c.toJson()).toList(),
-      'professionalContacts': professionalContacts.map((c) => c.toJson()).toList(),
-      'reasonsToLive': reasonsToLive,
-      'environmentalSafety': environmentalSafety,
-    };
-  }
-
-  factory SafetyPlan.fromJson(Map<String, dynamic> json) {
-    return SafetyPlan(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastUpdated: DateTime.parse(json['lastUpdated'] as String),
-      warningSignsPersonal: List<String>.from(json['warningSignsPersonal'] ?? []),
-      copingStrategiesInternal: List<String>.from(json['copingStrategiesInternal'] ?? []),
-      socialSupports: (json['socialSupports'] as List<dynamic>?)
-              ?.map((c) => CrisisContact.fromJson(c as Map<String, dynamic>))
-              .toList() ??
-          [],
-      professionalContacts: (json['professionalContacts'] as List<dynamic>?)
-              ?.map((c) => CrisisContact.fromJson(c as Map<String, dynamic>))
-              .toList() ??
-          _defaultUKProfessionalContacts(),
-      reasonsToLive: List<String>.from(json['reasonsToLive'] ?? []),
-      environmentalSafety: List<String>.from(json['environmentalSafety'] ?? []),
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory SafetyPlan.fromJson(Map<String, dynamic> json) => _$SafetyPlanFromJson(json);
+  Map<String, dynamic> toJson() => _$SafetyPlanToJson(this);
 
   SafetyPlan copyWith({
     String? id,

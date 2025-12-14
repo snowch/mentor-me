@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'values_and_smart_goals.g.dart';
 
 /// Core life values domains (Acceptance and Commitment Therapy tradition)
 enum ValueDomain {
@@ -114,6 +117,7 @@ extension ValueDomainExtension on ValueDomain {
 /// Values are chosen life directions, not goals to achieve
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/personalValue_v1
+@JsonSerializable()
 class PersonalValue {
   final String id;
   final ValueDomain domain;
@@ -134,34 +138,11 @@ class PersonalValue {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'domain': domain.name,
-      'statement': statement,
-      'description': description,
-      'importanceRating': importanceRating,
-      'createdAt': createdAt.toIso8601String(),
-      'lastReviewedAt': lastReviewedAt?.toIso8601String(),
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$PersonalValueToJson(this);
 
-  factory PersonalValue.fromJson(Map<String, dynamic> json) {
-    return PersonalValue(
-      id: json['id'] as String,
-      domain: ValueDomain.values.firstWhere(
-        (e) => e.name == json['domain'],
-        orElse: () => ValueDomain.other,
-      ),
-      statement: json['statement'] as String,
-      description: json['description'] as String?,
-      importanceRating: json['importanceRating'] as int? ?? 5,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastReviewedAt: json['lastReviewedAt'] != null
-          ? DateTime.parse(json['lastReviewedAt'] as String)
-          : null,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory PersonalValue.fromJson(Map<String, dynamic> json) => _$PersonalValueFromJson(json);
 
   PersonalValue copyWith({
     String? id,
@@ -189,6 +170,7 @@ class PersonalValue {
 /// Enhances existing Goal model with structured SMART assessment
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/smartCriteria_v1
+@JsonSerializable()
 class SMARTCriteria {
   final bool isSpecific;       // Clear, unambiguous goal
   final bool isMeasurable;     // Can track progress with metrics
@@ -218,39 +200,11 @@ class SMARTCriteria {
     this.linkedValueIds,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'isSpecific': isSpecific,
-      'isMeasurable': isMeasurable,
-      'isAchievable': isAchievable,
-      'isRelevant': isRelevant,
-      'isTimeBound': isTimeBound,
-      'specificDetails': specificDetails,
-      'measurementCriteria': measurementCriteria,
-      'achievabilityNotes': achievabilityNotes,
-      'relevanceReason': relevanceReason,
-      'timeframe': timeframe,
-      'linkedValueIds': linkedValueIds,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$SMARTCriteriaToJson(this);
 
-  factory SMARTCriteria.fromJson(Map<String, dynamic> json) {
-    return SMARTCriteria(
-      isSpecific: json['isSpecific'] as bool? ?? false,
-      isMeasurable: json['isMeasurable'] as bool? ?? false,
-      isAchievable: json['isAchievable'] as bool? ?? false,
-      isRelevant: json['isRelevant'] as bool? ?? false,
-      isTimeBound: json['isTimeBound'] as bool? ?? false,
-      specificDetails: json['specificDetails'] as String?,
-      measurementCriteria: json['measurementCriteria'] as String?,
-      achievabilityNotes: json['achievabilityNotes'] as String?,
-      relevanceReason: json['relevanceReason'] as String?,
-      timeframe: json['timeframe'] as String?,
-      linkedValueIds: (json['linkedValueIds'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory SMARTCriteria.fromJson(Map<String, dynamic> json) => _$SMARTCriteriaFromJson(json);
 
   SMARTCriteria copyWith({
     bool? isSpecific,

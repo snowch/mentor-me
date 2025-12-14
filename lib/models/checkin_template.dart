@@ -1,4 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'checkin_template.g.dart';
+
+/// Custom converter for TimeOfDay since it's not JSON-serializable by default
+class TimeOfDayConverter implements JsonConverter<TimeOfDay, Map<String, dynamic>> {
+  const TimeOfDayConverter();
+
+  @override
+  TimeOfDay fromJson(Map<String, dynamic> json) {
+    return TimeOfDay(
+      hour: json['hour'] as int,
+      minute: json['minute'] as int,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson(TimeOfDay time) {
+    return {
+      'hour': time.hour,
+      'minute': time.minute,
+    };
+  }
+}
 
 /// Defines the type of question in a check-in template
 ///
@@ -71,9 +95,14 @@ extension TemplateFrequencyExtension on TemplateFrequency {
 /// A single question in a check-in template
 ///
 /// JSON Schema: lib/schemas/vX.json#definitions/checkInQuestion
+@JsonSerializable()
 class CheckInQuestion {
   final String id;
   final String text;
+  @JsonKey(
+    toJson: _questionTypeToJson,
+    fromJson: _questionTypeFromJson,
+  )
   final CheckInQuestionType questionType;
   final List<String>? options; // For multiple choice questions
   final bool isRequired;
@@ -86,25 +115,13 @@ class CheckInQuestion {
     this.isRequired = true,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'text': text,
-      'questionType': questionType.toJson(),
-      'options': options,
-      'isRequired': isRequired,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory CheckInQuestion.fromJson(Map<String, dynamic> json) => _$CheckInQuestionFromJson(json);
+  Map<String, dynamic> toJson() => _$CheckInQuestionToJson(this);
 
-  factory CheckInQuestion.fromJson(Map<String, dynamic> json) {
-    return CheckInQuestion(
-      id: json['id'] as String,
-      text: json['text'] as String,
-      questionType: CheckInQuestionTypeExtension.fromJson(json['questionType'] as String),
-      options: (json['options'] as List<dynamic>?)?.map((e) => e as String).toList(),
-      isRequired: json['isRequired'] as bool? ?? true,
-    );
-  }
+  static String _questionTypeToJson(CheckInQuestionType type) => type.toJson();
+  static CheckInQuestionType _questionTypeFromJson(String json) =>
+      CheckInQuestionTypeExtension.fromJson(json);
 
   CheckInQuestion copyWith({
     String? id,
@@ -126,8 +143,14 @@ class CheckInQuestion {
 /// Schedule configuration for a check-in template
 ///
 /// JSON Schema: lib/schemas/vX.json#definitions/templateSchedule
+@JsonSerializable()
 class TemplateSchedule {
+  @JsonKey(
+    toJson: _frequencyToJson,
+    fromJson: _frequencyFromJson,
+  )
   final TemplateFrequency frequency;
+  @TimeOfDayConverter()
   final TimeOfDay time;
   final List<int>? daysOfWeek; // 1=Monday, 7=Sunday (for weekly/biweekly)
   final int? customDayInterval; // For custom frequency (every N days)
@@ -139,27 +162,13 @@ class TemplateSchedule {
     this.customDayInterval,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'frequency': frequency.toJson(),
-      'time': {'hour': time.hour, 'minute': time.minute},
-      'daysOfWeek': daysOfWeek,
-      'customDayInterval': customDayInterval,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory TemplateSchedule.fromJson(Map<String, dynamic> json) => _$TemplateScheduleFromJson(json);
+  Map<String, dynamic> toJson() => _$TemplateScheduleToJson(this);
 
-  factory TemplateSchedule.fromJson(Map<String, dynamic> json) {
-    final timeJson = json['time'] as Map<String, dynamic>;
-    return TemplateSchedule(
-      frequency: TemplateFrequencyExtension.fromJson(json['frequency'] as String),
-      time: TimeOfDay(
-        hour: timeJson['hour'] as int,
-        minute: timeJson['minute'] as int,
-      ),
-      daysOfWeek: (json['daysOfWeek'] as List<dynamic>?)?.map((e) => e as int).toList(),
-      customDayInterval: json['customDayInterval'] as int?,
-    );
-  }
+  static String _frequencyToJson(TemplateFrequency freq) => freq.toJson();
+  static TemplateFrequency _frequencyFromJson(String json) =>
+      TemplateFrequencyExtension.fromJson(json);
 
   TemplateSchedule copyWith({
     TemplateFrequency? frequency,
@@ -220,6 +229,7 @@ class TemplateSchedule {
 ///
 /// Dart Model: lib/models/checkin_template.dart
 /// JSON Schema: lib/schemas/vX.json#definitions/checkInTemplate
+@JsonSerializable()
 class CheckInTemplate {
   final String id;
   final String name;
@@ -243,35 +253,9 @@ class CheckInTemplate {
     this.emoji,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'questions': questions.map((q) => q.toJson()).toList(),
-      'schedule': schedule.toJson(),
-      'createdAt': createdAt.toIso8601String(),
-      'isActive': isActive,
-      'linkedSessionId': linkedSessionId,
-      'emoji': emoji,
-    };
-  }
-
-  factory CheckInTemplate.fromJson(Map<String, dynamic> json) {
-    return CheckInTemplate(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      questions: (json['questions'] as List<dynamic>)
-          .map((q) => CheckInQuestion.fromJson(q as Map<String, dynamic>))
-          .toList(),
-      schedule: TemplateSchedule.fromJson(json['schedule'] as Map<String, dynamic>),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      isActive: json['isActive'] as bool? ?? true,
-      linkedSessionId: json['linkedSessionId'] as String?,
-      emoji: json['emoji'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory CheckInTemplate.fromJson(Map<String, dynamic> json) => _$CheckInTemplateFromJson(json);
+  Map<String, dynamic> toJson() => _$CheckInTemplateToJson(this);
 
   CheckInTemplate copyWith({
     String? id,
@@ -302,6 +286,7 @@ class CheckInTemplate {
 ///
 /// Dart Model: lib/models/checkin_template.dart
 /// JSON Schema: lib/schemas/vX.json#definitions/checkInResponse
+@JsonSerializable()
 class CheckInResponse {
   final String id;
   final String templateId;
@@ -319,27 +304,9 @@ class CheckInResponse {
     this.linkedJournalId,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'templateId': templateId,
-      'timestamp': timestamp.toIso8601String(),
-      'answers': answers,
-      'notes': notes,
-      'linkedJournalId': linkedJournalId,
-    };
-  }
-
-  factory CheckInResponse.fromJson(Map<String, dynamic> json) {
-    return CheckInResponse(
-      id: json['id'] as String,
-      templateId: json['templateId'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      answers: Map<String, dynamic>.from(json['answers'] as Map),
-      notes: json['notes'] as String?,
-      linkedJournalId: json['linkedJournalId'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory CheckInResponse.fromJson(Map<String, dynamic> json) => _$CheckInResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$CheckInResponseToJson(this);
 
   CheckInResponse copyWith({
     String? id,

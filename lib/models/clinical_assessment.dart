@@ -1,5 +1,8 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/material.dart';
+
+part 'clinical_assessment.g.dart';
 
 /// Types of clinical assessments available
 enum AssessmentType {
@@ -116,13 +119,30 @@ extension SeverityLevelExtension on SeverityLevel {
   }
 }
 
+/// Converter for Map<int, int> to/from JSON (keys must be strings in JSON)
+class IntIntMapConverter implements JsonConverter<Map<int, int>, Map<String, dynamic>> {
+  const IntIntMapConverter();
+
+  @override
+  Map<int, int> fromJson(Map<String, dynamic> json) {
+    return json.map((k, v) => MapEntry(int.parse(k), v as int));
+  }
+
+  @override
+  Map<String, dynamic> toJson(Map<int, int> object) {
+    return object.map((k, v) => MapEntry(k.toString(), v));
+  }
+}
+
 /// Result of a clinical assessment
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/assessmentResult_v1
+@JsonSerializable()
 class AssessmentResult {
   final String id;
   final AssessmentType type;
   final DateTime completedAt;
+  @IntIntMapConverter()
   final Map<int, int> responses; // Question number → Score (0-3)
   final int totalScore;
   final SeverityLevel severity;
@@ -141,38 +161,9 @@ class AssessmentResult {
   })  : id = id ?? const Uuid().v4(),
         completedAt = completedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type.name,
-      'completedAt': completedAt.toIso8601String(),
-      'responses': responses.map((k, v) => MapEntry(k.toString(), v)),
-      'totalScore': totalScore,
-      'severity': severity.name,
-      'interpretation': interpretation,
-      'triggeredCrisisProtocol': triggeredCrisisProtocol,
-    };
-  }
-
-  factory AssessmentResult.fromJson(Map<String, dynamic> json) {
-    return AssessmentResult(
-      id: json['id'] as String,
-      type: AssessmentType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => AssessmentType.phq9,
-      ),
-      completedAt: DateTime.parse(json['completedAt'] as String),
-      responses: (json['responses'] as Map<String, dynamic>)
-          .map((k, v) => MapEntry(int.parse(k), v as int)),
-      totalScore: json['totalScore'] as int,
-      severity: SeverityLevel.values.firstWhere(
-        (e) => e.name == json['severity'],
-        orElse: () => SeverityLevel.none,
-      ),
-      interpretation: json['interpretation'] as String,
-      triggeredCrisisProtocol: json['triggeredCrisisProtocol'] as bool? ?? false,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory AssessmentResult.fromJson(Map<String, dynamic> json) => _$AssessmentResultFromJson(json);
+  Map<String, dynamic> toJson() => _$AssessmentResultToJson(this);
 
   AssessmentResult copyWith({
     String? id,

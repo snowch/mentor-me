@@ -343,14 +343,14 @@ class ContextManagementService {
       final todayStart = DateTime(today.year, today.month, today.day);
       final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
       if (todayEntries.isNotEmpty) {
-        int totalCal = 0;
-        int totalProtein = 0;
-        int totalCarbs = 0;
-        int totalFat = 0;
-        int totalFiber = 0;
-        int totalSugar = 0;
-        int totalSodium = 0;
-        int totalSaturatedFat = 0;
+        double totalCal = 0;
+        double totalProtein = 0;
+        double totalCarbs = 0;
+        double totalFat = 0;
+        double totalFiber = 0;
+        double totalSugar = 0;
+        double totalSodium = 0;
+        double totalSaturatedFat = 0;
         for (final entry in todayEntries) {
           if (entry.nutrition != null) {
             totalCal += entry.nutrition!.calories;
@@ -666,13 +666,13 @@ class ContextManagementService {
       final todayStart = DateTime(today.year, today.month, today.day);
       final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
       if (todayEntries.isNotEmpty) {
-        int totalCal = 0;
+        double totalCal = 0;
         for (final entry in todayEntries) {
           if (entry.nutrition != null) {
             totalCal += entry.nutrition!.calories;
           }
         }
-        final foodSection = '\nFood today: $totalCal cal (${todayEntries.length} meals)\n';
+        final foodSection = '\nFood today: ${totalCal.round()} cal (${todayEntries.length} meals)\n';
         if (canAdd(foodSection)) {
           buffer.write(foodSection);
           currentTokens += estimateTokens(foodSection);
@@ -970,15 +970,15 @@ class ContextManagementService {
       final todayStart = DateTime(today.year, today.month, today.day);
       final todayEntries = foodEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
       if (todayEntries.isNotEmpty) {
-        int totalCal = 0;
-        int totalProtein = 0;
+        double totalCal = 0;
+        double totalProtein = 0;
         for (final entry in todayEntries) {
           if (entry.nutrition != null) {
             totalCal += entry.nutrition!.calories;
             totalProtein += entry.nutrition!.proteinGrams;
           }
         }
-        buffer.writeln('Today so far: $totalCal cal, ${totalProtein}g protein (${todayEntries.length} meals)');
+        buffer.writeln('Today so far: ${totalCal.round()} cal, ${totalProtein.round()}g protein (${todayEntries.length} meals)');
       }
       // Recent entries
       final recentFood = foodEntries

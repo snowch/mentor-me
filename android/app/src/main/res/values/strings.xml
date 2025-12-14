@@ -5,4 +5,6 @@
     <!-- App Actions / Google Assistant shortcuts -->
     <string name="shortcut_add_todo">Add Todo</string>
     <string name="shortcut_add_todo_long">Add a new todo with voice</string>
+    <string name="shortcut_log_food">Log Food</string>
+    <string name="shortcut_log_food_long">Log food and track nutrition</string>
 </resources>

@@ -44,23 +44,24 @@ enum MealType {
 }
 
 /// AI-estimated nutrition information
+/// Note: All numeric fields are doubles to support decimal values from nutrition labels
 @JsonSerializable()
 class NutritionEstimate {
-  final int calories;
-  final int proteinGrams;
-  final int carbsGrams;
-  final int fatGrams;
-  final int? saturatedFatGrams; // "Bad" fat - solid at room temp
-  final int? unsaturatedFatGrams; // "Good" fat - liquid at room temp (mono + poly combined)
-  final int? monoFatGrams; // Monounsaturated fat (olive oil, avocado, nuts)
-  final int? polyFatGrams; // Polyunsaturated fat (omega-3, omega-6, fish, seeds)
-  final int? transFatGrams; // Artificial trans fats - worst for health
-  final int? fiberGrams;
-  final int? sugarGrams;
+  final double calories;
+  final double proteinGrams;
+  final double carbsGrams;
+  final double fatGrams;
+  final double? saturatedFatGrams; // "Bad" fat - solid at room temp
+  final double? unsaturatedFatGrams; // "Good" fat - liquid at room temp (mono + poly combined)
+  final double? monoFatGrams; // Monounsaturated fat (olive oil, avocado, nuts)
+  final double? polyFatGrams; // Polyunsaturated fat (omega-3, omega-6, fish, seeds)
+  final double? transFatGrams; // Artificial trans fats - worst for health
+  final double? fiberGrams;
+  final double? sugarGrams;
   // Micronutrients for health-specific tracking
-  final int? sodiumMg; // Important for blood pressure
-  final int? potassiumMg; // Heart health, often inverse of sodium concern
-  final int? cholesterolMg; // Cardiovascular health
+  final double? sodiumMg; // Important for blood pressure
+  final double? potassiumMg; // Heart health, often inverse of sodium concern
+  final double? cholesterolMg; // Cardiovascular health
   final String? confidence; // 'high', 'medium', 'low'
   final String? notes; // AI notes about the estimate
 
@@ -88,20 +89,20 @@ class NutritionEstimate {
   Map<String, dynamic> toJson() => _$NutritionEstimateToJson(this);
 
   NutritionEstimate copyWith({
-    int? calories,
-    int? proteinGrams,
-    int? carbsGrams,
-    int? fatGrams,
-    int? saturatedFatGrams,
-    int? unsaturatedFatGrams,
-    int? monoFatGrams,
-    int? polyFatGrams,
-    int? transFatGrams,
-    int? fiberGrams,
-    int? sugarGrams,
-    int? sodiumMg,
-    int? potassiumMg,
-    int? cholesterolMg,
+    double? calories,
+    double? proteinGrams,
+    double? carbsGrams,
+    double? fatGrams,
+    double? saturatedFatGrams,
+    double? unsaturatedFatGrams,
+    double? monoFatGrams,
+    double? polyFatGrams,
+    double? transFatGrams,
+    double? fiberGrams,
+    double? sugarGrams,
+    double? sodiumMg,
+    double? potassiumMg,
+    double? cholesterolMg,
     String? confidence,
     String? notes,
   }) {
@@ -125,19 +126,27 @@ class NutritionEstimate {
     );
   }
 
+  /// Format a nutrition value for display (show decimal only if needed)
+  static String _formatValue(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toStringAsFixed(1);
+  }
+
   /// Format as a brief summary string
   @JsonKey(includeFromJson: false, includeToJson: false)
   String get summary {
     final parts = <String>[
-      '${proteinGrams}g P',
-      '${carbsGrams}g C',
-      '${fatGrams}g F',
+      '${_formatValue(proteinGrams)}g P',
+      '${_formatValue(carbsGrams)}g C',
+      '${_formatValue(fatGrams)}g F',
     ];
     if (fiberGrams != null && fiberGrams! > 0) {
-      parts.add('${fiberGrams}g fiber');
+      parts.add('${_formatValue(fiberGrams!)}g fiber');
     }
     if (sugarGrams != null && sugarGrams! > 0) {
-      parts.add('${sugarGrams}g sugar');
+      parts.add('${_formatValue(sugarGrams!)}g sugar');
     }
     return parts.join(' · ');
   }
@@ -146,23 +155,23 @@ class NutritionEstimate {
   @JsonKey(includeFromJson: false, includeToJson: false)
   String get detailedSummary {
     final buffer = StringBuffer();
-    buffer.write('$calories cal · ${proteinGrams}g protein · ${carbsGrams}g carbs');
+    buffer.write('${_formatValue(calories)} cal · ${_formatValue(proteinGrams)}g protein · ${_formatValue(carbsGrams)}g carbs');
 
     if (fiberGrams != null && fiberGrams! > 0) {
-      buffer.write(' · ${fiberGrams}g fiber');
+      buffer.write(' · ${_formatValue(fiberGrams!)}g fiber');
     }
     if (sugarGrams != null && sugarGrams! > 0) {
-      buffer.write(' · ${sugarGrams}g sugar');
+      buffer.write(' · ${_formatValue(sugarGrams!)}g sugar');
     }
 
-    buffer.write(' · ${fatGrams}g fat');
+    buffer.write(' · ${_formatValue(fatGrams)}g fat');
     if (saturatedFatGrams != null || unsaturatedFatGrams != null) {
       final fatParts = <String>[];
       if (saturatedFatGrams != null && saturatedFatGrams! > 0) {
-        fatParts.add('${saturatedFatGrams}g sat');
+        fatParts.add('${_formatValue(saturatedFatGrams!)}g sat');
       }
       if (unsaturatedFatGrams != null && unsaturatedFatGrams! > 0) {
-        fatParts.add('${unsaturatedFatGrams}g unsat');
+        fatParts.add('${_formatValue(unsaturatedFatGrams!)}g unsat');
       }
       if (fatParts.isNotEmpty) {
         buffer.write(' (${fatParts.join(', ')})');
@@ -449,15 +458,15 @@ class NutritionGoal {
 /// Summary of nutrition for a time period
 /// Note: This is computed at runtime, not persisted, so no serialization needed
 class NutritionSummary {
-  final int totalCalories;
-  final int totalProtein;
-  final int totalCarbs;
-  final int totalFat;
-  final int totalSaturatedFat;
-  final int totalUnsaturatedFat;
-  final int totalTransFat;
-  final int totalSugar;
-  final int totalFiber;
+  final double totalCalories;
+  final double totalProtein;
+  final double totalCarbs;
+  final double totalFat;
+  final double totalSaturatedFat;
+  final double totalUnsaturatedFat;
+  final double totalTransFat;
+  final double totalSugar;
+  final double totalFiber;
   final int entryCount;
 
   const NutritionSummary({
@@ -475,15 +484,15 @@ class NutritionSummary {
 
   /// Create from a list of food entries
   factory NutritionSummary.fromEntries(List<FoodEntry> entries) {
-    int calories = 0;
-    int protein = 0;
-    int carbs = 0;
-    int fat = 0;
-    int saturatedFat = 0;
-    int unsaturatedFat = 0;
-    int transFat = 0;
-    int sugar = 0;
-    int fiber = 0;
+    double calories = 0;
+    double protein = 0;
+    double carbs = 0;
+    double fat = 0;
+    double saturatedFat = 0;
+    double unsaturatedFat = 0;
+    double transFat = 0;
+    double sugar = 0;
+    double fiber = 0;
 
     for (final entry in entries) {
       if (entry.nutrition != null) {

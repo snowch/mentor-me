@@ -1,12 +1,19 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
 
+part 'pulse_type.g.dart';
+
 /// Represents a configurable pulse check type that users can create and manage
+/// JSON Schema: lib/schemas/v2.json#definitions/pulseType_v2
+@JsonSerializable()
 class PulseType {
   final String id;
   final String name;
   final String iconName; // Store icon name (e.g., 'mood', 'bolt')
   final String colorHex; // Store color as hex string (e.g., "FF5252")
+  @JsonKey(defaultValue: true)
   final bool isActive;
+  @JsonKey(defaultValue: 0)
   final int order; // For sorting in UI
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -23,40 +30,17 @@ class PulseType {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'iconName': iconName,
-      'colorHex': colorHex,
-      'isActive': isActive,
-      'order': order,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$PulseTypeToJson(this);
 
+  /// Auto-generated deserialization with backward compatibility support
   factory PulseType.fromJson(Map<String, dynamic> json) {
     // Support backward compatibility with old 'iconCodePoint' field
-    String iconName = json['iconName'] as String? ?? 'mood';
     if (json['iconCodePoint'] != null && json['iconName'] == null) {
-      // Old format - try to map code point to name (best effort)
-      // For simplicity, just use default
-      iconName = 'mood';
+      // Old format - migrate to new iconName format
+      json = {...json, 'iconName': json['iconName'] ?? 'mood'};
     }
-
-    return PulseType(
-      id: json['id'],
-      name: json['name'],
-      iconName: iconName,
-      colorHex: json['colorHex'],
-      isActive: json['isActive'] ?? true,
-      order: json['order'] ?? 0,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : null,
-    );
+    return _$PulseTypeFromJson(json);
   }
 
   PulseType copyWith({

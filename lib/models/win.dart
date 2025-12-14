@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'win.g.dart';
 
 /// The source/origin of a win record.
 enum WinSource {
@@ -40,6 +43,7 @@ enum WinCategory {
 /// 2. Migration (lib/migrations/) if needed
 /// 3. Schema validator (lib/services/schema_validator.dart)
 /// See CLAUDE.md "Data Schema Management" section for full checklist.
+@JsonSerializable()
 class Win {
   final String id;
   final String description;
@@ -64,41 +68,9 @@ class Win {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'description': description,
-      'createdAt': createdAt.toIso8601String(),
-      'source': source.name,
-      'category': category?.name,
-      'linkedGoalId': linkedGoalId,
-      'linkedHabitId': linkedHabitId,
-      'linkedMilestoneId': linkedMilestoneId,
-      'sourceSessionId': sourceSessionId,
-    };
-  }
-
-  factory Win.fromJson(Map<String, dynamic> json) {
-    return Win(
-      id: json['id'],
-      description: json['description'],
-      createdAt: DateTime.parse(json['createdAt']),
-      source: WinSource.values.firstWhere(
-        (e) => e.name == json['source'],
-        orElse: () => WinSource.manual,
-      ),
-      category: json['category'] != null
-          ? WinCategory.values.firstWhere(
-              (e) => e.name == json['category'],
-              orElse: () => WinCategory.other,
-            )
-          : null,
-      linkedGoalId: json['linkedGoalId'],
-      linkedHabitId: json['linkedHabitId'],
-      linkedMilestoneId: json['linkedMilestoneId'],
-      sourceSessionId: json['sourceSessionId'],
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Win.fromJson(Map<String, dynamic> json) => _$WinFromJson(json);
+  Map<String, dynamic> toJson() => _$WinToJson(this);
 
   Win copyWith({
     String? description,

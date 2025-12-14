@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'cognitive_distortion.g.dart';
 
 /// The 10 common cognitive distortions (David Burns, CBT tradition)
 enum DistortionType {
@@ -294,6 +297,7 @@ extension DistortionTypeExtension on DistortionType {
 /// Used for educational purposes and thought record enhancement
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/detectedDistortion_v1
+@JsonSerializable()
 class DetectedDistortion {
   final String id;
   final DistortionType type;
@@ -316,33 +320,9 @@ class DetectedDistortion {
   })  : id = id ?? const Uuid().v4(),
         detectedAt = detectedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type.name,
-      'originalText': originalText,
-      'context': context,
-      'detectedAt': detectedAt.toIso8601String(),
-      'linkedThoughtRecordId': linkedThoughtRecordId,
-      'userAcknowledged': userAcknowledged,
-      'alternativeThought': alternativeThought,
-    };
-  }
-
-  factory DetectedDistortion.fromJson(Map<String, dynamic> json) {
-    return DetectedDistortion(
-      id: json['id'] as String,
-      type: DistortionType.values.firstWhere(
-        (e) => e.name == json['type'],
-      ),
-      originalText: json['originalText'] as String,
-      context: json['context'] as String?,
-      detectedAt: DateTime.parse(json['detectedAt'] as String),
-      linkedThoughtRecordId: json['linkedThoughtRecordId'] as String?,
-      userAcknowledged: json['userAcknowledged'] as bool? ?? false,
-      alternativeThought: json['alternativeThought'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory DetectedDistortion.fromJson(Map<String, dynamic> json) => _$DetectedDistortionFromJson(json);
+  Map<String, dynamic> toJson() => _$DetectedDistortionToJson(this);
 
   DetectedDistortion copyWith({
     String? id,

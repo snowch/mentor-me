@@ -1639,7 +1639,7 @@ class BackupService {
     try {
       if (data.containsKey('meditation_sessions') && data['meditation_sessions'] != null) {
         final sessionsJson = json.decode(data['meditation_sessions'] as String) as List;
-        final sessions = sessionsJson.map((json) => MeditationSession.fromJson(json)).toList();
+        final sessions = sessionsJson.map((json) => MeditationSession.fromJson(json).toJson()).toList();
         await _storage.saveMeditationSessions(sessions);
         await _debug.info('BackupService', 'Imported ${sessions.length} meditation sessions');
         results.add(ImportItemResult(

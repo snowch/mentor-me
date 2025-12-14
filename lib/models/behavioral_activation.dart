@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'behavioral_activation.g.dart';
 
 /// Category of activity for behavioral activation
 enum ActivityCategory {
@@ -176,12 +179,14 @@ extension ActivityCategoryExtension on ActivityCategory {
 /// Can be used to create scheduled activities or as inspiration
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/activity_v1
+@JsonSerializable()
 class Activity {
   final String id;
   final String name;
   final String? description;
   final ActivityCategory category;
   final int? estimatedMinutes;
+  @JsonKey(defaultValue: false)
   final bool isSystemDefined;  // From UK activity library
   final List<String>? tags;    // e.g., 'indoor', 'free', 'low-energy'
   final DateTime createdAt;
@@ -198,34 +203,11 @@ class Activity {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'category': category.name,
-      'estimatedMinutes': estimatedMinutes,
-      'isSystemDefined': isSystemDefined,
-      'tags': tags,
-      'createdAt': createdAt.toIso8601String(),
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$ActivityToJson(this);
 
-  factory Activity.fromJson(Map<String, dynamic> json) {
-    return Activity(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      category: ActivityCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => ActivityCategory.other,
-      ),
-      estimatedMinutes: json['estimatedMinutes'] as int?,
-      isSystemDefined: json['isSystemDefined'] as bool? ?? false,
-      tags: (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList(),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-    );
-  }
+  /// Auto-generated deserialization - ensures all fields are included
+  factory Activity.fromJson(Map<String, dynamic> json) => _$ActivityFromJson(json);
 
   Activity copyWith({
     String? id,
@@ -255,12 +237,14 @@ class Activity {
 /// Tracks mood before/after and actual completion for behavioral activation monitoring
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/scheduledActivity_v1
+@JsonSerializable()
 class ScheduledActivity {
   final String id;
   final String activityId;      // Reference to Activity
   final String activityName;    // Denormalized for convenience
   final DateTime scheduledFor;
   final int? scheduledDurationMinutes;
+  @JsonKey(defaultValue: false)
   final bool completed;
   final DateTime? completedAt;
   final int? actualDurationMinutes;
@@ -269,6 +253,7 @@ class ScheduledActivity {
   final int? enjoymentRating;   // 1-5 scale
   final int? accomplishmentRating; // 1-5 scale
   final String? notes;
+  @JsonKey(defaultValue: false)
   final bool skipReason;        // If not completed, why?
   final String? skipNotes;
 
@@ -290,47 +275,11 @@ class ScheduledActivity {
     this.skipNotes,
   }) : id = id ?? const Uuid().v4();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'activityId': activityId,
-      'activityName': activityName,
-      'scheduledFor': scheduledFor.toIso8601String(),
-      'scheduledDurationMinutes': scheduledDurationMinutes,
-      'completed': completed,
-      'completedAt': completedAt?.toIso8601String(),
-      'actualDurationMinutes': actualDurationMinutes,
-      'moodBefore': moodBefore,
-      'moodAfter': moodAfter,
-      'enjoymentRating': enjoymentRating,
-      'accomplishmentRating': accomplishmentRating,
-      'notes': notes,
-      'skipReason': skipReason,
-      'skipNotes': skipNotes,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$ScheduledActivityToJson(this);
 
-  factory ScheduledActivity.fromJson(Map<String, dynamic> json) {
-    return ScheduledActivity(
-      id: json['id'] as String,
-      activityId: json['activityId'] as String,
-      activityName: json['activityName'] as String,
-      scheduledFor: DateTime.parse(json['scheduledFor'] as String),
-      scheduledDurationMinutes: json['scheduledDurationMinutes'] as int?,
-      completed: json['completed'] as bool? ?? false,
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
-          : null,
-      actualDurationMinutes: json['actualDurationMinutes'] as int?,
-      moodBefore: json['moodBefore'] as int?,
-      moodAfter: json['moodAfter'] as int?,
-      enjoymentRating: json['enjoymentRating'] as int?,
-      accomplishmentRating: json['accomplishmentRating'] as int?,
-      notes: json['notes'] as String?,
-      skipReason: json['skipReason'] as bool? ?? false,
-      skipNotes: json['skipNotes'] as String?,
-    );
-  }
+  /// Auto-generated deserialization - ensures all fields are included
+  factory ScheduledActivity.fromJson(Map<String, dynamic> json) => _$ScheduledActivityFromJson(json);
 
   ScheduledActivity copyWith({
     String? id,

@@ -1,3 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
+
+part 'reflection_session.g.dart';
+
 /// Data model for mentor reflection sessions.
 ///
 /// Reflection sessions are structured, AI-guided conversations that help users
@@ -153,6 +157,7 @@ extension InterventionCategoryExtension on InterventionCategory {
 }
 
 /// A single question-answer exchange in a reflection session
+@JsonSerializable()
 class ReflectionExchange {
   final String mentorQuestion;
   final String userResponse;
@@ -166,21 +171,10 @@ class ReflectionExchange {
     this.followUpContext,
   });
 
-  Map<String, dynamic> toJson() => {
-        'mentorQuestion': mentorQuestion,
-        'userResponse': userResponse,
-        'sequenceOrder': sequenceOrder,
-        'followUpContext': followUpContext,
-      };
-
-  factory ReflectionExchange.fromJson(Map<String, dynamic> json) {
-    return ReflectionExchange(
-      mentorQuestion: json['mentorQuestion'] as String,
-      userResponse: json['userResponse'] as String,
-      sequenceOrder: json['sequenceOrder'] as int,
-      followUpContext: json['followUpContext'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ReflectionExchange.fromJson(Map<String, dynamic> json) =>
+      _$ReflectionExchangeFromJson(json);
+  Map<String, dynamic> toJson() => _$ReflectionExchangeToJson(this);
 
   ReflectionExchange copyWith({
     String? mentorQuestion,
@@ -198,6 +192,7 @@ class ReflectionExchange {
 }
 
 /// A pattern detected in the user's responses
+@JsonSerializable()
 class DetectedPattern {
   final PatternType type;
   final double confidence; // 0.0 - 1.0
@@ -211,24 +206,10 @@ class DetectedPattern {
     required this.description,
   });
 
-  Map<String, dynamic> toJson() => {
-        'type': type.name,
-        'confidence': confidence,
-        'evidence': evidence,
-        'description': description,
-      };
-
-  factory DetectedPattern.fromJson(Map<String, dynamic> json) {
-    return DetectedPattern(
-      type: PatternType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => PatternType.general,
-      ),
-      confidence: (json['confidence'] as num).toDouble(),
-      evidence: json['evidence'] as String,
-      description: json['description'] as String,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory DetectedPattern.fromJson(Map<String, dynamic> json) =>
+      _$DetectedPatternFromJson(json);
+  Map<String, dynamic> toJson() => _$DetectedPatternToJson(this);
 
   DetectedPattern copyWith({
     PatternType? type,
@@ -246,6 +227,7 @@ class DetectedPattern {
 }
 
 /// An evidence-based intervention recommendation
+@JsonSerializable()
 class Intervention {
   final String id;
   final String name;
@@ -265,33 +247,10 @@ class Intervention {
     this.habitSuggestion,
   });
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'description': description,
-        'howToApply': howToApply,
-        'targetPattern': targetPattern.name,
-        'category': category.name,
-        'habitSuggestion': habitSuggestion,
-      };
-
-  factory Intervention.fromJson(Map<String, dynamic> json) {
-    return Intervention(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      howToApply: json['howToApply'] as String,
-      targetPattern: PatternType.values.firstWhere(
-        (e) => e.name == json['targetPattern'],
-        orElse: () => PatternType.general,
-      ),
-      category: InterventionCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => InterventionCategory.behavioral,
-      ),
-      habitSuggestion: json['habitSuggestion'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Intervention.fromJson(Map<String, dynamic> json) =>
+      _$InterventionFromJson(json);
+  Map<String, dynamic> toJson() => _$InterventionToJson(this);
 
   Intervention copyWith({
     String? id,
@@ -456,6 +415,7 @@ extension ActionTypeExtension on ActionType {
 }
 
 /// An action proposed by the AI during a reflection session
+@JsonSerializable()
 class ProposedAction {
   final String id;
   final ActionType type;
@@ -471,26 +431,10 @@ class ProposedAction {
     required this.proposedAt,
   });
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type.name,
-        'description': description,
-        'parameters': parameters,
-        'proposedAt': proposedAt.toIso8601String(),
-      };
-
-  factory ProposedAction.fromJson(Map<String, dynamic> json) {
-    return ProposedAction(
-      id: json['id'] as String,
-      type: ActionType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => ActionType.createGoal,
-      ),
-      description: json['description'] as String,
-      parameters: Map<String, dynamic>.from(json['parameters'] as Map),
-      proposedAt: DateTime.parse(json['proposedAt'] as String),
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ProposedAction.fromJson(Map<String, dynamic> json) =>
+      _$ProposedActionFromJson(json);
+  Map<String, dynamic> toJson() => _$ProposedActionToJson(this);
 
   ProposedAction copyWith({
     String? id,
@@ -510,6 +454,7 @@ class ProposedAction {
 }
 
 /// An action that was executed during a reflection session
+@JsonSerializable()
 class ExecutedAction {
   final String proposedActionId;
   final ActionType type;
@@ -533,34 +478,10 @@ class ExecutedAction {
     this.resultId,
   });
 
-  Map<String, dynamic> toJson() => {
-        'proposedActionId': proposedActionId,
-        'type': type.name,
-        'description': description,
-        'parameters': parameters,
-        'confirmed': confirmed,
-        'executedAt': executedAt.toIso8601String(),
-        'success': success,
-        'errorMessage': errorMessage,
-        'resultId': resultId,
-      };
-
-  factory ExecutedAction.fromJson(Map<String, dynamic> json) {
-    return ExecutedAction(
-      proposedActionId: json['proposedActionId'] as String,
-      type: ActionType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => ActionType.createGoal,
-      ),
-      description: json['description'] as String,
-      parameters: Map<String, dynamic>.from(json['parameters'] as Map),
-      confirmed: json['confirmed'] as bool,
-      executedAt: DateTime.parse(json['executedAt'] as String),
-      success: json['success'] as bool,
-      errorMessage: json['errorMessage'] as String?,
-      resultId: json['resultId'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ExecutedAction.fromJson(Map<String, dynamic> json) =>
+      _$ExecutedActionFromJson(json);
+  Map<String, dynamic> toJson() => _$ExecutedActionToJson(this);
 
   ExecutedAction copyWith({
     String? proposedActionId,
@@ -588,6 +509,7 @@ class ExecutedAction {
 }
 
 /// Outcome of a reflection session, including all actions proposed and executed
+@JsonSerializable()
 class SessionOutcome {
   final List<ProposedAction> actionsProposed;
   final List<ExecutedAction> actionsExecuted;
@@ -601,35 +523,19 @@ class SessionOutcome {
     this.sessionSummary,
   });
 
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get totalActionsProposed => actionsProposed.length;
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get totalActionsExecuted => actionsExecuted.where((a) => a.confirmed).length;
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get totalActionsSucceeded => actionsExecuted.where((a) => a.success).length;
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int get totalActionsFailed => actionsExecuted.where((a) => !a.success).length;
 
-  Map<String, dynamic> toJson() => {
-        'actionsProposed': actionsProposed.map((a) => a.toJson()).toList(),
-        'actionsExecuted': actionsExecuted.map((a) => a.toJson()).toList(),
-        'checkInTemplatesCreated': checkInTemplatesCreated,
-        'sessionSummary': sessionSummary,
-      };
-
-  factory SessionOutcome.fromJson(Map<String, dynamic> json) {
-    return SessionOutcome(
-      actionsProposed: (json['actionsProposed'] as List<dynamic>?)
-              ?.map((a) => ProposedAction.fromJson(a as Map<String, dynamic>))
-              .toList() ??
-          [],
-      actionsExecuted: (json['actionsExecuted'] as List<dynamic>?)
-              ?.map((a) => ExecutedAction.fromJson(a as Map<String, dynamic>))
-              .toList() ??
-          [],
-      checkInTemplatesCreated: (json['checkInTemplatesCreated'] as List<dynamic>?)
-              ?.map((id) => id as String)
-              .toList() ??
-          [],
-      sessionSummary: json['sessionSummary'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory SessionOutcome.fromJson(Map<String, dynamic> json) =>
+      _$SessionOutcomeFromJson(json);
+  Map<String, dynamic> toJson() => _$SessionOutcomeToJson(this);
 
   SessionOutcome copyWith({
     List<ProposedAction>? actionsProposed,
@@ -647,6 +553,7 @@ class SessionOutcome {
 }
 
 /// A complete reflection session
+@JsonSerializable()
 class ReflectionSession {
   final String id;
   final DateTime startedAt;
@@ -676,62 +583,19 @@ class ReflectionSession {
     this.outcome,
   });
 
+  @JsonKey(includeFromJson: false, includeToJson: false)
   bool get isCompleted => completedAt != null;
 
+  @JsonKey(includeFromJson: false, includeToJson: false)
   Duration? get duration {
     if (completedAt == null) return null;
     return completedAt!.difference(startedAt);
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'startedAt': startedAt.toIso8601String(),
-        'completedAt': completedAt?.toIso8601String(),
-        'type': type.name,
-        'exchanges': exchanges.map((e) => e.toJson()).toList(),
-        'patterns': patterns.map((p) => p.toJson()).toList(),
-        'recommendations': recommendations.map((r) => r.toJson()).toList(),
-        'summary': summary,
-        'linkedJournalId': linkedJournalId,
-        'linkedGoalId': linkedGoalId,
-        'initialMoodRating': initialMoodRating,
-        'outcome': outcome?.toJson(),
-      };
-
-  factory ReflectionSession.fromJson(Map<String, dynamic> json) {
-    return ReflectionSession(
-      id: json['id'] as String,
-      startedAt: DateTime.parse(json['startedAt'] as String),
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
-          : null,
-      type: ReflectionSessionType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => ReflectionSessionType.general,
-      ),
-      exchanges: (json['exchanges'] as List<dynamic>?)
-              ?.map((e) =>
-                  ReflectionExchange.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      patterns: (json['patterns'] as List<dynamic>?)
-              ?.map(
-                  (p) => DetectedPattern.fromJson(p as Map<String, dynamic>))
-              .toList() ??
-          [],
-      recommendations: (json['recommendations'] as List<dynamic>?)
-              ?.map((r) => Intervention.fromJson(r as Map<String, dynamic>))
-              .toList() ??
-          [],
-      summary: json['summary'] as String?,
-      linkedJournalId: json['linkedJournalId'] as String?,
-      linkedGoalId: json['linkedGoalId'] as String?,
-      initialMoodRating: json['initialMoodRating'] as int?,
-      outcome: json['outcome'] != null
-          ? SessionOutcome.fromJson(json['outcome'] as Map<String, dynamic>)
-          : null,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ReflectionSession.fromJson(Map<String, dynamic> json) =>
+      _$ReflectionSessionFromJson(json);
+  Map<String, dynamic> toJson() => _$ReflectionSessionToJson(this);
 
   ReflectionSession copyWith({
     String? id,

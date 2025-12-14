@@ -55,7 +55,7 @@
         </slice-as-shortcut>
     </capability>
 
-    <!-- Static shortcut for quick access -->
+    <!-- Static shortcut for quick access - Add Todo -->
     <shortcut
         android:shortcutId="add_todo"
         android:shortcutShortLabel="@string/shortcut_add_todo"
@@ -70,6 +70,20 @@
 
         <!-- Link this shortcut to the CREATE_TASK capability -->
         <capability-binding android:key="actions.intent.CREATE_TASK" />
+    </shortcut>
+
+    <!-- Static shortcut for quick access - Log Food -->
+    <shortcut
+        android:shortcutId="log_food"
+        android:shortcutShortLabel="@string/shortcut_log_food"
+        android:shortcutLongLabel="@string/shortcut_log_food_long"
+        android:icon="@drawable/ic_food_log">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+            <extra android:name="action" android:value="log_food" />
+        </intent>
     </shortcut>
 
 </shortcuts>

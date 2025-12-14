@@ -1,6 +1,10 @@
 // lib/models/meditation_settings.dart
 // User preferences for meditation sessions
 
+import 'package:json_annotation/json_annotation.dart';
+
+part 'meditation_settings.g.dart';
+
 /// Bell sound type for meditation sessions
 enum BellType {
   single,
@@ -19,6 +23,7 @@ extension BellTypeExtension on BellType {
 }
 
 /// Settings for meditation sessions
+@JsonSerializable()
 class MeditationSettings {
   /// Default duration in minutes (1-60)
   final int defaultDurationMinutes;
@@ -71,33 +76,8 @@ class MeditationSettings {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'defaultDurationMinutes': defaultDurationMinutes,
-      'startingBell': startingBell.name,
-      'endingBell': endingBell.name,
-      'intervalBellsEnabled': intervalBellsEnabled,
-      'intervalMinutes': intervalMinutes,
-      'quickStartEnabled': quickStartEnabled,
-      'keepScreenOn': keepScreenOn,
-    };
-  }
-
-  factory MeditationSettings.fromJson(Map<String, dynamic> json) {
-    return MeditationSettings(
-      defaultDurationMinutes: json['defaultDurationMinutes'] as int? ?? 10,
-      startingBell: BellType.values.firstWhere(
-        (e) => e.name == json['startingBell'],
-        orElse: () => BellType.single,
-      ),
-      endingBell: BellType.values.firstWhere(
-        (e) => e.name == json['endingBell'],
-        orElse: () => BellType.triple,
-      ),
-      intervalBellsEnabled: json['intervalBellsEnabled'] as bool? ?? false,
-      intervalMinutes: json['intervalMinutes'] as int? ?? 5,
-      quickStartEnabled: json['quickStartEnabled'] as bool? ?? false,
-      keepScreenOn: json['keepScreenOn'] as bool? ?? true,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory MeditationSettings.fromJson(Map<String, dynamic> json) =>
+      _$MeditationSettingsFromJson(json);
+  Map<String, dynamic> toJson() => _$MeditationSettingsToJson(this);
 }

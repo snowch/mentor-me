@@ -8,10 +8,13 @@ typedef CreateTodoCallback = void Function(String title, String? dueDate);
 /// Callback for when the add todo screen should be opened
 typedef OpenAddTodoCallback = void Function();
 
+/// Callback for when the food log screen should be opened
+typedef OpenLogFoodCallback = void Function();
+
 /// Service for handling Google Assistant App Actions
 ///
 /// Listens for CREATE_TASK intents from Google Assistant and
-/// notifies the app to create todos.
+/// notifies the app to create todos or log food.
 class AppActionsService {
   static final _debug = DebugService();
   static const _channel = MethodChannel('com.mentorme/app_actions');
@@ -23,11 +26,13 @@ class AppActionsService {
 
   CreateTodoCallback? _onCreateTodo;
   OpenAddTodoCallback? _onOpenAddTodo;
+  OpenLogFoodCallback? _onLogFood;
 
   /// Initialize the App Actions service
   Future<void> initialize({
     required CreateTodoCallback onCreateTodo,
     required OpenAddTodoCallback onOpenAddTodo,
+    OpenLogFoodCallback? onLogFood,
   }) async {
     if (kIsWeb) {
       await _debug.info('AppActionsService', 'App Actions not available on web');
@@ -36,6 +41,7 @@ class AppActionsService {
 
     _onCreateTodo = onCreateTodo;
     _onOpenAddTodo = onOpenAddTodo;
+    _onLogFood = onLogFood;
 
     _channel.setMethodCallHandler(_handleMethodCall);
 
@@ -77,6 +83,14 @@ class AppActionsService {
         }
         return null;
 
+      case 'logFood':
+        await _debug.info(
+          'AppActionsService',
+          'Log food requested from shortcut',
+        );
+        _onLogFood?.call();
+        return null;
+
       default:
         await _debug.warning(
           'AppActionsService',
@@ -91,5 +105,6 @@ class AppActionsService {
     _channel.setMethodCallHandler(null);
     _onCreateTodo = null;
     _onOpenAddTodo = null;
+    _onLogFood = null;
   }
 }

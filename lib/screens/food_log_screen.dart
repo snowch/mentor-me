@@ -250,7 +250,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                   context,
                   'Protein',
                   summary.totalProtein,
-                  goal.targetProteinGrams ?? 0,
+                  (goal.targetProteinGrams ?? 0).toDouble(),
                   'g',
                   Colors.blue,
                 ),
@@ -258,7 +258,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                   context,
                   'Carbs',
                   summary.totalCarbs,
-                  goal.targetCarbsGrams ?? 0,
+                  (goal.targetCarbsGrams ?? 0).toDouble(),
                   'g',
                   Colors.orange,
                 ),
@@ -266,7 +266,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                   context,
                   'Fat',
                   summary.totalFat,
-                  goal.targetFatGrams ?? 0,
+                  (goal.targetFatGrams ?? 0).toDouble(),
                   'g',
                   Colors.purple,
                 ),
@@ -294,7 +294,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                     context,
                     'Saturated',
                     summary.totalSaturatedFat,
-                    goal.maxSaturatedFatGrams,
+                    goal.maxSaturatedFatGrams?.toDouble(),
                     isMax: true,
                     color: Colors.red.shade400,
                   ),
@@ -302,7 +302,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                     context,
                     'Unsaturated',
                     summary.totalUnsaturatedFat,
-                    goal.minUnsaturatedFatGrams,
+                    goal.minUnsaturatedFatGrams?.toDouble(),
                     isMax: false,
                     color: Colors.green.shade600,
                   ),
@@ -310,7 +310,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                     context,
                     'Trans',
                     summary.totalTransFat,
-                    goal.maxTransFatGrams,
+                    goal.maxTransFatGrams?.toDouble(),
                     isMax: true,
                     color: Colors.red.shade700,
                   ),
@@ -326,13 +326,19 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   Widget _buildMacroIndicator(
     BuildContext context,
     String label,
-    int current,
-    int target,
+    double current,
+    double target,
     String unit,
     Color color,
   ) {
     final theme = Theme.of(context);
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+    final displayCurrent = current == current.roundToDouble()
+        ? current.toInt().toString()
+        : current.toStringAsFixed(1);
+    final displayTarget = target == target.roundToDouble()
+        ? target.toInt().toString()
+        : target.toStringAsFixed(1);
 
     return Column(
       children: [
@@ -350,7 +356,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
               ),
             ),
             Text(
-              '$current',
+              displayCurrent,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -364,7 +370,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         ),
         if (target > 0)
           Text(
-            '/$target$unit',
+            '/$displayTarget$unit',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.outline,
               fontSize: 10,
@@ -379,8 +385,8 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   Widget _buildFatIndicator(
     BuildContext context,
     String label,
-    int current,
-    int? target, {
+    double current,
+    double? target, {
     required bool isMax,
     required Color color,
   }) {
@@ -390,11 +396,19 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final isOver = hasTarget && current > target;
     final isUnder = hasTarget && current < target;
     final isWarning = isMax ? isOver : isUnder;
+    final displayCurrent = current == current.roundToDouble()
+        ? current.toInt().toString()
+        : current.toStringAsFixed(1);
+    final displayTarget = target != null
+        ? (target == target.roundToDouble()
+            ? target.toInt().toString()
+            : target.toStringAsFixed(1))
+        : '';
 
     return Column(
       children: [
         Text(
-          '${current}g',
+          '${displayCurrent}g',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: isWarning ? theme.colorScheme.error : color,
@@ -408,7 +422,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         ),
         if (hasTarget)
           Text(
-            isMax ? '≤$target g' : '≥$target g',
+            isMax ? '≤$displayTarget g' : '≥$displayTarget g',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.outline,
               fontSize: 10,
@@ -1327,10 +1341,10 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
     if (_nutrition == null) return null;
 
     return NutritionEstimate(
-      calories: int.tryParse(_caloriesController.text) ?? _nutrition!.calories,
-      proteinGrams: int.tryParse(_proteinController.text) ?? _nutrition!.proteinGrams,
-      carbsGrams: int.tryParse(_carbsController.text) ?? _nutrition!.carbsGrams,
-      fatGrams: int.tryParse(_fatController.text) ?? _nutrition!.fatGrams,
+      calories: double.tryParse(_caloriesController.text) ?? _nutrition!.calories,
+      proteinGrams: double.tryParse(_proteinController.text) ?? _nutrition!.proteinGrams,
+      carbsGrams: double.tryParse(_carbsController.text) ?? _nutrition!.carbsGrams,
+      fatGrams: double.tryParse(_fatController.text) ?? _nutrition!.fatGrams,
       // Preserve other fields from original estimate
       fiberGrams: _nutrition!.fiberGrams,
       sugarGrams: _nutrition!.sugarGrams,
@@ -2238,39 +2252,39 @@ class _AddFoodBottomSheetState extends State<_AddFoodBottomSheet> {
 
       // Scale nutrition by multiplier
       scaledNutrition = NutritionEstimate(
-        calories: (origNutrition.calories * multiplier).round(),
-        proteinGrams: (origNutrition.proteinGrams * multiplier).round(),
-        carbsGrams: (origNutrition.carbsGrams * multiplier).round(),
-        fatGrams: (origNutrition.fatGrams * multiplier).round(),
+        calories: origNutrition.calories * multiplier,
+        proteinGrams: origNutrition.proteinGrams * multiplier,
+        carbsGrams: origNutrition.carbsGrams * multiplier,
+        fatGrams: origNutrition.fatGrams * multiplier,
         saturatedFatGrams: origNutrition.saturatedFatGrams != null
-            ? (origNutrition.saturatedFatGrams! * multiplier).round()
+            ? origNutrition.saturatedFatGrams! * multiplier
             : null,
         unsaturatedFatGrams: origNutrition.unsaturatedFatGrams != null
-            ? (origNutrition.unsaturatedFatGrams! * multiplier).round()
+            ? origNutrition.unsaturatedFatGrams! * multiplier
             : null,
         monoFatGrams: origNutrition.monoFatGrams != null
-            ? (origNutrition.monoFatGrams! * multiplier).round()
+            ? origNutrition.monoFatGrams! * multiplier
             : null,
         polyFatGrams: origNutrition.polyFatGrams != null
-            ? (origNutrition.polyFatGrams! * multiplier).round()
+            ? origNutrition.polyFatGrams! * multiplier
             : null,
         transFatGrams: origNutrition.transFatGrams != null
-            ? (origNutrition.transFatGrams! * multiplier).round()
+            ? origNutrition.transFatGrams! * multiplier
             : null,
         fiberGrams: origNutrition.fiberGrams != null
-            ? (origNutrition.fiberGrams! * multiplier).round()
+            ? origNutrition.fiberGrams! * multiplier
             : null,
         sugarGrams: origNutrition.sugarGrams != null
-            ? (origNutrition.sugarGrams! * multiplier).round()
+            ? origNutrition.sugarGrams! * multiplier
             : null,
         sodiumMg: origNutrition.sodiumMg != null
-            ? (origNutrition.sodiumMg! * multiplier).round()
+            ? origNutrition.sodiumMg! * multiplier
             : null,
         potassiumMg: origNutrition.potassiumMg != null
-            ? (origNutrition.potassiumMg! * multiplier).round()
+            ? origNutrition.potassiumMg! * multiplier
             : null,
         cholesterolMg: origNutrition.cholesterolMg != null
-            ? (origNutrition.cholesterolMg! * multiplier).round()
+            ? origNutrition.cholesterolMg! * multiplier
             : null,
         confidence: origNutrition.confidence,
         notes: origNutrition.notes,

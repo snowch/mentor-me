@@ -852,7 +852,7 @@ class _PortionAdjustmentSheetState extends State<PortionAdjustmentSheet> {
 }
 
 class _NutrientDisplay extends StatelessWidget {
-  final int value;
+  final double value;
   final String label;
   final String unit;
 
@@ -862,6 +862,13 @@ class _NutrientDisplay extends StatelessWidget {
     required this.unit,
   });
 
+  String _formatValue() {
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toStringAsFixed(1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -869,7 +876,7 @@ class _NutrientDisplay extends StatelessWidget {
     return Column(
       children: [
         Text(
-          '$value$unit',
+          '${_formatValue()}$unit',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),

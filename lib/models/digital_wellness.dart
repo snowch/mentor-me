@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'digital_wellness.g.dart';
 
 /// Digital Wellness - Evidence-based mindful technology use
 ///
@@ -245,6 +248,7 @@ extension OfflineActivityExtension on OfflineActivity {
 /// A completed unplug session
 ///
 /// Tracks intentional time away from devices with reflection.
+@JsonSerializable()
 class UnplugSession {
   final String id;
   final UnplugType type;
@@ -276,45 +280,9 @@ class UnplugSession {
             (completedAt ?? DateTime.now()).difference(startedAt).inMinutes,
         activitiesDone = activitiesDone ?? [];
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type.name,
-      'startedAt': startedAt.toIso8601String(),
-      'completedAt': completedAt.toIso8601String(),
-      'plannedMinutes': plannedMinutes,
-      'actualMinutes': actualMinutes,
-      'activitiesDone': activitiesDone.map((a) => a.name).toList(),
-      'urgeToCheckCount': urgeToCheckCount,
-      'satisfactionRating': satisfactionRating,
-      'reflection': reflection,
-      'completedFully': completedFully,
-    };
-  }
-
-  factory UnplugSession.fromJson(Map<String, dynamic> json) {
-    return UnplugSession(
-      id: json['id'] as String,
-      type: UnplugType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => UnplugType.quickBreak,
-      ),
-      startedAt: DateTime.parse(json['startedAt'] as String),
-      completedAt: DateTime.parse(json['completedAt'] as String),
-      plannedMinutes: json['plannedMinutes'] as int,
-      actualMinutes: json['actualMinutes'] as int,
-      activitiesDone: (json['activitiesDone'] as List<dynamic>?)
-          ?.map((e) => OfflineActivity.values.firstWhere(
-                (a) => a.name == e,
-                orElse: () => OfflineActivity.other,
-              ))
-          .toList(),
-      urgeToCheckCount: json['urgeToCheckCount'] as int?,
-      satisfactionRating: json['satisfactionRating'] as int?,
-      reflection: json['reflection'] as String?,
-      completedFully: json['completedFully'] as bool? ?? true,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory UnplugSession.fromJson(Map<String, dynamic> json) => _$UnplugSessionFromJson(json);
+  Map<String, dynamic> toJson() => _$UnplugSessionToJson(this);
 
   UnplugSession copyWith({
     String? id,
@@ -355,6 +323,7 @@ class UnplugSession {
 ///
 /// Based on Implementation Intentions research (Gollwitzer, 1999)
 /// "If [situation], then I will [behavior]"
+@JsonSerializable()
 class DeviceBoundary {
   final String id;
   final String situationCue;          // The "if" - when/where trigger
@@ -383,40 +352,9 @@ class DeviceBoundary {
         keptDates = keptDates ?? [],
         brokenDates = brokenDates ?? [];
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'situationCue': situationCue,
-      'boundaryBehavior': boundaryBehavior,
-      'category': category.name,
-      'createdAt': createdAt.toIso8601String(),
-      'isActive': isActive,
-      'keptDates': keptDates.map((dt) => dt.toIso8601String()).toList(),
-      'brokenDates': brokenDates.map((dt) => dt.toIso8601String()).toList(),
-      'notes': notes,
-    };
-  }
-
-  factory DeviceBoundary.fromJson(Map<String, dynamic> json) {
-    return DeviceBoundary(
-      id: json['id'] as String,
-      situationCue: json['situationCue'] as String,
-      boundaryBehavior: json['boundaryBehavior'] as String,
-      category: BoundaryCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => BoundaryCategory.general,
-      ),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      isActive: json['isActive'] as bool? ?? true,
-      keptDates: (json['keptDates'] as List<dynamic>?)
-          ?.map((e) => DateTime.parse(e as String))
-          .toList(),
-      brokenDates: (json['brokenDates'] as List<dynamic>?)
-          ?.map((e) => DateTime.parse(e as String))
-          .toList(),
-      notes: json['notes'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory DeviceBoundary.fromJson(Map<String, dynamic> json) => _$DeviceBoundaryFromJson(json);
+  Map<String, dynamic> toJson() => _$DeviceBoundaryToJson(this);
 
   DeviceBoundary copyWith({
     String? id,

@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:mentor_me/models/chat_message.dart';
+
+part 'structured_journaling_session.g.dart';
 
 /// Represents a structured journaling session with template-guided conversation
 @immutable
+@JsonSerializable()
 class StructuredJournalingSession {
   final String id;
   final String templateId;
@@ -55,40 +59,10 @@ class StructuredJournalingSession {
     );
   }
 
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'templateId': templateId,
-      'templateName': templateName,
-      'conversation': conversation.map((m) => m.toJson()).toList(),
-      'extractedData': extractedData,
-      'createdAt': createdAt.toIso8601String(),
-      'lastUpdated': lastUpdated.toIso8601String(),
-      'isComplete': isComplete,
-      'totalSteps': totalSteps,
-      'currentStep': currentStep,
-    };
-  }
-
-  /// Create from JSON
-  factory StructuredJournalingSession.fromJson(Map<String, dynamic> json) {
-    return StructuredJournalingSession(
-      id: json['id'] as String,
-      templateId: json['templateId'] as String,
-      templateName: json['templateName'] as String,
-      conversation: (json['conversation'] as List<dynamic>?)
-              ?.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
-              .toList() ??
-          [],
-      extractedData: json['extractedData'] as Map<String, dynamic>?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastUpdated: DateTime.parse(json['lastUpdated'] as String),
-      isComplete: json['isComplete'] as bool? ?? false,
-      totalSteps: json['totalSteps'] as int?,
-      currentStep: json['currentStep'] as int?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory StructuredJournalingSession.fromJson(Map<String, dynamic> json) =>
+      _$StructuredJournalingSessionFromJson(json);
+  Map<String, dynamic> toJson() => _$StructuredJournalingSessionToJson(this);
 
   @override
   bool operator ==(Object other) {

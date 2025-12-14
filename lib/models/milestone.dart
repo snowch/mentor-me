@@ -1,5 +1,12 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
 
+part 'milestone.g.dart';
+
+/// Data model for goal milestones.
+///
+/// JSON Schema: lib/schemas/v2.json#definitions/milestone_v2
+@JsonSerializable()
 class Milestone {
   final String id;
   final String goalId;
@@ -27,46 +34,11 @@ class Milestone {
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'goalId': goalId,
-      'title': title,
-      'description': description,
-      'targetDate': targetDate?.toIso8601String(),
-      'completedDate': completedDate?.toIso8601String(),
-      'order': order,
-      'isCompleted': isCompleted,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Milestone.fromJson(Map<String, dynamic> json) => _$MilestoneFromJson(json);
 
-  factory Milestone.fromJson(Map<String, dynamic> json) {
-    // Backward compatibility: use createdAt if available, else use DateTime.now()
-    final createdAt = json['createdAt'] != null
-        ? DateTime.parse(json['createdAt'])
-        : DateTime.now();
-
-    return Milestone(
-      id: json['id'],
-      goalId: json['goalId'],
-      title: json['title'],
-      description: json['description'],
-      targetDate: json['targetDate'] != null
-          ? DateTime.parse(json['targetDate'])
-          : null,
-      completedDate: json['completedDate'] != null
-          ? DateTime.parse(json['completedDate'])
-          : null,
-      order: json['order'],
-      isCompleted: json['isCompleted'] ?? false,
-      createdAt: createdAt,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : createdAt, // Backward compatibility: use createdAt if updatedAt missing
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$MilestoneToJson(this);
 
   Milestone markComplete() {
     return copyWith(

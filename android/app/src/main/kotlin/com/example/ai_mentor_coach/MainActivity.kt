@@ -361,9 +361,13 @@ class MainActivity : FlutterActivity() {
         Log.d(TAG, "Flutter engine cached for service communication")
 
         // Process any pending App Action that arrived before Flutter was ready
-        pendingAppAction?.let { action ->
-            Log.d(TAG, "Sending pending App Action to Flutter: $action")
-            appActionsChannel?.invokeMethod("createTodo", action)
+        pendingAppAction?.let { actionData ->
+            Log.d(TAG, "Sending pending App Action to Flutter: $actionData")
+            val actionType = actionData["action"] as? String
+            when (actionType) {
+                "log_food" -> appActionsChannel?.invokeMethod("logFood", actionData)
+                else -> appActionsChannel?.invokeMethod("createTodo", actionData)
+            }
             pendingAppAction = null
         }
     }
@@ -415,6 +419,29 @@ class MainActivity : FlutterActivity() {
             // Clear the intent extras to prevent re-processing
             intent.removeExtra("todo_title")
             intent.removeExtra("todo_due_date")
+            intent.removeExtra("action")
+        }
+
+        // Check if this is a log_food shortcut action
+        if (action == "log_food") {
+            Log.d(TAG, "Log Food shortcut action received")
+
+            val actionData = mapOf(
+                "action" to "log_food",
+                "source" to "shortcut"
+            )
+
+            // If Flutter engine is ready, send immediately
+            // Otherwise, store for later
+            if (appActionsChannel != null) {
+                Log.d(TAG, "Sending Log Food action to Flutter immediately")
+                appActionsChannel?.invokeMethod("logFood", actionData)
+            } else {
+                Log.d(TAG, "Flutter not ready, storing Log Food action for later")
+                pendingAppAction = actionData
+            }
+
+            // Clear the intent extras to prevent re-processing
             intent.removeExtra("action")
         }
     }

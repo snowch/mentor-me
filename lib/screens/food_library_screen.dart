@@ -540,9 +540,9 @@ class _FoodTemplateCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${template.nutritionPerServing.proteinGrams}g P · '
-                          '${template.nutritionPerServing.carbsGrams}g C · '
-                          '${template.nutritionPerServing.fatGrams}g F',
+                          '${_formatNutritionValue(template.nutritionPerServing.proteinGrams)}g P · '
+                          '${_formatNutritionValue(template.nutritionPerServing.carbsGrams)}g C · '
+                          '${_formatNutritionValue(template.nutritionPerServing.fatGrams)}g F',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -620,8 +620,16 @@ class _FoodTemplateCard extends StatelessWidget {
   }
 }
 
+/// Format a nutrition value for display (show decimal only if needed)
+String _formatNutritionValue(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+  return value.toStringAsFixed(1);
+}
+
 class _NutritionBadge extends StatelessWidget {
-  final int value;
+  final double value;
   final String unit;
   final Color color;
 
@@ -640,7 +648,7 @@ class _NutritionBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        '$value $unit',
+        '${_formatNutritionValue(value)} $unit',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
@@ -759,7 +767,7 @@ class _FoodTemplateDetailsSheet extends StatelessWidget {
             // Calories
             _NutritionRow(
               label: 'Calories',
-              value: '${nutrition.calories}',
+              value: _formatNutritionValue(nutrition.calories),
               isHeader: true,
             ),
             const Divider(),
@@ -767,34 +775,34 @@ class _FoodTemplateDetailsSheet extends StatelessWidget {
             // Macros
             _NutritionRow(
               label: 'Protein',
-              value: '${nutrition.proteinGrams}g',
+              value: '${_formatNutritionValue(nutrition.proteinGrams)}g',
             ),
             _NutritionRow(
               label: 'Carbohydrates',
-              value: '${nutrition.carbsGrams}g',
+              value: '${_formatNutritionValue(nutrition.carbsGrams)}g',
             ),
             _NutritionRow(
               label: '  Fiber',
-              value: '${nutrition.fiberGrams ?? 0}g',
+              value: '${_formatNutritionValue(nutrition.fiberGrams ?? 0)}g',
               isIndented: true,
             ),
             _NutritionRow(
               label: '  Sugar',
-              value: '${nutrition.sugarGrams ?? 0}g',
+              value: '${_formatNutritionValue(nutrition.sugarGrams ?? 0)}g',
               isIndented: true,
             ),
             _NutritionRow(
               label: 'Fat',
-              value: '${nutrition.fatGrams}g',
+              value: '${_formatNutritionValue(nutrition.fatGrams)}g',
             ),
             _NutritionRow(
               label: '  Saturated',
-              value: '${nutrition.saturatedFatGrams ?? 0}g',
+              value: '${_formatNutritionValue(nutrition.saturatedFatGrams ?? 0)}g',
               isIndented: true,
             ),
             _NutritionRow(
               label: '  Unsaturated',
-              value: '${nutrition.unsaturatedFatGrams ?? 0}g',
+              value: '${_formatNutritionValue(nutrition.unsaturatedFatGrams ?? 0)}g',
               isIndented: true,
             ),
 
@@ -805,17 +813,17 @@ class _FoodTemplateDetailsSheet extends StatelessWidget {
               if (nutrition.sodiumMg != null)
                 _NutritionRow(
                   label: 'Sodium',
-                  value: '${nutrition.sodiumMg}mg',
+                  value: '${_formatNutritionValue(nutrition.sodiumMg!)}mg',
                 ),
               if (nutrition.cholesterolMg != null)
                 _NutritionRow(
                   label: 'Cholesterol',
-                  value: '${nutrition.cholesterolMg}mg',
+                  value: '${_formatNutritionValue(nutrition.cholesterolMg!)}mg',
                 ),
               if (nutrition.potassiumMg != null)
                 _NutritionRow(
                   label: 'Potassium',
-                  value: '${nutrition.potassiumMg}mg',
+                  value: '${_formatNutritionValue(nutrition.potassiumMg!)}mg',
                 ),
             ],
 
@@ -1229,15 +1237,15 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
           : _descriptionController.text.trim(),
       category: _category,
       nutritionPerServing: NutritionEstimate(
-        calories: double.tryParse(_caloriesController.text)?.round() ?? 0,
-        proteinGrams: double.tryParse(_proteinController.text)?.round() ?? 0,
-        carbsGrams: double.tryParse(_carbsController.text)?.round() ?? 0,
-        fatGrams: double.tryParse(_fatController.text)?.round() ?? 0,
-        fiberGrams: double.tryParse(_fiberController.text)?.round(),
-        sugarGrams: double.tryParse(_sugarController.text)?.round(),
-        sodiumMg: double.tryParse(_sodiumController.text)?.round(),
-        saturatedFatGrams: double.tryParse(_saturatedFatController.text)?.round(),
-        transFatGrams: double.tryParse(_transFatController.text)?.round(),
+        calories: double.tryParse(_caloriesController.text) ?? 0,
+        proteinGrams: double.tryParse(_proteinController.text) ?? 0,
+        carbsGrams: double.tryParse(_carbsController.text) ?? 0,
+        fatGrams: double.tryParse(_fatController.text) ?? 0,
+        fiberGrams: double.tryParse(_fiberController.text),
+        sugarGrams: double.tryParse(_sugarController.text),
+        sodiumMg: double.tryParse(_sodiumController.text),
+        saturatedFatGrams: double.tryParse(_saturatedFatController.text),
+        transFatGrams: double.tryParse(_transFatController.text),
       ),
       defaultServingSize: double.tryParse(_servingSizeController.text) ?? 1,
       servingUnit: _servingUnit,

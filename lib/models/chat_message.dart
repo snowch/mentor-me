@@ -1,8 +1,11 @@
 // lib/models/chat_message.dart
 // Phase 3: Conversational Interface - Chat message model
 
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
 import 'mentor_message.dart'; // For MentorAction
+
+part 'chat_message.g.dart';
 
 /// Represents who sent the message
 enum MessageSender {
@@ -10,7 +13,39 @@ enum MessageSender {
   mentor,
 }
 
+/// Helper function to serialize MentorAction list to JSON
+List<Map<String, dynamic>>? _mentorActionsToJson(List<MentorAction>? actions) {
+  return actions?.map((a) => {
+    'label': a.label,
+    'type': a.type.toString(),
+    'destination': a.destination,
+    'context': a.context,
+    'chatPreFill': a.chatPreFill,
+  },).toList();
+}
+
+/// Helper function to deserialize MentorAction list from JSON
+List<MentorAction>? _mentorActionsFromJson(List<dynamic>? json) {
+  if (json == null) return null;
+  return json.map((a) {
+    final typeStr = a['type'] as String;
+    final type = MentorActionType.values.firstWhere(
+      (e) => e.toString() == typeStr,
+      orElse: () => MentorActionType.navigate,
+    );
+    return MentorAction(
+      label: a['label'],
+      type: type,
+      destination: a['destination'],
+      context: a['context'] != null ? Map<String, dynamic>.from(a['context']) : null,
+      chatPreFill: a['chatPreFill'],
+    );
+  }).toList();
+}
+
 /// Represents a single message in the chat conversation
+/// JSON Schema: lib/schemas/v2.json#definitions/chatMessage_v2
+@JsonSerializable()
 class ChatMessage {
   final String id;
   final MessageSender sender;
@@ -18,6 +53,8 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isTyping; // For showing typing indicator
   final Map<String, dynamic>? metadata; // Optional metadata (e.g., related goal ID)
+
+  @JsonKey(toJson: _mentorActionsToJson, fromJson: _mentorActionsFromJson)
   final List<MentorAction>? suggestedActions; // Actions the user can take
 
   ChatMessage({
@@ -31,58 +68,9 @@ class ChatMessage {
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'sender': sender.toString(),
-      'content': content,
-      'timestamp': timestamp.toIso8601String(),
-      'isTyping': isTyping,
-      'metadata': metadata,
-      'suggestedActions': suggestedActions?.map((a) => {
-        'label': a.label,
-        'type': a.type.toString(),
-        'destination': a.destination,
-        'context': a.context,
-        'chatPreFill': a.chatPreFill,
-      }).toList(),
-    };
-  }
-
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    List<MentorAction>? actions;
-    if (json['suggestedActions'] != null) {
-      actions = (json['suggestedActions'] as List).map((a) {
-        final typeStr = a['type'] as String;
-        final type = MentorActionType.values.firstWhere(
-          (e) => e.toString() == typeStr,
-          orElse: () => MentorActionType.navigate,
-        );
-
-        return MentorAction(
-          label: a['label'],
-          type: type,
-          destination: a['destination'],
-          context: a['context'] != null ? Map<String, dynamic>.from(a['context']) : null,
-          chatPreFill: a['chatPreFill'],
-        );
-      }).toList();
-    }
-
-    return ChatMessage(
-      id: json['id'],
-      sender: MessageSender.values.firstWhere(
-        (e) => e.toString() == json['sender'],
-      ),
-      content: json['content'],
-      timestamp: DateTime.parse(json['timestamp']),
-      isTyping: json['isTyping'] ?? false,
-      metadata: json['metadata'] != null
-          ? Map<String, dynamic>.from(json['metadata'])
-          : null,
-      suggestedActions: actions,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => _$ChatMessageFromJson(json);
+  Map<String, dynamic> toJson() => _$ChatMessageToJson(this);
 
   ChatMessage copyWith({
     String? content,
@@ -107,6 +95,8 @@ class ChatMessage {
 }
 
 /// Represents a conversation session
+/// JSON Schema: lib/schemas/v2.json#definitions/conversation_v2
+@JsonSerializable()
 class Conversation {
   final String id;
   final String title; // e.g., "Chat about Career Goals"
@@ -126,32 +116,9 @@ class Conversation {
         createdAt = createdAt ?? DateTime.now(),
         messages = messages ?? [];
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'createdAt': createdAt.toIso8601String(),
-      'lastMessageAt': lastMessageAt?.toIso8601String(),
-      'messages': messages.map((m) => m.toJson()).toList(),
-      'savedJournalId': savedJournalId,
-    };
-  }
-
-  factory Conversation.fromJson(Map<String, dynamic> json) {
-    return Conversation(
-      id: json['id'],
-      title: json['title'],
-      createdAt: DateTime.parse(json['createdAt']),
-      lastMessageAt: json['lastMessageAt'] != null
-          ? DateTime.parse(json['lastMessageAt'])
-          : null,
-      messages: (json['messages'] as List?)
-              ?.map((m) => ChatMessage.fromJson(m))
-              .toList() ??
-          [],
-      savedJournalId: json['savedJournalId'],
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Conversation.fromJson(Map<String, dynamic> json) => _$ConversationFromJson(json);
+  Map<String, dynamic> toJson() => _$ConversationToJson(this);
 
   Conversation copyWith({
     String? title,

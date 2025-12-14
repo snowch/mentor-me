@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'meditation.g.dart';
 
 /// Types of meditation practices available
 ///
@@ -169,9 +172,13 @@ extension MeditationTypeExtension on MeditationType {
 /// Research: Hofmann et al. (2010), Khoury et al. (2013), Goldberg et al. (2018)
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/meditationSession_v1
+@JsonSerializable()
 class MeditationSession {
   final String id;
+
+  @JsonKey(unknownEnumValue: MeditationType.breathAwareness)
   final MeditationType type;
+
   final DateTime completedAt;
   final int durationSeconds;      // Actual duration completed
   final int? plannedDurationSeconds; // What user intended
@@ -193,36 +200,12 @@ class MeditationSession {
   })  : id = id ?? const Uuid().v4(),
         completedAt = completedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type.name,
-      'completedAt': completedAt.toIso8601String(),
-      'durationSeconds': durationSeconds,
-      'plannedDurationSeconds': plannedDurationSeconds,
-      'notes': notes,
-      'moodBefore': moodBefore,
-      'moodAfter': moodAfter,
-      'wasInterrupted': wasInterrupted,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$MeditationSessionToJson(this);
 
-  factory MeditationSession.fromJson(Map<String, dynamic> json) {
-    return MeditationSession(
-      id: json['id'] as String,
-      type: MeditationType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => MeditationType.breathAwareness,
-      ),
-      completedAt: DateTime.parse(json['completedAt'] as String),
-      durationSeconds: json['durationSeconds'] as int,
-      plannedDurationSeconds: json['plannedDurationSeconds'] as int?,
-      notes: json['notes'] as String?,
-      moodBefore: json['moodBefore'] as int?,
-      moodAfter: json['moodAfter'] as int?,
-      wasInterrupted: json['wasInterrupted'] as bool? ?? false,
-    );
-  }
+  /// Auto-generated deserialization - ensures all fields are included
+  factory MeditationSession.fromJson(Map<String, dynamic> json) =>
+      _$MeditationSessionFromJson(json);
 
   MeditationSession copyWith({
     String? id,

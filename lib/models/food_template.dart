@@ -608,33 +608,33 @@ class FoodTemplate {
 
   NutritionEstimate _scaleNutrition(double multiplier) {
     return NutritionEstimate(
-      calories: (nutritionPerServing.calories * multiplier).round(),
-      proteinGrams: (nutritionPerServing.proteinGrams * multiplier).round(),
-      carbsGrams: (nutritionPerServing.carbsGrams * multiplier).round(),
-      fatGrams: (nutritionPerServing.fatGrams * multiplier).round(),
+      calories: nutritionPerServing.calories * multiplier,
+      proteinGrams: nutritionPerServing.proteinGrams * multiplier,
+      carbsGrams: nutritionPerServing.carbsGrams * multiplier,
+      fatGrams: nutritionPerServing.fatGrams * multiplier,
       saturatedFatGrams: nutritionPerServing.saturatedFatGrams != null
-          ? (nutritionPerServing.saturatedFatGrams! * multiplier).round()
+          ? nutritionPerServing.saturatedFatGrams! * multiplier
           : null,
       unsaturatedFatGrams: nutritionPerServing.unsaturatedFatGrams != null
-          ? (nutritionPerServing.unsaturatedFatGrams! * multiplier).round()
+          ? nutritionPerServing.unsaturatedFatGrams! * multiplier
           : null,
       transFatGrams: nutritionPerServing.transFatGrams != null
-          ? (nutritionPerServing.transFatGrams! * multiplier).round()
+          ? nutritionPerServing.transFatGrams! * multiplier
           : null,
       fiberGrams: nutritionPerServing.fiberGrams != null
-          ? (nutritionPerServing.fiberGrams! * multiplier).round()
+          ? nutritionPerServing.fiberGrams! * multiplier
           : null,
       sugarGrams: nutritionPerServing.sugarGrams != null
-          ? (nutritionPerServing.sugarGrams! * multiplier).round()
+          ? nutritionPerServing.sugarGrams! * multiplier
           : null,
       sodiumMg: nutritionPerServing.sodiumMg != null
-          ? (nutritionPerServing.sodiumMg! * multiplier).round()
+          ? nutritionPerServing.sodiumMg! * multiplier
           : null,
       potassiumMg: nutritionPerServing.potassiumMg != null
-          ? (nutritionPerServing.potassiumMg! * multiplier).round()
+          ? nutritionPerServing.potassiumMg! * multiplier
           : null,
       cholesterolMg: nutritionPerServing.cholesterolMg != null
-          ? (nutritionPerServing.cholesterolMg! * multiplier).round()
+          ? nutritionPerServing.cholesterolMg! * multiplier
           : null,
       confidence: nutritionPerServing.confidence,
       notes: nutritionPerServing.notes,

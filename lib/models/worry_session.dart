@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'worry_session.g.dart';
 
 /// Status of a worry
 enum WorryStatus {
@@ -39,10 +42,12 @@ extension WorryStatusExtension on WorryStatus {
 /// A recorded worry to be processed during worry time
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/worry_v1
+@JsonSerializable()
 class Worry {
   final String id;
   final String content;
   final DateTime recordedAt;
+  @JsonKey(defaultValue: WorryStatus.postponed)
   final WorryStatus status;
   final DateTime? processedAt;
   final String? outcome;         // What happened during worry session
@@ -61,36 +66,9 @@ class Worry {
   })  : id = id ?? const Uuid().v4(),
         recordedAt = recordedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'content': content,
-      'recordedAt': recordedAt.toIso8601String(),
-      'status': status.name,
-      'processedAt': processedAt?.toIso8601String(),
-      'outcome': outcome,
-      'actionTaken': actionTaken,
-      'linkedGoalId': linkedGoalId,
-    };
-  }
-
-  factory Worry.fromJson(Map<String, dynamic> json) {
-    return Worry(
-      id: json['id'] as String,
-      content: json['content'] as String,
-      recordedAt: DateTime.parse(json['recordedAt'] as String),
-      status: WorryStatus.values.firstWhere(
-        (e) => e.name == json['status'],
-        orElse: () => WorryStatus.postponed,
-      ),
-      processedAt: json['processedAt'] != null
-          ? DateTime.parse(json['processedAt'] as String)
-          : null,
-      outcome: json['outcome'] as String?,
-      actionTaken: json['actionTaken'] as String?,
-      linkedGoalId: json['linkedGoalId'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Worry.fromJson(Map<String, dynamic> json) => _$WorryFromJson(json);
+  Map<String, dynamic> toJson() => _$WorryToJson(this);
 
   Worry copyWith({
     String? id,
@@ -142,14 +120,18 @@ class Worry {
 /// - Reduces rumination and worry time overall
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/worrySession_v1
+@JsonSerializable()
 class WorrySession {
   final String id;
   final DateTime scheduledFor;
+  @JsonKey(defaultValue: 20)
   final int plannedDurationMinutes;
+  @JsonKey(defaultValue: false)
   final bool completed;
   final DateTime? startedAt;
   final DateTime? completedAt;
   final int? actualDurationMinutes;
+  @JsonKey(defaultValue: <String>[])
   final List<String> processedWorryIds; // Worries addressed
   final int? anxietyBefore;             // 1-10 scale
   final int? anxietyAfter;              // 1-10 scale
@@ -172,45 +154,9 @@ class WorrySession {
   })  : id = id ?? const Uuid().v4(),
         processedWorryIds = processedWorryIds ?? [];
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'scheduledFor': scheduledFor.toIso8601String(),
-      'plannedDurationMinutes': plannedDurationMinutes,
-      'completed': completed,
-      'startedAt': startedAt?.toIso8601String(),
-      'completedAt': completedAt?.toIso8601String(),
-      'actualDurationMinutes': actualDurationMinutes,
-      'processedWorryIds': processedWorryIds,
-      'anxietyBefore': anxietyBefore,
-      'anxietyAfter': anxietyAfter,
-      'notes': notes,
-      'insights': insights,
-    };
-  }
-
-  factory WorrySession.fromJson(Map<String, dynamic> json) {
-    return WorrySession(
-      id: json['id'] as String,
-      scheduledFor: DateTime.parse(json['scheduledFor'] as String),
-      plannedDurationMinutes: json['plannedDurationMinutes'] as int? ?? 20,
-      completed: json['completed'] as bool? ?? false,
-      startedAt: json['startedAt'] != null
-          ? DateTime.parse(json['startedAt'] as String)
-          : null,
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'] as String)
-          : null,
-      actualDurationMinutes: json['actualDurationMinutes'] as int?,
-      processedWorryIds: (json['processedWorryIds'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList(),
-      anxietyBefore: json['anxietyBefore'] as int?,
-      anxietyAfter: json['anxietyAfter'] as int?,
-      notes: json['notes'] as String?,
-      insights: json['insights'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory WorrySession.fromJson(Map<String, dynamic> json) => _$WorrySessionFromJson(json);
+  Map<String, dynamic> toJson() => _$WorrySessionToJson(this);
 
   WorrySession copyWith({
     String? id,

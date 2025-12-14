@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'checkin.g.dart';
 
 /// Data model for check-in tracking and scheduling.
 ///
@@ -11,12 +14,36 @@ import 'package:uuid/uuid.dart';
 /// 2. Migration (lib/migrations/) if needed
 /// 3. Schema validator (lib/services/schema_validator.dart)
 /// See CLAUDE.md "Data Schema Management" section for full checklist.
+
+/// Converter for DateTime stored as milliseconds since epoch
+class _MillisecondsDateTimeConverter implements JsonConverter<DateTime?, int?> {
+  const _MillisecondsDateTimeConverter();
+
+  @override
+  DateTime? fromJson(int? json) {
+    if (json == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(json);
+  }
+
+  @override
+  int? toJson(DateTime? object) {
+    return object?.millisecondsSinceEpoch;
+  }
+}
+
+@JsonSerializable()
 class Checkin {
+  @JsonKey(defaultValue: '')
   final String id;
+
+  @_MillisecondsDateTimeConverter()
   final DateTime? nextCheckinTime;
+
+  @_MillisecondsDateTimeConverter()
   final DateTime? lastCompletedAt;
+
   final Map<String, dynamic>? responses;
-  
+
   Checkin({
     String? id,
     this.nextCheckinTime,
@@ -24,38 +51,11 @@ class Checkin {
     this.responses,
   }) : id = id ?? const Uuid().v4();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      // Store as milliseconds since epoch to preserve local time
-      'nextCheckinTime': nextCheckinTime?.millisecondsSinceEpoch,
-      'lastCompletedAt': lastCompletedAt?.millisecondsSinceEpoch,
-      'responses': responses,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Checkin.fromJson(Map<String, dynamic> json) => _$CheckinFromJson(json);
 
-  factory Checkin.fromJson(Map<String, dynamic> json) {
-    return Checkin(
-      id: json['id'],
-      nextCheckinTime: json['nextCheckinTime'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(
-              json['nextCheckinTime'] is int
-                ? json['nextCheckinTime']
-                : int.parse(json['nextCheckinTime'].toString())
-            )
-          : null,
-      lastCompletedAt: json['lastCompletedAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(
-              json['lastCompletedAt'] is int
-                ? json['lastCompletedAt']
-                : int.parse(json['lastCompletedAt'].toString())
-            )
-          : null,
-      responses: json['responses'] != null
-          ? Map<String, dynamic>.from(json['responses'])
-          : null,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$CheckinToJson(this);
 
   Checkin copyWith({
     DateTime? nextCheckinTime,

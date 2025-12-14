@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'habit.g.dart';
 
 enum HabitStatus {
   active,     // Currently working on (max 2)
@@ -26,28 +29,62 @@ enum HabitMaturity {
 /// 2. Migration (lib/migrations/) if needed
 /// 3. Schema validator (lib/services/schema_validator.dart)
 /// See CLAUDE.md "Data Schema Management" section for full checklist.
+@JsonSerializable()
 class Habit {
   final String id;
   final String title;
   final String description;
   final String? linkedGoalId; // Optional - can be independent
+
+  @JsonKey(
+    toJson: _habitFrequencyToJson,
+    fromJson: _habitFrequencyFromJson,
+  )
   final HabitFrequency frequency;
+
+  @JsonKey(defaultValue: 1)
   final int targetCount; // e.g., 3 times per week
+
   final List<DateTime> completionDates;
+
+  @JsonKey(defaultValue: 0)
   final int currentStreak;
+
+  @JsonKey(defaultValue: 0)
   final int longestStreak;
+
   final bool isActive;  // Deprecated: Use status instead
+
+  @JsonKey(
+    toJson: _habitStatusToJson,
+    fromJson: _habitStatusFromJson,
+  )
   final HabitStatus status;
+
   final DateTime createdAt;
   final DateTime updatedAt;  // Last modification timestamp
+
+  @JsonKey(defaultValue: false)
   final bool isSystemCreated; // True if created by system (onboarding, suggestions)
+
   final String? systemType; // e.g., 'daily_reflection', 'suggested', null for user-created
+
+  @JsonKey(defaultValue: 0)
   final int sortOrder; // For drag-and-drop reordering
 
   // Habit maturity lifecycle
+  @JsonKey(
+    toJson: _habitMaturityToJson,
+    fromJson: _habitMaturityFromJson,
+  )
   final HabitMaturity maturity; // Current maturity stage
+
+  @JsonKey(defaultValue: 66)
   final int daysToFormation; // Target days to form habit (default 66)
+
   final DateTime? graduatedAt; // When marked as ingrained
+
+  @JsonKey(defaultValue: false)
   final bool isFocused; // User's current focus item (max 3 across goals/habits)
 
   Habit({
@@ -77,83 +114,37 @@ class Habit {
         updatedAt = updatedAt ?? createdAt ?? DateTime.now(),
         isActive = isActive ?? (status == HabitStatus.active);
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'linkedGoalId': linkedGoalId,
-      'frequency': frequency.toString(),
-      'targetCount': targetCount,
-      'completionDates': completionDates.map((d) => d.toIso8601String()).toList(),
-      'currentStreak': currentStreak,
-      'longestStreak': longestStreak,
-      'isActive': isActive,
-      'status': status.toString(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'isSystemCreated': isSystemCreated,
-      'systemType': systemType,
-      'sortOrder': sortOrder,
-      'maturity': maturity.toString(),
-      'daysToFormation': daysToFormation,
-      'graduatedAt': graduatedAt?.toIso8601String(),
-      'isFocused': isFocused,
-    };
-  }
-
-  factory Habit.fromJson(Map<String, dynamic> json) {
-    // Parse status, defaulting to active for backwards compatibility
-    HabitStatus parsedStatus = HabitStatus.active;
-    if (json['status'] != null) {
-      parsedStatus = HabitStatus.values.firstWhere(
-        (e) => e.toString() == json['status'],
-        orElse: () => HabitStatus.active,
-      );
-    }
-
-    // Parse maturity, defaulting to forming for backwards compatibility
-    HabitMaturity parsedMaturity = HabitMaturity.forming;
-    if (json['maturity'] != null) {
-      parsedMaturity = HabitMaturity.values.firstWhere(
-        (e) => e.toString() == json['maturity'],
-        orElse: () => HabitMaturity.forming,
-      );
-    }
-
-    final createdAt = DateTime.parse(json['createdAt']);
-
-    return Habit(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      linkedGoalId: json['linkedGoalId'],
-      frequency: HabitFrequency.values.firstWhere(
-        (e) => e.toString() == json['frequency'],
-      ),
-      targetCount: json['targetCount'],
-      completionDates: (json['completionDates'] as List)
-          .map((d) => DateTime.parse(d))
-          .toList(),
-      currentStreak: json['currentStreak'],
-      longestStreak: json['longestStreak'],
-      isActive: json['isActive'],
-      status: parsedStatus,
-      createdAt: createdAt,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : createdAt, // Backward compatibility: use createdAt if updatedAt missing
-      isSystemCreated: json['isSystemCreated'] ?? false, // Default false for backwards compatibility
-      systemType: json['systemType'],
-      sortOrder: json['sortOrder'] ?? 0, // Default 0 for backwards compatibility
-      maturity: parsedMaturity,
-      daysToFormation: json['daysToFormation'] ?? 66, // Default 66 days for habit formation
-      graduatedAt: json['graduatedAt'] != null
-          ? DateTime.parse(json['graduatedAt'])
-          : null,
-      isFocused: json['isFocused'] ?? false,
+  /// Custom enum converters to maintain backward compatibility with toString() serialization
+  static String _habitStatusToJson(HabitStatus status) => status.toString();
+  static HabitStatus _habitStatusFromJson(Object? json) {
+    if (json == null) return HabitStatus.active;
+    return HabitStatus.values.firstWhere(
+      (e) => e.toString() == json,
+      orElse: () => HabitStatus.active,
     );
   }
+
+  static String _habitFrequencyToJson(HabitFrequency frequency) => frequency.toString();
+  static HabitFrequency _habitFrequencyFromJson(Object? json) {
+    if (json == null) return HabitFrequency.daily;
+    return HabitFrequency.values.firstWhere(
+      (e) => e.toString() == json,
+      orElse: () => HabitFrequency.daily,
+    );
+  }
+
+  static String _habitMaturityToJson(HabitMaturity maturity) => maturity.toString();
+  static HabitMaturity _habitMaturityFromJson(Object? json) {
+    if (json == null) return HabitMaturity.forming;
+    return HabitMaturity.values.firstWhere(
+      (e) => e.toString() == json,
+      orElse: () => HabitMaturity.forming,
+    );
+  }
+
+  /// Auto-generated serialization - ensures all fields are included
+  factory Habit.fromJson(Map<String, dynamic> json) => _$HabitFromJson(json);
+  Map<String, dynamic> toJson() => _$HabitToJson(this);
 
   Habit copyWith({
     String? title,
@@ -237,7 +228,7 @@ class Habit {
     final now = DateTime.now();
     final weekStart = now.subtract(Duration(days: now.weekday - 1));
     final weekEnd = weekStart.add(const Duration(days: 7));
-    
+
     return completionDates.where((date) =>
         date.isAfter(weekStart) && date.isBefore(weekEnd)).length;
   }
@@ -246,7 +237,7 @@ class Habit {
   List<bool> getLast7Days() {
     final today = DateTime.now();
     final result = <bool>[];
-    
+
     for (int i = 6; i >= 0; i--) {
       final date = today.subtract(Duration(days: i));
       final completed = completionDates.any((d) =>
@@ -255,7 +246,7 @@ class Habit {
           d.day == date.day);
       result.add(completed);
     }
-    
+
     return result;
   }
 }

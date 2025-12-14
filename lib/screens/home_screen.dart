@@ -27,6 +27,7 @@ import 'mentor_screen.dart';
 import 'ai_settings_screen.dart';
 import 'wellness_dashboard_screen.dart';
 import 'crisis_resources_screen.dart';
+import 'food_log_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await AppActionsService.instance.initialize(
         onCreateTodo: (title, dueDate) => _handleAppActionCreateTodo(title, dueDate),
         onOpenAddTodo: () => _handleAppActionOpenAddTodo(),
+        onLogFood: () => _handleAppActionLogFood(),
       );
 
       // Initialize Android Auto service for hands-free driving
@@ -151,6 +153,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _selectedIndex = 2; // Index 2 = ActionsScreen
         _openAddTodoDialog = true; // Signal ActionsScreen to open dialog
       });
+    }
+  }
+
+  /// Handle log food from launcher shortcut
+  void _handleAppActionLogFood() {
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const FoodLogScreen()),
+      );
     }
   }
 

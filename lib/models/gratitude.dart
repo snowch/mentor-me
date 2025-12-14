@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'gratitude.g.dart';
 
 /// A gratitude journal entry
 ///
@@ -6,6 +9,7 @@ import 'package:uuid/uuid.dart';
 /// Regular gratitude practice improves wellbeing, reduces depression symptoms.
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/gratitudeEntry_v1
+@JsonSerializable()
 class GratitudeEntry {
   final String id;
   final DateTime createdAt;
@@ -24,29 +28,10 @@ class GratitudeEntry {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'createdAt': createdAt.toIso8601String(),
-      'gratitudes': gratitudes,
-      'elaboration': elaboration,
-      'moodRating': moodRating,
-      'linkedJournalId': linkedJournalId,
-    };
-  }
-
-  factory GratitudeEntry.fromJson(Map<String, dynamic> json) {
-    return GratitudeEntry(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      gratitudes: (json['gratitudes'] as List<dynamic>)
-          .map((e) => e as String)
-          .toList(),
-      elaboration: json['elaboration'] as String?,
-      moodRating: json['moodRating'] as int?,
-      linkedJournalId: json['linkedJournalId'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory GratitudeEntry.fromJson(Map<String, dynamic> json) =>
+      _$GratitudeEntryFromJson(json);
+  Map<String, dynamic> toJson() => _$GratitudeEntryToJson(this);
 
   GratitudeEntry copyWith({
     String? id,

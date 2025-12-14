@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'todo.g.dart';
 
 enum TodoStatus {
   pending,    // Not yet completed
@@ -10,6 +13,37 @@ enum TodoPriority {
   low,
   medium,
   high,
+}
+
+// Custom converters to maintain toString() format for backwards compatibility
+class TodoStatusConverter implements JsonConverter<TodoStatus, String> {
+  const TodoStatusConverter();
+
+  @override
+  String toJson(TodoStatus status) => status.toString();
+
+  @override
+  TodoStatus fromJson(String json) {
+    return TodoStatus.values.firstWhere(
+      (e) => e.toString() == json || e.name == json,
+      orElse: () => TodoStatus.pending,
+    );
+  }
+}
+
+class TodoPriorityConverter implements JsonConverter<TodoPriority, String> {
+  const TodoPriorityConverter();
+
+  @override
+  String toJson(TodoPriority priority) => priority.toString();
+
+  @override
+  TodoPriority fromJson(String json) {
+    return TodoPriority.values.firstWhere(
+      (e) => e.toString() == json || e.name == json,
+      orElse: () => TodoPriority.medium,
+    );
+  }
 }
 
 /// Data model for one-off todo items with optional reminders.
@@ -26,6 +60,7 @@ enum TodoPriority {
 /// 2. Migration (lib/migrations/) if needed
 /// 3. Schema validator (lib/services/schema_validator.dart)
 /// See CLAUDE.md "Data Schema Management" section for full checklist.
+@JsonSerializable()
 class Todo {
   final String id;
   final String title;
@@ -37,6 +72,7 @@ class Todo {
   final bool hasReminder;
 
   // Priority for sorting
+  @TodoPriorityConverter()
   final TodoPriority priority;
 
   // Optional linking to goals or habits
@@ -44,6 +80,7 @@ class Todo {
   final String? linkedHabitId;
 
   // Status tracking
+  @TodoStatusConverter()
   final TodoStatus status;
   final DateTime? completedAt;
 
@@ -77,77 +114,9 @@ class Todo {
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'dueDate': dueDate?.toIso8601String(),
-      'reminderTime': reminderTime?.toIso8601String(),
-      'hasReminder': hasReminder,
-      'priority': priority.toString(),
-      'linkedGoalId': linkedGoalId,
-      'linkedHabitId': linkedHabitId,
-      'status': status.toString(),
-      'completedAt': completedAt?.toIso8601String(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-      'sortOrder': sortOrder,
-      'wasVoiceCaptured': wasVoiceCaptured,
-      'voiceTranscript': voiceTranscript,
-    };
-  }
-
-  factory Todo.fromJson(Map<String, dynamic> json) {
-    // Parse status with backwards compatibility
-    TodoStatus parsedStatus = TodoStatus.pending;
-    if (json['status'] != null) {
-      parsedStatus = TodoStatus.values.firstWhere(
-        (e) => e.toString() == json['status'],
-        orElse: () => TodoStatus.pending,
-      );
-    }
-
-    // Parse priority with backwards compatibility
-    TodoPriority parsedPriority = TodoPriority.medium;
-    if (json['priority'] != null) {
-      parsedPriority = TodoPriority.values.firstWhere(
-        (e) => e.toString() == json['priority'],
-        orElse: () => TodoPriority.medium,
-      );
-    }
-
-    final createdAt = json['createdAt'] != null
-        ? DateTime.parse(json['createdAt'])
-        : DateTime.now();
-
-    return Todo(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      dueDate: json['dueDate'] != null
-          ? DateTime.parse(json['dueDate'])
-          : null,
-      reminderTime: json['reminderTime'] != null
-          ? DateTime.parse(json['reminderTime'])
-          : null,
-      hasReminder: json['hasReminder'] ?? false,
-      priority: parsedPriority,
-      linkedGoalId: json['linkedGoalId'],
-      linkedHabitId: json['linkedHabitId'],
-      status: parsedStatus,
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'])
-          : null,
-      createdAt: createdAt,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : createdAt,
-      sortOrder: json['sortOrder'] ?? 0,
-      wasVoiceCaptured: json['wasVoiceCaptured'] ?? false,
-      voiceTranscript: json['voiceTranscript'],
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
+  Map<String, dynamic> toJson() => _$TodoToJson(this);
 
   Todo copyWith({
     String? title,

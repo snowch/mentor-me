@@ -1,6 +1,10 @@
 // lib/models/mentor_message.dart
 // Data models for mentor interaction system with dynamic actions
 
+import 'package:json_annotation/json_annotation.dart';
+
+part 'mentor_message.g.dart';
+
 /// Types of actions the mentor can suggest
 enum MentorActionType {
   navigate,     // Navigate to another screen
@@ -9,6 +13,8 @@ enum MentorActionType {
 }
 
 /// Represents an action the user can take from the mentor card
+/// JSON Schema: lib/schemas/v3.json#definitions/mentorAction_v3
+@JsonSerializable()
 class MentorAction {
   final String label;
   final MentorActionType type;
@@ -61,6 +67,10 @@ class MentorAction {
       context: context,
     );
   }
+
+  /// Auto-generated serialization - ensures all fields are included
+  factory MentorAction.fromJson(Map<String, dynamic> json) => _$MentorActionFromJson(json);
+  Map<String, dynamic> toJson() => _$MentorActionToJson(this);
 }
 
 /// Urgency level for mentor coaching cards (affects visual styling)
@@ -72,6 +82,8 @@ enum CardUrgency {
 }
 
 /// Complete mentor coaching card with dynamic actions
+/// JSON Schema: lib/schemas/v3.json#definitions/mentorCoachingCard_v3
+@JsonSerializable()
 class MentorCoachingCard {
   final String message;
   final MentorAction primaryAction;
@@ -84,6 +96,10 @@ class MentorCoachingCard {
     required this.secondaryAction,
     this.urgency = CardUrgency.info, // Default to informational
   });
+
+  /// Auto-generated serialization - ensures all fields are included
+  factory MentorCoachingCard.fromJson(Map<String, dynamic> json) => _$MentorCoachingCardFromJson(json);
+  Map<String, dynamic> toJson() => _$MentorCoachingCardToJson(this);
 }
 
 /// Types of user states for mentor analysis
@@ -125,6 +141,8 @@ enum UserStateType {
 }
 
 /// User state with context for message generation
+/// JSON Schema: lib/schemas/v3.json#definitions/userState_v3
+@JsonSerializable()
 class UserState {
   final UserStateType type;
   final Map<String, dynamic>? context;
@@ -133,4 +151,8 @@ class UserState {
     required this.type,
     this.context,
   });
+
+  /// Auto-generated serialization - ensures all fields are included
+  factory UserState.fromJson(Map<String, dynamic> json) => _$UserStateFromJson(json);
+  Map<String, dynamic> toJson() => _$UserStateToJson(this);
 }

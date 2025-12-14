@@ -252,7 +252,7 @@ class FoodLogWidget extends StatelessWidget {
         return todayByMeal[type]?.isNotEmpty ?? false;
       }).map((type) {
         final entries = todayByMeal[type]!;
-        final calories = entries.fold<int>(
+        final calories = entries.fold<double>(
           0,
           (sum, e) => sum + (e.nutrition?.calories ?? 0),
         );
@@ -262,7 +262,7 @@ class FoodLogWidget extends StatelessWidget {
             style: const TextStyle(fontSize: 14),
           ),
           label: Text(
-            '${type.displayName}: $calories cal',
+            '${type.displayName}: ${calories.round()} cal',
             style: theme.textTheme.bodySmall,
           ),
           visualDensity: VisualDensity.compact,

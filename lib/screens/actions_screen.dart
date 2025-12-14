@@ -35,6 +35,7 @@ class ActionsScreen extends StatefulWidget {
 
 enum ActionFilter { all, goals, habits, todos }
 enum StatusFilter { all, active, backlog }
+enum SortOption { manual, nameAsc, nameDesc, dateCreated, dateCreatedDesc }
 
 /// Color scheme for differentiating action types
 class ActionColors {
@@ -49,6 +50,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isReorderMode = false;
+  SortOption _sortOption = SortOption.manual;
 
   @override
   void initState() {
@@ -89,6 +91,70 @@ class _ActionsScreenState extends State<ActionsScreen> {
         (description?.toLowerCase().contains(query) ?? false);
   }
 
+  /// Sort goals based on selected sort option
+  void _sortGoals(List<Goal> goals) {
+    switch (_sortOption) {
+      case SortOption.manual:
+        goals.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        break;
+      case SortOption.nameAsc:
+        goals.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case SortOption.nameDesc:
+        goals.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        break;
+      case SortOption.dateCreated:
+        goals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case SortOption.dateCreatedDesc:
+        goals.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+    }
+  }
+
+  /// Sort habits based on selected sort option
+  void _sortHabits(List<Habit> habits) {
+    switch (_sortOption) {
+      case SortOption.manual:
+        habits.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        break;
+      case SortOption.nameAsc:
+        habits.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case SortOption.nameDesc:
+        habits.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        break;
+      case SortOption.dateCreated:
+        habits.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case SortOption.dateCreatedDesc:
+        habits.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+    }
+  }
+
+  /// Sort todos based on selected sort option
+  void _sortTodos(List<Todo> todos) {
+    switch (_sortOption) {
+      case SortOption.manual:
+        // Todos don't have sortOrder, use creation date as default
+        todos.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case SortOption.nameAsc:
+        todos.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        break;
+      case SortOption.nameDesc:
+        todos.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        break;
+      case SortOption.dateCreated:
+        todos.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case SortOption.dateCreatedDesc:
+        todos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final goalProvider = context.watch<GoalProvider>();
@@ -97,26 +163,27 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
     final isLoading = goalProvider.isLoading || habitProvider.isLoading || todoProvider.isLoading;
 
-    // Get all data with search filter, sorted by sortOrder for consistent reordering
+    // Get all data with search filter, sorted by selected sort option
     final activeGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.active && _matchesSearch(g.title, g.description))
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        .toList();
+    _sortGoals(activeGoals);
     final backlogGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.backlog && _matchesSearch(g.title, g.description))
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        .toList();
+    _sortGoals(backlogGoals);
     final activeHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.active && _matchesSearch(h.title, h.description))
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        .toList();
+    _sortHabits(activeHabits);
     final backlogHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.backlog && _matchesSearch(h.title, h.description))
-        .toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        .toList();
+    _sortHabits(backlogHabits);
     final pendingTodos = todoProvider.pendingTodos
         .where((t) => _matchesSearch(t.title, t.description))
         .toList();
+    _sortTodos(pendingTodos);
 
     return Scaffold(
       body: isLoading
@@ -468,6 +535,94 @@ class _ActionsScreenState extends State<ActionsScreen> {
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
+          ),
+          const Spacer(),
+          PopupMenuButton<SortOption>(
+            icon: Icon(
+              Icons.sort,
+              color: _sortOption != SortOption.manual
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            tooltip: 'Sort by',
+            onSelected: (value) => setState(() => _sortOption = value),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: SortOption.manual,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.swap_vert,
+                      color: _sortOption == SortOption.manual
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Manual Order'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SortOption.nameAsc,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sort_by_alpha,
+                      color: _sortOption == SortOption.nameAsc
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Name (A-Z)'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SortOption.nameDesc,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sort_by_alpha,
+                      color: _sortOption == SortOption.nameDesc
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Name (Z-A)'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SortOption.dateCreated,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      color: _sortOption == SortOption.dateCreated
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Oldest First'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SortOption.dateCreatedDesc,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      color: _sortOption == SortOption.dateCreatedDesc
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Newest First'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -887,28 +887,34 @@ All models use JSON serialization (`toJson`/`fromJson`) and `copyWith` patterns 
 
 ### Model Serialization with @JsonSerializable
 
-**IMPORTANT:** When creating new domain models or modifying existing ones, use the `@JsonSerializable` annotation from `json_annotation` package to auto-generate `toJson()`/`fromJson()` methods.
+**⚠️ MANDATORY:** ALL domain models in `lib/models/` MUST use `@JsonSerializable` annotation from `json_annotation` package. Manual `toJson()`/`fromJson()` implementations are NOT allowed for domain models.
 
-**Why @JsonSerializable?**
+**Why @JsonSerializable is Required:**
 - **Prevents data loss:** Fields are automatically included in serialization when added to the class
 - **No manual maintenance:** No need to manually update `toJson()`/`fromJson()` when adding fields
 - **Type safety:** Generated code handles type conversion correctly
 - **Compile-time errors:** Missing fields cause build failures, not runtime data loss
+- **Backup integrity:** Ensures all model data is properly exported/imported
 
-**Migration Status:**
-- ✅ `weight_entry.dart` - Migrated to @JsonSerializable
-- ✅ `food_entry.dart` - Migrated to @JsonSerializable
-- ✅ `exercise.dart` - Migrated to @JsonSerializable
-- ⏳ Other models - Migrate when modifying
+**Migration Status:** ✅ **ALL MODELS MIGRATED** (39 models)
 
-**How to use @JsonSerializable:**
+All domain models now use `@JsonSerializable`. This includes:
+- Core: goal, habit, journal_entry, todo, milestone, checkin
+- Tracking: pulse_entry, pulse_type, hydration_entry, weight_entry, food_entry
+- Wellness: gratitude, win, self_compassion, urge_surfing, meditation, digital_wellness
+- Therapy: clinical_assessment, intervention_attempt, cognitive_distortion, behavioral_activation
+- Sessions: reflection_session, structured_journaling_session, worry_session, chat_message
+- Templates: journal_template, checkin_template, template_field
+- Other: safety_plan, user_context_summary, values_and_smart_goals, mentor_message, etc.
+
+**Creating a New Domain Model:**
 
 ```dart
 import 'package:json_annotation/json_annotation.dart';
 
-part 'my_model.g.dart';  // Generated file
+part 'my_model.g.dart';  // Generated file - REQUIRED
 
-@JsonSerializable()
+@JsonSerializable()  // REQUIRED annotation
 class MyModel {
   final String id;
   final String title;
@@ -929,12 +935,56 @@ class MyModel {
 double get computedValue => /* ... */;
 ```
 
-**After modifying a model, run:**
+**For fields with default values:**
+
+```dart
+@JsonKey(defaultValue: false)
+final bool isActive;
+
+@JsonKey(defaultValue: 0)
+final int count;
+```
+
+**For backward-compatible enum serialization:**
+
+```dart
+// If existing data uses 'EnumType.value' format instead of just 'value':
+@JsonKey(fromJson: _statusFromJson, toJson: _statusToJson)
+final MyStatus status;
+
+static MyStatus _statusFromJson(String? value) {
+  if (value == null) return MyStatus.defaultValue;
+  // Handle both 'MyStatus.active' and 'active' formats
+  final enumName = value.contains('.') ? value.split('.').last : value;
+  return MyStatus.values.firstWhere(
+    (e) => e.name == enumName,
+    orElse: () => MyStatus.defaultValue,
+  );
+}
+
+static String _statusToJson(MyStatus status) => status.name;
+```
+
+**After creating or modifying a model, run:**
 ```bash
 flutter pub run build_runner build --delete-conflicting-outputs
 ```
 
-**When modifying existing domain objects:** If you're editing a model that still uses manual `toJson()`/`fromJson()`, migrate it to `@JsonSerializable` as part of your changes to prevent future data loss issues.
+**Checklist for New Domain Models:**
+1. ✅ Add `import 'package:json_annotation/json_annotation.dart';`
+2. ✅ Add `part 'model_name.g.dart';` after imports
+3. ✅ Add `@JsonSerializable()` annotation to class
+4. ✅ Add `fromJson` factory and `toJson` method using generated functions
+5. ✅ Add `@JsonKey` annotations for defaults, computed properties, or custom converters
+6. ✅ Run `build_runner` to generate `.g.dart` file
+7. ✅ Update `BackupService` if model should be included in backup/restore
+8. ✅ Run tests to verify serialization works correctly
+
+**❌ DO NOT:**
+- Create manual `toJson()` implementations for domain models
+- Create manual `fromJson()` factories for domain models
+- Skip running `build_runner` after model changes
+- Forget to add new models to `BackupService` if they contain user data
 
 ### Core Models
 

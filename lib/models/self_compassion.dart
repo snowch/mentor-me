@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'self_compassion.g.dart';
 
 /// Type of self-compassion exercise
 enum SelfCompassionType {
@@ -127,6 +130,7 @@ extension SelfCompassionTypeExtension on SelfCompassionType {
 /// 3. Mindfulness (vs over-identification)
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/selfCompassionEntry_v1
+@JsonSerializable()
 class SelfCompassionEntry {
   final String id;
   final SelfCompassionType type;
@@ -155,40 +159,11 @@ class SelfCompassionEntry {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type.name,
-      'createdAt': createdAt.toIso8601String(),
-      'situation': situation,
-      'content': content,
-      'moodBefore': moodBefore,
-      'moodAfter': moodAfter,
-      'selfCriticismBefore': selfCriticismBefore,
-      'selfCriticismAfter': selfCriticismAfter,
-      'insights': insights,
-      'linkedJournalId': linkedJournalId,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory SelfCompassionEntry.fromJson(Map<String, dynamic> json) =>
+      _$SelfCompassionEntryFromJson(json);
 
-  factory SelfCompassionEntry.fromJson(Map<String, dynamic> json) {
-    return SelfCompassionEntry(
-      id: json['id'] as String,
-      type: SelfCompassionType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => SelfCompassionType.other,
-      ),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      situation: json['situation'] as String?,
-      content: json['content'] as String?,
-      moodBefore: json['moodBefore'] as int?,
-      moodAfter: json['moodAfter'] as int?,
-      selfCriticismBefore: json['selfCriticismBefore'] as int?,
-      selfCriticismAfter: json['selfCriticismAfter'] as int?,
-      insights: json['insights'] as String?,
-      linkedJournalId: json['linkedJournalId'] as String?,
-    );
-  }
+  Map<String, dynamic> toJson() => _$SelfCompassionEntryToJson(this);
 
   SelfCompassionEntry copyWith({
     String? id,

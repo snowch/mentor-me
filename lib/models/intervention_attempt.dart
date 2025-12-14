@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'intervention_attempt.g.dart';
 
 /// Types of CBT interventions available in the app
 enum InterventionType {
@@ -188,6 +191,7 @@ extension InterventionOutcomeExtension on InterventionOutcome {
 /// This data powers personalized recommendations and effectiveness analysis.
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/interventionAttempt_v1
+@JsonSerializable()
 class InterventionAttempt {
   final String id;
   final InterventionType type;
@@ -212,43 +216,12 @@ class InterventionAttempt {
   })  : id = id ?? const Uuid().v4(),
         attemptedAt = attemptedAt ?? DateTime.now();
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'type': type.name,
-      'attemptedAt': attemptedAt.toIso8601String(),
-      'notes': notes,
-      'outcome': outcome?.name,
-      'ratedAt': ratedAt?.toIso8601String(),
-      'moodBefore': moodBefore,
-      'moodAfter': moodAfter,
-      'linkedId': linkedId,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory InterventionAttempt.fromJson(Map<String, dynamic> json) =>
+      _$InterventionAttemptFromJson(json);
 
-  factory InterventionAttempt.fromJson(Map<String, dynamic> json) {
-    return InterventionAttempt(
-      id: json['id'] as String,
-      type: InterventionType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => InterventionType.other,
-      ),
-      attemptedAt: DateTime.parse(json['attemptedAt'] as String),
-      notes: json['notes'] as String?,
-      outcome: json['outcome'] != null
-          ? InterventionOutcome.values.firstWhere(
-              (e) => e.name == json['outcome'],
-              orElse: () => InterventionOutcome.neutral,
-            )
-          : null,
-      ratedAt: json['ratedAt'] != null
-          ? DateTime.parse(json['ratedAt'] as String)
-          : null,
-      moodBefore: json['moodBefore'] as int?,
-      moodAfter: json['moodAfter'] as int?,
-      linkedId: json['linkedId'] as String?,
-    );
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$InterventionAttemptToJson(this);
 
   InterventionAttempt copyWith({
     String? id,
@@ -275,15 +248,18 @@ class InterventionAttempt {
   }
 
   /// Whether this intervention has been rated by the user
+  @JsonKey(includeFromJson: false, includeToJson: false)
   bool get isRated => outcome != null;
 
   /// Calculate mood improvement if both before/after are recorded
+  @JsonKey(includeFromJson: false, includeToJson: false)
   int? get moodChange {
     if (moodBefore == null || moodAfter == null) return null;
     return moodAfter! - moodBefore!;
   }
 
   /// Human-readable description of mood change
+  @JsonKey(includeFromJson: false, includeToJson: false)
   String? get moodChangeDescription {
     final change = moodChange;
     if (change == null) return null;

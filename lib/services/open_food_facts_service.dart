@@ -270,23 +270,23 @@ class OpenFoodFactsService {
     confidence = 0.6 + (dataPoints / 8) * 0.3; // 0.6 to 0.9
 
     final nutrition = NutritionEstimate(
-      calories: calories.round(),
-      proteinGrams: protein.round(),
-      carbsGrams: carbs.round(),
-      fatGrams: fat.round(),
-      saturatedFatGrams: saturatedFat?.round(),
+      calories: calories,
+      proteinGrams: protein,
+      carbsGrams: carbs,
+      fatGrams: fat,
+      saturatedFatGrams: saturatedFat,
       // OFF doesn't separate mono/poly, but we can track unsaturated as total - saturated
       unsaturatedFatGrams: saturatedFat != null
-          ? (fat - saturatedFat).round().clamp(0, 999)
+          ? (fat - saturatedFat).clamp(0, 999)
           : null,
-      transFatGrams: transFat?.round(),
-      fiberGrams: fiber?.round(),
-      sugarGrams: sugars?.round(),
+      transFatGrams: transFat,
+      fiberGrams: fiber,
+      sugarGrams: sugars,
       sodiumMg: sodium != null
-          ? (sodium * 1000).round() // Convert g to mg
+          ? sodium * 1000 // Convert g to mg
           : null,
       cholesterolMg: cholesterol != null
-          ? (cholesterol * 1000).round()
+          ? cholesterol * 1000
           : null,
       confidence: confidence > 0.8 ? 'high' : 'medium',
       notes: 'Open Food Facts (per 100g)',

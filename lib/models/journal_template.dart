@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:mentor_me/models/template_field.dart';
 import 'package:mentor_me/models/template_schedule.dart';
+
+part 'journal_template.g.dart';
 
 /// Categories for journal templates
 enum TemplateCategory {
@@ -57,7 +60,10 @@ extension TemplateCategoryExtension on TemplateCategory {
 ///
 /// This is the unified template model that supports both on-demand journaling
 /// (like 1-to-1 sessions) and scheduled check-ins (with reminders).
+///
+/// JSON Schema: lib/schemas/vX.json#definitions/journalTemplate_vX
 @immutable
+@JsonSerializable()
 class JournalTemplate {
   final String id;
   final String name;
@@ -72,6 +78,10 @@ class JournalTemplate {
   final int sortOrder;
   final bool allowSkipFields;
   final bool showProgressIndicator;
+  @JsonKey(
+    fromJson: _categoryFromJson,
+    toJson: _categoryToJson,
+  )
   final TemplateCategory? category;
 
   // Scheduling fields (optional - for recurring check-ins)
@@ -144,60 +154,17 @@ class JournalTemplate {
     );
   }
 
-  /// Convert to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'emoji': emoji,
-      'isSystemDefined': isSystemDefined,
-      'fields': fields.map((f) => f.toJson()).toList(),
-      'aiGuidance': aiGuidance,
-      'completionMessage': completionMessage,
-      'createdAt': createdAt.toIso8601String(),
-      'lastModified': lastModified?.toIso8601String(),
-      'sortOrder': sortOrder,
-      'allowSkipFields': allowSkipFields,
-      'showProgressIndicator': showProgressIndicator,
-      'category': category?.toJson(),
-      'schedule': schedule?.toJson(),
-      'isActive': isActive,
-      'linkedSessionId': linkedSessionId,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  factory JournalTemplate.fromJson(Map<String, dynamic> json) =>
+      _$JournalTemplateFromJson(json);
+  Map<String, dynamic> toJson() => _$JournalTemplateToJson(this);
 
-  /// Create from JSON
-  factory JournalTemplate.fromJson(Map<String, dynamic> json) {
-    return JournalTemplate(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      emoji: json['emoji'] as String?,
-      isSystemDefined: json['isSystemDefined'] as bool? ?? false,
-      fields: (json['fields'] as List<dynamic>?)
-              ?.map((f) => TemplateField.fromJson(f as Map<String, dynamic>))
-              .toList() ??
-          [],
-      aiGuidance: json['aiGuidance'] as String?,
-      completionMessage: json['completionMessage'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastModified: json['lastModified'] != null
-          ? DateTime.parse(json['lastModified'] as String)
-          : null,
-      sortOrder: json['sortOrder'] as int? ?? 0,
-      allowSkipFields: json['allowSkipFields'] as bool? ?? false,
-      showProgressIndicator: json['showProgressIndicator'] as bool? ?? true,
-      category: json['category'] != null
-          ? TemplateCategoryExtension.fromJson(json['category'] as String)
-          : null,
-      schedule: json['schedule'] != null
-          ? TemplateSchedule.fromJson(json['schedule'] as Map<String, dynamic>)
-          : null,
-      isActive: json['isActive'] as bool? ?? true,
-      linkedSessionId: json['linkedSessionId'] as String?,
-    );
-  }
+  /// Custom serialization for TemplateCategory enum
+  static String? _categoryToJson(TemplateCategory? category) =>
+      category?.toJson();
+
+  static TemplateCategory? _categoryFromJson(String? json) =>
+      json != null ? TemplateCategoryExtension.fromJson(json) : null;
 
   @override
   bool operator ==(Object other) {

@@ -1,4 +1,7 @@
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part 'implementation_intention.g.dart';
 
 /// Implementation intention (if-then plan) for goal achievement
 ///
@@ -8,6 +11,7 @@ import 'package:uuid/uuid.dart';
 /// Example: "If it's 7am on a weekday, then I will go for a 20-minute walk"
 ///
 /// JSON Schema: lib/schemas/v3.json#definitions/implementationIntention_v1
+@JsonSerializable()
 class ImplementationIntention {
   final String id;
   final String linkedGoalId;      // Goal this supports
@@ -36,41 +40,12 @@ class ImplementationIntention {
         successfulExecutions = successfulExecutions ?? [],
         missedOpportunities = missedOpportunities ?? [];
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'linkedGoalId': linkedGoalId,
-      'situationCue': situationCue,
-      'plannedBehavior': plannedBehavior,
-      'createdAt': createdAt.toIso8601String(),
-      'isActive': isActive,
-      'successfulExecutions': successfulExecutions
-          .map((dt) => dt.toIso8601String())
-          .toList(),
-      'missedOpportunities': missedOpportunities
-          .map((dt) => dt.toIso8601String())
-          .toList(),
-      'notes': notes,
-    };
-  }
+  /// Auto-generated serialization - ensures all fields are included
+  Map<String, dynamic> toJson() => _$ImplementationIntentionToJson(this);
 
-  factory ImplementationIntention.fromJson(Map<String, dynamic> json) {
-    return ImplementationIntention(
-      id: json['id'] as String,
-      linkedGoalId: json['linkedGoalId'] as String,
-      situationCue: json['situationCue'] as String,
-      plannedBehavior: json['plannedBehavior'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      isActive: json['isActive'] as bool? ?? true,
-      successfulExecutions: (json['successfulExecutions'] as List<dynamic>?)
-          ?.map((e) => DateTime.parse(e as String))
-          .toList(),
-      missedOpportunities: (json['missedOpportunities'] as List<dynamic>?)
-          ?.map((e) => DateTime.parse(e as String))
-          .toList(),
-      notes: json['notes'] as String?,
-    );
-  }
+  /// Auto-generated deserialization - ensures all fields are included
+  factory ImplementationIntention.fromJson(Map<String, dynamic> json) =>
+      _$ImplementationIntentionFromJson(json);
 
   ImplementationIntention copyWith({
     String? id,

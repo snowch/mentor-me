@@ -236,14 +236,14 @@ class CoFIDService {
   /// Convert CoFID food to NutritionEstimate (per 100g)
   NutritionEstimate foodToNutrition(CoFIDFood food) {
     return NutritionEstimate(
-      calories: food.calories,
-      proteinGrams: food.protein.round(),
-      carbsGrams: food.carbs.round(),
-      fatGrams: food.fat.round(),
-      saturatedFatGrams: food.saturatedFat?.round(),
-      fiberGrams: food.fiber?.round(),
-      sugarGrams: food.sugar?.round(),
-      sodiumMg: food.sodium,
+      calories: food.calories.toDouble(),
+      proteinGrams: food.protein,
+      carbsGrams: food.carbs,
+      fatGrams: food.fat,
+      saturatedFatGrams: food.saturatedFat,
+      fiberGrams: food.fiber,
+      sugarGrams: food.sugar,
+      sodiumMg: food.sodium?.toDouble(),
       confidence: 'high',
       notes: 'CoFID UK database (per 100g)',
     );
