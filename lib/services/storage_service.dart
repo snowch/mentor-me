@@ -740,8 +740,26 @@ class StorageService {
       final List<dynamic> jsonList = json.decode(jsonString);
       return jsonList.map((j) => FoodTemplate.fromJson(j)).toList();
     } catch (e) {
-      debugPrint('Warning: Corrupted food templates data, returning empty list. Error: $e');
-      await prefs.remove(_foodTemplatesKey);
+      debugPrint('Warning: Error loading food templates. Error: $e');
+      // DO NOT delete the data - it may be recoverable
+      // Try to parse individual items and skip corrupted ones
+      try {
+        final List<dynamic> jsonList = json.decode(jsonString);
+        final List<FoodTemplate> recovered = [];
+        for (final item in jsonList) {
+          try {
+            recovered.add(FoodTemplate.fromJson(item));
+          } catch (itemError) {
+            debugPrint('Warning: Skipping corrupted food template item: $itemError');
+          }
+        }
+        if (recovered.isNotEmpty) {
+          debugPrint('Recovered ${recovered.length} food templates out of ${jsonList.length}');
+          return recovered;
+        }
+      } catch (recoveryError) {
+        debugPrint('Warning: Could not recover any food templates: $recoveryError');
+      }
       return [];
     }
   }
