@@ -284,9 +284,15 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, activeGoals.length),
           ));
-          widgets.addAll(activeGoals.map((goal) => SliverToBoxAdapter(
-            child: _buildGoalCard(context, goal),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverToBoxAdapter(
+              child: _buildReorderableGoalList(context, activeGoals, GoalStatus.active, goalProvider),
+            ));
+          } else {
+            widgets.addAll(activeGoals.map((goal) => SliverToBoxAdapter(
+              child: _buildGoalCard(context, goal),
+            )));
+          }
         }
 
         // Active Habits
@@ -294,9 +300,15 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Habits', ActionColors.habit, activeHabits.length),
           ));
-          widgets.addAll(activeHabits.map((habit) => SliverToBoxAdapter(
-            child: _buildHabitCard(context, habit, habitProvider),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverToBoxAdapter(
+              child: _buildReorderableHabitList(context, activeHabits, HabitStatus.active, habitProvider),
+            ));
+          } else {
+            widgets.addAll(activeHabits.map((habit) => SliverToBoxAdapter(
+              child: _buildHabitCard(context, habit, habitProvider),
+            )));
+          }
         }
 
         // Pending Todos (Active)
@@ -339,9 +351,15 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, backlogGoals.length),
           ));
-          widgets.addAll(backlogGoals.map((goal) => SliverToBoxAdapter(
-            child: _buildGoalCard(context, goal),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverToBoxAdapter(
+              child: _buildReorderableGoalList(context, backlogGoals, GoalStatus.backlog, goalProvider),
+            ));
+          } else {
+            widgets.addAll(backlogGoals.map((goal) => SliverToBoxAdapter(
+              child: _buildGoalCard(context, goal),
+            )));
+          }
         }
 
         // Backlog/Paused Habits
@@ -349,9 +367,15 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Paused Habits', ActionColors.habit, backlogHabits.length),
           ));
-          widgets.addAll(backlogHabits.map((habit) => SliverToBoxAdapter(
-            child: _buildHabitCard(context, habit, habitProvider),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverToBoxAdapter(
+              child: _buildReorderableHabitList(context, backlogHabits, HabitStatus.backlog, habitProvider),
+            ));
+          } else {
+            widgets.addAll(backlogHabits.map((habit) => SliverToBoxAdapter(
+              child: _buildHabitCard(context, habit, habitProvider),
+            )));
+          }
         }
       }
     }
@@ -454,6 +478,52 @@ class _ActionsScreenState extends State<ActionsScreen> {
     );
   }
 
+  /// Build a reorderable list of goals
+  Widget _buildReorderableGoalList(
+    BuildContext context,
+    List<Goal> goals,
+    GoalStatus status,
+    GoalProvider provider,
+  ) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: goals.length,
+      onReorder: (oldIndex, newIndex) {
+        if (newIndex > oldIndex) {
+          newIndex -= 1;
+        }
+        provider.reorderGoals(status, oldIndex, newIndex);
+      },
+      itemBuilder: (context, index) {
+        return _buildGoalCard(context, goals[index], reorderIndex: index);
+      },
+    );
+  }
+
+  /// Build a reorderable list of habits
+  Widget _buildReorderableHabitList(
+    BuildContext context,
+    List<Habit> habits,
+    HabitStatus status,
+    HabitProvider provider,
+  ) {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: habits.length,
+      onReorder: (oldIndex, newIndex) {
+        if (newIndex > oldIndex) {
+          newIndex -= 1;
+        }
+        provider.reorderHabits(status, oldIndex, newIndex);
+      },
+      itemBuilder: (context, index) {
+        return _buildHabitCard(context, habits[index], provider, reorderIndex: index);
+      },
+    );
+  }
+
   String _getStatusLabel(StatusFilter filter) {
     switch (filter) {
       case StatusFilter.all:
@@ -491,8 +561,9 @@ class _ActionsScreenState extends State<ActionsScreen> {
     }
   }
 
-  Widget _buildGoalCard(BuildContext context, Goal goal) {
+  Widget _buildGoalCard(BuildContext context, Goal goal, {int? reorderIndex}) {
     return Card(
+      key: ValueKey('goal_${goal.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       child: Container(
@@ -559,11 +630,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 onToggle: () => _toggleGoalFocus(context, goal.id),
               ),
               // Drag handle on right side (like dashboard customization)
-              if (_isReorderMode) ...[
+              if (_isReorderMode && reorderIndex != null) ...[
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ReorderableDragStartListener(
+                  index: reorderIndex,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ],
@@ -574,10 +648,11 @@ class _ActionsScreenState extends State<ActionsScreen> {
     );
   }
 
-  Widget _buildHabitCard(BuildContext context, Habit habit, HabitProvider provider) {
+  Widget _buildHabitCard(BuildContext context, Habit habit, HabitProvider provider, {int? reorderIndex}) {
     final isCompletedToday = habit.isCompletedToday;
 
     return Card(
+      key: ValueKey('habit_${habit.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       child: Container(
@@ -661,11 +736,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 onToggle: () => _toggleHabitFocus(context, habit.id),
               ),
               // Drag handle on right side (like dashboard customization)
-              if (_isReorderMode) ...[
+              if (_isReorderMode && reorderIndex != null) ...[
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ReorderableDragStartListener(
+                  index: reorderIndex,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ],
@@ -757,8 +835,10 @@ class _ActionsScreenState extends State<ActionsScreen> {
     Todo todo,
     TodoProvider provider, {
     bool isOverdue = false,
+    int? reorderIndex,
   }) {
     return Card(
+      key: ValueKey('todo_${todo.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       color: isOverdue ? Colors.red.withOpacity(0.05) : null,
@@ -837,11 +917,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
             children: [
               _buildPriorityIndicator(todo.priority),
               // Drag handle on right side (like dashboard customization)
-              if (_isReorderMode) ...[
+              if (_isReorderMode && reorderIndex != null) ...[
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ReorderableDragStartListener(
+                  index: reorderIndex,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ],
