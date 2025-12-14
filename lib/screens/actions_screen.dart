@@ -502,18 +502,13 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ),
         child: ListTile(
-          leading: _isReorderMode
-              ? Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )
-              : CircleAvatar(
-                  backgroundColor: ActionColors.goal.withOpacity(0.15),
-                  child: Icon(
-                    goal.category.icon,
-                    color: ActionColors.goal,
-                  ),
-                ),
+          leading: CircleAvatar(
+            backgroundColor: ActionColors.goal.withOpacity(0.15),
+            child: Icon(
+              goal.category.icon,
+              color: ActionColors.goal,
+            ),
+          ),
           title: Row(
             children: [
               Expanded(child: Text(goal.title)),
@@ -563,6 +558,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 isFocused: goal.isFocused,
                 onToggle: () => _toggleGoalFocus(context, goal.id),
               ),
+              // Drag handle on right side (like dashboard customization)
+              if (_isReorderMode) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.drag_handle,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
             ],
           ),
           onTap: () => _showGoalDetail(context, goal),
@@ -584,25 +587,20 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ),
         child: ListTile(
-          leading: _isReorderMode
-              ? Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )
-              : Transform.scale(
-                  scale: 1.2,
-                  child: Checkbox(
-                    value: isCompletedToday,
-                    activeColor: ActionColors.habit,
-                    onChanged: (value) {
-                      if (value == true) {
-                        provider.completeHabit(habit.id, DateTime.now());
-                      } else {
-                        provider.uncompleteHabit(habit.id, DateTime.now());
-                      }
-                    },
-                  ),
-                ),
+          leading: Transform.scale(
+            scale: 1.2,
+            child: Checkbox(
+              value: isCompletedToday,
+              activeColor: ActionColors.habit,
+              onChanged: (value) {
+                if (value == true) {
+                  provider.completeHabit(habit.id, DateTime.now());
+                } else {
+                  provider.uncompleteHabit(habit.id, DateTime.now());
+                }
+              },
+            ),
+          ),
           title: Row(
             children: [
               Expanded(
@@ -662,6 +660,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 isFocused: habit.isFocused,
                 onToggle: () => _toggleHabitFocus(context, habit.id),
               ),
+              // Drag handle on right side (like dashboard customization)
+              if (_isReorderMode) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.drag_handle,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
             ],
           ),
           onTap: () => _showEditHabitDialog(context, habit),
@@ -766,25 +772,20 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ),
         child: ListTile(
-          leading: _isReorderMode
-              ? Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )
-              : Transform.scale(
-                  scale: 1.2,
-                  child: Checkbox(
-                    value: todo.status == TodoStatus.completed,
-                    activeColor: ActionColors.todo,
-                    onChanged: (value) {
-                      if (value == true) {
-                        provider.completeTodo(todo.id);
-                      } else {
-                        provider.uncompleteTodo(todo.id);
-                      }
-                    },
-                  ),
-                ),
+          leading: Transform.scale(
+            scale: 1.2,
+            child: Checkbox(
+              value: todo.status == TodoStatus.completed,
+              activeColor: ActionColors.todo,
+              onChanged: (value) {
+                if (value == true) {
+                  provider.completeTodo(todo.id);
+                } else {
+                  provider.uncompleteTodo(todo.id);
+                }
+              },
+            ),
+          ),
           title: Row(
             children: [
               Expanded(
@@ -831,7 +832,20 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   ],
                 )
               : null,
-          trailing: _buildPriorityIndicator(todo.priority),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildPriorityIndicator(todo.priority),
+              // Drag handle on right side (like dashboard customization)
+              if (_isReorderMode) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.drag_handle,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ],
+          ),
           onTap: () => _showEditTodoDialog(context, todo, provider),
           onLongPress: () => _showTodoOptions(context, todo, provider),
         ),
