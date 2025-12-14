@@ -1110,7 +1110,7 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Current Goals',
+                    'Active Goals',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -1156,7 +1156,7 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Current Goals (${activeGoals.length}/${goalProvider.goals.length})',
+                    'Active Goals (${activeGoals.length})',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -1256,7 +1256,7 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    "Today's Habits",
+                    'Active Habits',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -1323,7 +1323,7 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Today's Habits ($allCompletedCount/${activeHabits.length})",
+                    'Active Habits ($allCompletedCount/${activeHabits.length})',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
