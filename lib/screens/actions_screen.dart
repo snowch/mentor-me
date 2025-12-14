@@ -71,19 +71,23 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
     final isLoading = goalProvider.isLoading || habitProvider.isLoading || todoProvider.isLoading;
 
-    // Get all data with search filter
+    // Get all data with search filter, sorted by sortOrder for consistent reordering
     final activeGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.active && _matchesSearch(g.title, g.description))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final backlogGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.backlog && _matchesSearch(g.title, g.description))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final activeHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.active && _matchesSearch(h.title, h.description))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final backlogHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.backlog && _matchesSearch(h.title, h.description))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final pendingTodos = todoProvider.pendingTodos
         .where((t) => _matchesSearch(t.title, t.description))
         .toList();
