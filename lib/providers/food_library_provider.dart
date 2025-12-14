@@ -122,6 +122,15 @@ class FoodLibraryProvider extends ChangeNotifier {
     return _templates.where((t) => t.matchesSearch(query)).toList();
   }
 
+  /// Find template by ID
+  FoodTemplate? getById(String id) {
+    try {
+      return _templates.firstWhere((t) => t.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Find template by barcode
   FoodTemplate? findByBarcode(String barcode) {
     try {

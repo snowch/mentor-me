@@ -1,5 +1,9 @@
+import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/food_template.dart';
 import '../models/food_entry.dart';
 import '../providers/food_library_provider.dart';
@@ -1100,6 +1104,117 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
     });
   }
 
+  Future<void> _scanNutritionLabel() async {
+    // Check if AI service is available
+    final aiService = AIService();
+    if (!aiService.hasApiKey()) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Claude API key not configured. Go to Settings → AI Settings.')),
+        );
+      }
+      return;
+    }
+
+    // Show source picker dialog
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Scan Nutrition Label'),
+        content: const Text('Take a photo of the nutrition label or select from gallery.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+            icon: const Icon(Icons.photo_library),
+            label: const Text('Gallery'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+            icon: const Icon(Icons.camera_alt),
+            label: const Text('Camera'),
+          ),
+        ],
+      ),
+    );
+
+    if (source == null) return;
+
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() => _isLoading = true);
+
+      // Read image bytes
+      final Uint8List imageBytes;
+      if (kIsWeb) {
+        imageBytes = await pickedFile.readAsBytes();
+      } else {
+        imageBytes = await File(pickedFile.path).readAsBytes();
+      }
+
+      // Analyze the image
+      final analysis = await aiService.analyzePackagedProduct(imageBytes);
+
+      if (analysis != null) {
+        // Populate form fields
+        if (analysis.productName != null && _nameController.text.isEmpty) {
+          _nameController.text = analysis.productName!;
+        }
+        if (analysis.brandName != null && _brandController.text.isEmpty) {
+          _brandController.text = analysis.brandName!;
+        }
+        if (analysis.nutrition != null) {
+          _populateNutrition(analysis.nutrition!);
+        }
+        // Try to parse serving size
+        if (analysis.servingSize != null) {
+          final servingSizeMatch = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(analysis.servingSize!);
+          if (servingSizeMatch != null) {
+            _servingSizeController.text = servingSizeMatch.group(1)!;
+          }
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(analysis.hasNutritionLabel
+                ? 'Nutrition label scanned successfully!'
+                : 'Product identified - nutrition estimated'),
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read nutrition label. Try a clearer photo.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -1323,6 +1438,23 @@ class _AddEditFoodTemplateSheetState extends State<_AddEditFoodTemplateSheet> {
                 ],
               ),
               const SizedBox(height: 24),
+
+              // Scan nutrition label button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isLoading ? null : _scanNutritionLabel,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.document_scanner),
+                  label: Text(_isLoading ? 'Scanning...' : 'Scan Nutrition Label'),
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // AI estimation button
               SizedBox(

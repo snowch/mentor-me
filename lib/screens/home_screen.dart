@@ -38,6 +38,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   ActionFilter? _actionsFilter; // Filter for ActionsScreen when navigating from mentor
+  bool _openAddTodoDialog = false; // Flag to open add todo dialog on ActionsScreen
   final _notificationService = NotificationService();
   final _aiService = AIService();
   final _storage = StorageService();
@@ -90,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       );
       // Navigate to Actions screen to show the new todo
-      setState(() => _selectedIndex = 1);
+      setState(() => _selectedIndex = 2); // Index 2 = ActionsScreen
     }
   }
 
@@ -121,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Navigate to Actions screen to show the new todo
     if (mounted) {
       setState(() {
-        _selectedIndex = 1; // Actions screen index
+        _selectedIndex = 2; // Index 2 = ActionsScreen
       });
 
       // Show confirmation
@@ -147,7 +148,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _handleAppActionOpenAddTodo() {
     if (mounted) {
       setState(() {
-        _selectedIndex = 1; // Actions screen index
+        _selectedIndex = 2; // Index 2 = ActionsScreen
+        _openAddTodoDialog = true; // Signal ActionsScreen to open dialog
       });
     }
   }
@@ -672,7 +674,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             onNavigateToTab: _navigateToTab,
           ),
           const JournalScreen(),
-          ActionsScreen(initialFilter: _actionsFilter),
+          ActionsScreen(
+            initialFilter: _actionsFilter,
+            openAddTodoDialog: _openAddTodoDialog,
+            onAddTodoDialogOpened: () {
+              if (_openAddTodoDialog) {
+                setState(() => _openAddTodoDialog = false);
+              }
+            },
+          ),
           const WellnessDashboardScreen(),
           const settings.SettingsScreen(),
         ],

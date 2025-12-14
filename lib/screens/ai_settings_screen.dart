@@ -344,12 +344,29 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       final endTime = DateTime.now();
       final latency = endTime.difference(startTime).inMilliseconds;
 
-      // If we got here without exception, test succeeded
-      setState(() {
-        _testSuccessCloud = true;
-        _testResultCloud = response.trim();
-        _testLatencyMsCloud = latency;
-      });
+      // Check if the response indicates an error (API key issues, etc.)
+      final responseLower = response.toLowerCase();
+      final isErrorResponse = responseLower.contains('invalid api key') ||
+          responseLower.contains('authentication') ||
+          responseLower.contains('unauthorized') ||
+          responseLower.contains('api key') && responseLower.contains('error') ||
+          responseLower.contains('401');
+
+      if (isErrorResponse) {
+        // Response contains error message - test failed
+        setState(() {
+          _testSuccessCloud = false;
+          _testResultCloud = response.trim();
+          _testLatencyMsCloud = latency;
+        });
+      } else {
+        // Response looks valid - test succeeded
+        setState(() {
+          _testSuccessCloud = true;
+          _testResultCloud = response.trim();
+          _testLatencyMsCloud = latency;
+        });
+      }
     } catch (e, stackTrace) {
       // Log error with full details for debugging
       await _debug.error(
