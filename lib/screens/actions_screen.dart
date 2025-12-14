@@ -26,6 +26,7 @@ class ActionsScreen extends StatefulWidget {
 }
 
 enum ActionFilter { all, goals, habits, todos }
+enum StatusFilter { all, active, backlog }
 
 /// Color scheme for differentiating action types
 class ActionColors {
@@ -35,14 +36,15 @@ class ActionColors {
 }
 
 class _ActionsScreenState extends State<ActionsScreen> {
-  late ActionFilter _filter;
+  late ActionFilter _typeFilter;
+  StatusFilter _statusFilter = StatusFilter.all;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _filter = widget.initialFilter ?? ActionFilter.all;
+    _typeFilter = widget.initialFilter ?? ActionFilter.all;
   }
 
   @override
@@ -67,17 +69,20 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
     final isLoading = goalProvider.isLoading || habitProvider.isLoading || todoProvider.isLoading;
 
-    // Get filtered data (apply search filter)
+    // Get all data with search filter
     final activeGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.active && _matchesSearch(g.title, g.description))
+        .toList();
+    final backlogGoals = goalProvider.goals
+        .where((g) => g.status == GoalStatus.backlog && _matchesSearch(g.title, g.description))
         .toList();
     final activeHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.active && _matchesSearch(h.title, h.description))
         .toList();
-    final pendingTodos = todoProvider.pendingTodos
-        .where((t) => _matchesSearch(t.title, t.description))
+    final backlogHabits = habitProvider.habits
+        .where((h) => h.status == HabitStatus.backlog && _matchesSearch(h.title, h.description))
         .toList();
-    final overdueTodos = todoProvider.getOverdueTodos()
+    final pendingTodos = todoProvider.pendingTodos
         .where((t) => _matchesSearch(t.title, t.description))
         .toList();
 
@@ -114,105 +119,98 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   ),
                 ),
 
-                // Filter chips
+                // Status filter chips (Active/Backlog)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Status:',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ...StatusFilter.values.map((filter) {
+                          final isSelected = _statusFilter == filter;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              selected: isSelected,
+                              label: Text(_getStatusLabel(filter)),
+                              onSelected: (_) => setState(() => _statusFilter = filter),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Type filter chips (Goals/Habits/Todos)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ActionFilter.values.map((filter) {
-                          final color = _getFilterColor(filter);
-                          final isSelected = _filter == filter;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              selected: isSelected,
-                              label: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (filter != ActionFilter.all) ...[
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: color,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  Text(_getFilterLabel(filter)),
-                                ],
-                              ),
-                              selectedColor: color?.withOpacity(0.2),
-                              checkmarkColor: color,
-                              onSelected: (_) => setState(() => _filter = filter),
+                        children: [
+                          Text(
+                            'Type:',
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
-                          );
-                        }).toList(),
+                          ),
+                          const SizedBox(width: 8),
+                          ...ActionFilter.values.map((filter) {
+                            final color = _getTypeFilterColor(filter);
+                            final isSelected = _typeFilter == filter;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                selected: isSelected,
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (filter != ActionFilter.all) ...[
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: color,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Text(_getTypeFilterLabel(filter)),
+                                  ],
+                                ),
+                                selectedColor: color?.withValues(alpha: 0.2),
+                                checkmarkColor: color,
+                                onSelected: (_) => setState(() => _typeFilter = filter),
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     ),
                   ),
                 ),
 
-                // Active section
-                if (_shouldShowActive(activeGoals, activeHabits)) ...[
-                  SliverToBoxAdapter(
-                    child: _buildSectionHeader(
-                      context,
-                      'Active Focus',
-                      '${activeGoals.length + activeHabits.length} items',
-                      Icons.star,
-                      Colors.amber,
-                    ),
-                  ),
-                  if (_filter == ActionFilter.all || _filter == ActionFilter.goals)
-                    ...activeGoals.map((goal) => SliverToBoxAdapter(
-                      child: _buildGoalCard(context, goal),
-                    )),
-                  if (_filter == ActionFilter.all || _filter == ActionFilter.habits)
-                    ...activeHabits.map((habit) => SliverToBoxAdapter(
-                      child: _buildHabitCard(context, habit, habitProvider),
-                    )),
-                ],
-
-                // Todos section - always show if filter matches
-                if (_filter == ActionFilter.all || _filter == ActionFilter.todos) ...[
-                  if (overdueTodos.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: _buildSectionHeader(
-                        context,
-                        'Overdue',
-                        '${overdueTodos.length} items',
-                        Icons.warning,
-                        Colors.red,
-                      ),
-                    ),
-                    ...overdueTodos.map((todo) => SliverToBoxAdapter(
-                      child: _buildTodoCard(context, todo, todoProvider, isOverdue: true),
-                    )),
-                  ],
-                  if (pendingTodos.where((t) => !t.isOverdue).isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: _buildSectionHeader(
-                        context,
-                        'Todos',
-                        '${pendingTodos.where((t) => !t.isOverdue).length} items',
-                        Icons.check_circle_outline,
-                        Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    ...pendingTodos.where((t) => !t.isOverdue).map((todo) => SliverToBoxAdapter(
-                      child: _buildTodoCard(context, todo, todoProvider),
-                    )),
-                  ],
-                ],
-
-                // Backlog section
-                if (_filter == ActionFilter.all || _filter == ActionFilter.goals || _filter == ActionFilter.habits) ...[
-                  _buildBacklogSection(context, goalProvider, habitProvider),
-                ],
+                // Build content based on status filter
+                ..._buildStatusContent(
+                  context,
+                  goalProvider,
+                  habitProvider,
+                  todoProvider,
+                  activeGoals: activeGoals,
+                  backlogGoals: backlogGoals,
+                  activeHabits: activeHabits,
+                  backlogHabits: backlogHabits,
+                  pendingTodos: pendingTodos,
+                ),
 
                 // Bottom padding for FAB
                 const SliverToBoxAdapter(
@@ -228,14 +226,221 @@ class _ActionsScreenState extends State<ActionsScreen> {
     );
   }
 
-  bool _shouldShowActive(List<Goal> goals, List<Habit> habits) {
-    if (_filter == ActionFilter.todos) return false;
-    if (_filter == ActionFilter.goals) return goals.isNotEmpty;
-    if (_filter == ActionFilter.habits) return habits.isNotEmpty;
-    return goals.isNotEmpty || habits.isNotEmpty;
+  /// Build content sections based on current filters
+  List<Widget> _buildStatusContent(
+    BuildContext context,
+    GoalProvider goalProvider,
+    HabitProvider habitProvider,
+    TodoProvider todoProvider, {
+    required List<Goal> activeGoals,
+    required List<Goal> backlogGoals,
+    required List<Habit> activeHabits,
+    required List<Habit> backlogHabits,
+    required List<Todo> pendingTodos,
+  }) {
+    final widgets = <Widget>[];
+    final showGoals = _typeFilter == ActionFilter.all || _typeFilter == ActionFilter.goals;
+    final showHabits = _typeFilter == ActionFilter.all || _typeFilter == ActionFilter.habits;
+    final showTodos = _typeFilter == ActionFilter.all || _typeFilter == ActionFilter.todos;
+
+    // Active section
+    if (_statusFilter == StatusFilter.all || _statusFilter == StatusFilter.active) {
+      final hasActiveContent = (showGoals && activeGoals.isNotEmpty) ||
+          (showHabits && activeHabits.isNotEmpty) ||
+          (showTodos && pendingTodos.isNotEmpty);
+
+      if (hasActiveContent) {
+        widgets.add(SliverToBoxAdapter(
+          child: _buildMainSectionHeader(context, 'Active', Icons.star, Colors.amber),
+        ));
+
+        // Active Goals
+        if (showGoals && activeGoals.isNotEmpty) {
+          widgets.add(SliverToBoxAdapter(
+            child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, activeGoals.length),
+          ));
+          widgets.addAll(activeGoals.map((goal) => SliverToBoxAdapter(
+            child: _buildGoalCard(context, goal),
+          )));
+        }
+
+        // Active Habits
+        if (showHabits && activeHabits.isNotEmpty) {
+          widgets.add(SliverToBoxAdapter(
+            child: _buildTypeSubheader(context, 'Habits', ActionColors.habit, activeHabits.length),
+          ));
+          widgets.addAll(activeHabits.map((habit) => SliverToBoxAdapter(
+            child: _buildHabitCard(context, habit, habitProvider),
+          )));
+        }
+
+        // Pending Todos (Active)
+        if (showTodos && pendingTodos.isNotEmpty) {
+          final overdue = pendingTodos.where((t) => t.isOverdue).toList();
+          final notOverdue = pendingTodos.where((t) => !t.isOverdue).toList();
+
+          if (overdue.isNotEmpty) {
+            widgets.add(SliverToBoxAdapter(
+              child: _buildTypeSubheader(context, 'Overdue Todos', Colors.red, overdue.length),
+            ));
+            widgets.addAll(overdue.map((todo) => SliverToBoxAdapter(
+              child: _buildTodoCard(context, todo, todoProvider, isOverdue: true),
+            )));
+          }
+          if (notOverdue.isNotEmpty) {
+            widgets.add(SliverToBoxAdapter(
+              child: _buildTypeSubheader(context, 'Todos', ActionColors.todo, notOverdue.length),
+            ));
+            widgets.addAll(notOverdue.map((todo) => SliverToBoxAdapter(
+              child: _buildTodoCard(context, todo, todoProvider),
+            )));
+          }
+        }
+      }
+    }
+
+    // Backlog section (Goals and Habits only - Todos use pending/completed, not active/backlog)
+    if (_statusFilter == StatusFilter.all || _statusFilter == StatusFilter.backlog) {
+      final hasBacklogContent = (showGoals && backlogGoals.isNotEmpty) ||
+          (showHabits && backlogHabits.isNotEmpty);
+
+      if (hasBacklogContent) {
+        widgets.add(SliverToBoxAdapter(
+          child: _buildMainSectionHeader(context, 'Backlog', Icons.inbox, Colors.grey),
+        ));
+
+        // Backlog Goals
+        if (showGoals && backlogGoals.isNotEmpty) {
+          widgets.add(SliverToBoxAdapter(
+            child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, backlogGoals.length),
+          ));
+          widgets.addAll(backlogGoals.map((goal) => SliverToBoxAdapter(
+            child: _buildGoalCard(context, goal),
+          )));
+        }
+
+        // Backlog/Paused Habits
+        if (showHabits && backlogHabits.isNotEmpty) {
+          widgets.add(SliverToBoxAdapter(
+            child: _buildTypeSubheader(context, 'Paused Habits', ActionColors.habit, backlogHabits.length),
+          ));
+          widgets.addAll(backlogHabits.map((habit) => SliverToBoxAdapter(
+            child: _buildHabitCard(context, habit, habitProvider),
+          )));
+        }
+      }
+    }
+
+    // Empty state
+    if (widgets.isEmpty) {
+      widgets.add(SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(48),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No items found',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Try adjusting your filters or add something new',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ));
+    }
+
+    return widgets;
   }
 
-  String _getFilterLabel(ActionFilter filter) {
+  /// Build main section header (Active/Backlog)
+  Widget _buildMainSectionHeader(BuildContext context, String title, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build type subheader (Goals/Habits/Todos within a section)
+  Widget _buildTypeSubheader(BuildContext context, String title, Color color, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '$count',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getStatusLabel(StatusFilter filter) {
+    switch (filter) {
+      case StatusFilter.all:
+        return 'All';
+      case StatusFilter.active:
+        return 'Active';
+      case StatusFilter.backlog:
+        return 'Backlog';
+    }
+  }
+
+  String _getTypeFilterLabel(ActionFilter filter) {
     switch (filter) {
       case ActionFilter.all:
         return 'All';
@@ -248,7 +453,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
     }
   }
 
-  Color? _getFilterColor(ActionFilter filter) {
+  Color? _getTypeFilterColor(ActionFilter filter) {
     switch (filter) {
       case ActionFilter.all:
         return null;
@@ -259,37 +464,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
       case ActionFilter.todos:
         return ActionColors.todo;
     }
-  }
-
-  Widget _buildSectionHeader(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildGoalCard(BuildContext context, Goal goal) {
@@ -661,48 +835,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
     } else {
       return DateFormat('MMM d').format(date);
     }
-  }
-
-  Widget _buildBacklogSection(
-    BuildContext context,
-    GoalProvider goalProvider,
-    HabitProvider habitProvider,
-  ) {
-    final backlogGoals = goalProvider.goals.where((g) => g.status == GoalStatus.backlog).toList();
-    final backlogHabits = habitProvider.habits.where((h) => h.status == HabitStatus.backlog).toList();
-
-    if (backlogGoals.isEmpty && backlogHabits.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-
-    final showGoals = _filter == ActionFilter.all || _filter == ActionFilter.goals;
-    final showHabits = _filter == ActionFilter.all || _filter == ActionFilter.habits;
-
-    final items = <Widget>[];
-
-    if (showGoals) {
-      items.addAll(backlogGoals.map((g) => _buildGoalCard(context, g)));
-    }
-    if (showHabits) {
-      items.addAll(backlogHabits.map((h) => _buildHabitCard(context, h, habitProvider)));
-    }
-
-    if (items.isEmpty) {
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    }
-
-    return SliverList(
-      delegate: SliverChildListDelegate([
-        _buildSectionHeader(
-          context,
-          'Backlog',
-          '${items.length} items',
-          Icons.inbox,
-          Colors.grey,
-        ),
-        ...items,
-      ]),
-    );
   }
 
   void _showGoalDetail(BuildContext context, Goal goal) {
