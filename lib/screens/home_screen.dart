@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       );
       // Navigate to Actions screen to show the new todo
-      setState(() => _selectedIndex = 1);
+      setState(() => _selectedIndex = 2); // Index 2 = ActionsScreen
     }
   }
 
@@ -121,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Navigate to Actions screen to show the new todo
     if (mounted) {
       setState(() {
-        _selectedIndex = 1; // Actions screen index
+        _selectedIndex = 2; // Index 2 = ActionsScreen
       });
 
       // Show confirmation
@@ -147,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _handleAppActionOpenAddTodo() {
     if (mounted) {
       setState(() {
-        _selectedIndex = 1; // Actions screen index
+        _selectedIndex = 2; // Index 2 = ActionsScreen
       });
     }
   }
