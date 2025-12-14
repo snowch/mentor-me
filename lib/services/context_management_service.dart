@@ -241,9 +241,23 @@ class ContextManagementService {
       final weightSection = StringBuffer('\n**Weight Tracking:**\n');
       if (weightGoal != null) {
         final current = weightEntries.first;
-        final diff = current.weight - weightGoal.targetWeight;
-        final direction = diff > 0 ? 'above' : 'below';
-        weightSection.writeln('Goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} (currently ${diff.abs().toStringAsFixed(1)} $direction)');
+        final currentWeight = current.weightIn(weightGoal.unit);
+        final goalType = weightGoal.isWeightLoss ? 'LOSS' : 'GAIN';
+        final isAchieved = weightGoal.isAchievedWith(currentWeight);
+        final remaining = weightGoal.remainingWith(currentWeight);
+
+        if (isAchieved) {
+          // Goal achieved - celebrate! For weight loss, being below target is SUCCESS
+          final exceededBy = remaining > 0 ? remaining : (weightGoal.targetWeight - currentWeight).abs();
+          if (exceededBy < 0.1) {
+            weightSection.writeln('Weight $goalType goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} - ACHIEVED! At target weight');
+          } else {
+            weightSection.writeln('Weight $goalType goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} - ACHIEVED! Exceeded by ${exceededBy.toStringAsFixed(1)} ${current.unit.displayName}');
+          }
+        } else {
+          // Goal not yet achieved - show remaining
+          weightSection.writeln('Weight $goalType goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} - ${remaining.toStringAsFixed(1)} ${current.unit.displayName} to go');
+        }
       }
       int weightCount = 0;
       for (final entry in weightEntries.take(7)) {
@@ -780,9 +794,23 @@ class ContextManagementService {
       buffer.writeln('## Weight Tracking');
       if (weightGoal != null) {
         final current = weightEntries.first;
-        final diff = current.weight - weightGoal.targetWeight;
-        final direction = diff > 0 ? 'above' : 'below';
-        buffer.writeln('Goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} (currently ${diff.abs().toStringAsFixed(1)} $direction)');
+        final currentWeight = current.weightIn(weightGoal.unit);
+        final goalType = weightGoal.isWeightLoss ? 'LOSS' : 'GAIN';
+        final isAchieved = weightGoal.isAchievedWith(currentWeight);
+        final remaining = weightGoal.remainingWith(currentWeight);
+
+        if (isAchieved) {
+          // Goal achieved - celebrate! For weight loss, being below target is SUCCESS
+          final exceededBy = remaining > 0 ? remaining : (weightGoal.targetWeight - currentWeight).abs();
+          if (exceededBy < 0.1) {
+            buffer.writeln('Weight $goalType goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} - ACHIEVED! At target weight');
+          } else {
+            buffer.writeln('Weight $goalType goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} - ACHIEVED! Exceeded by ${exceededBy.toStringAsFixed(1)} ${current.unit.displayName}');
+          }
+        } else {
+          // Goal not yet achieved - show remaining
+          buffer.writeln('Weight $goalType goal: ${weightGoal.targetWeight.toStringAsFixed(1)} ${current.unit.displayName} - ${remaining.toStringAsFixed(1)} ${current.unit.displayName} to go');
+        }
       }
       final recentWeights = weightEntries
           .where((w) => w.timestamp.isAfter(cutoffDate))
