@@ -284,9 +284,21 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, activeGoals.length),
           ));
-          widgets.addAll(activeGoals.map((goal) => SliverToBoxAdapter(
-            child: _buildGoalCard(context, goal),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverReorderableList(
+              itemCount: activeGoals.length,
+              itemBuilder: (context, index) {
+                return _buildGoalCard(context, activeGoals[index], index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                goalProvider.reorderGoals(GoalStatus.active, oldIndex, newIndex);
+              },
+            ));
+          } else {
+            widgets.addAll(activeGoals.map((goal) => SliverToBoxAdapter(
+              child: _buildGoalCard(context, goal),
+            )));
+          }
         }
 
         // Active Habits
@@ -294,9 +306,21 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Habits', ActionColors.habit, activeHabits.length),
           ));
-          widgets.addAll(activeHabits.map((habit) => SliverToBoxAdapter(
-            child: _buildHabitCard(context, habit, habitProvider),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverReorderableList(
+              itemCount: activeHabits.length,
+              itemBuilder: (context, index) {
+                return _buildHabitCard(context, activeHabits[index], habitProvider, index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                habitProvider.reorderHabits(HabitStatus.active, oldIndex, newIndex);
+              },
+            ));
+          } else {
+            widgets.addAll(activeHabits.map((habit) => SliverToBoxAdapter(
+              child: _buildHabitCard(context, habit, habitProvider),
+            )));
+          }
         }
 
         // Pending Todos (Active)
@@ -308,17 +332,41 @@ class _ActionsScreenState extends State<ActionsScreen> {
             widgets.add(SliverToBoxAdapter(
               child: _buildTypeSubheader(context, 'Overdue Todos', Colors.red, overdue.length),
             ));
-            widgets.addAll(overdue.map((todo) => SliverToBoxAdapter(
-              child: _buildTodoCard(context, todo, todoProvider, isOverdue: true),
-            )));
+            if (_isReorderMode) {
+              widgets.add(SliverReorderableList(
+                itemCount: overdue.length,
+                itemBuilder: (context, index) {
+                  return _buildTodoCard(context, overdue[index], todoProvider, isOverdue: true, index: index);
+                },
+                onReorder: (oldIndex, newIndex) {
+                  todoProvider.reorderTodos(overdue, oldIndex, newIndex);
+                },
+              ));
+            } else {
+              widgets.addAll(overdue.map((todo) => SliverToBoxAdapter(
+                child: _buildTodoCard(context, todo, todoProvider, isOverdue: true),
+              )));
+            }
           }
           if (notOverdue.isNotEmpty) {
             widgets.add(SliverToBoxAdapter(
               child: _buildTypeSubheader(context, 'Todos', ActionColors.todo, notOverdue.length),
             ));
-            widgets.addAll(notOverdue.map((todo) => SliverToBoxAdapter(
-              child: _buildTodoCard(context, todo, todoProvider),
-            )));
+            if (_isReorderMode) {
+              widgets.add(SliverReorderableList(
+                itemCount: notOverdue.length,
+                itemBuilder: (context, index) {
+                  return _buildTodoCard(context, notOverdue[index], todoProvider, index: index);
+                },
+                onReorder: (oldIndex, newIndex) {
+                  todoProvider.reorderTodos(notOverdue, oldIndex, newIndex);
+                },
+              ));
+            } else {
+              widgets.addAll(notOverdue.map((todo) => SliverToBoxAdapter(
+                child: _buildTodoCard(context, todo, todoProvider),
+              )));
+            }
           }
         }
       }
@@ -339,9 +387,21 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, backlogGoals.length),
           ));
-          widgets.addAll(backlogGoals.map((goal) => SliverToBoxAdapter(
-            child: _buildGoalCard(context, goal),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverReorderableList(
+              itemCount: backlogGoals.length,
+              itemBuilder: (context, index) {
+                return _buildGoalCard(context, backlogGoals[index], index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                goalProvider.reorderGoals(GoalStatus.backlog, oldIndex, newIndex);
+              },
+            ));
+          } else {
+            widgets.addAll(backlogGoals.map((goal) => SliverToBoxAdapter(
+              child: _buildGoalCard(context, goal),
+            )));
+          }
         }
 
         // Backlog/Paused Habits
@@ -349,9 +409,21 @@ class _ActionsScreenState extends State<ActionsScreen> {
           widgets.add(SliverToBoxAdapter(
             child: _buildTypeSubheader(context, 'Paused Habits', ActionColors.habit, backlogHabits.length),
           ));
-          widgets.addAll(backlogHabits.map((habit) => SliverToBoxAdapter(
-            child: _buildHabitCard(context, habit, habitProvider),
-          )));
+          if (_isReorderMode) {
+            widgets.add(SliverReorderableList(
+              itemCount: backlogHabits.length,
+              itemBuilder: (context, index) {
+                return _buildHabitCard(context, backlogHabits[index], habitProvider, index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                habitProvider.reorderHabits(HabitStatus.backlog, oldIndex, newIndex);
+              },
+            ));
+          } else {
+            widgets.addAll(backlogHabits.map((habit) => SliverToBoxAdapter(
+              child: _buildHabitCard(context, habit, habitProvider),
+            )));
+          }
         }
       }
     }
@@ -491,8 +563,9 @@ class _ActionsScreenState extends State<ActionsScreen> {
     }
   }
 
-  Widget _buildGoalCard(BuildContext context, Goal goal) {
+  Widget _buildGoalCard(BuildContext context, Goal goal, {int? index}) {
     return Card(
+      key: ValueKey('goal_${goal.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       child: Container(
@@ -502,18 +575,13 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ),
         child: ListTile(
-          leading: _isReorderMode
-              ? Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )
-              : CircleAvatar(
-                  backgroundColor: ActionColors.goal.withOpacity(0.15),
-                  child: Icon(
-                    goal.category.icon,
-                    color: ActionColors.goal,
-                  ),
-                ),
+          leading: CircleAvatar(
+            backgroundColor: ActionColors.goal.withOpacity(0.15),
+            child: Icon(
+              goal.category.icon,
+              color: ActionColors.goal,
+            ),
+          ),
           title: Row(
             children: [
               Expanded(child: Text(goal.title)),
@@ -557,24 +625,37 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   color: ActionColors.goal,
                 ),
               ),
-              const SizedBox(width: 4),
-              _buildFocusToggle(
-                context: context,
-                isFocused: goal.isFocused,
-                onToggle: () => _toggleGoalFocus(context, goal.id),
-              ),
+              if (!_isReorderMode) ...[
+                const SizedBox(width: 4),
+                _buildFocusToggle(
+                  context: context,
+                  isFocused: goal.isFocused,
+                  onToggle: () => _toggleGoalFocus(context, goal.id),
+                ),
+              ],
+              if (_isReorderMode && index != null) ...[
+                const SizedBox(width: 8),
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
-          onTap: () => _showGoalDetail(context, goal),
+          onTap: _isReorderMode ? null : () => _showGoalDetail(context, goal),
         ),
       ),
     );
   }
 
-  Widget _buildHabitCard(BuildContext context, Habit habit, HabitProvider provider) {
+  Widget _buildHabitCard(BuildContext context, Habit habit, HabitProvider provider, {int? index}) {
     final isCompletedToday = habit.isCompletedToday;
 
     return Card(
+      key: ValueKey('habit_${habit.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       child: Container(
@@ -584,25 +665,20 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ),
         child: ListTile(
-          leading: _isReorderMode
-              ? Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )
-              : Transform.scale(
-                  scale: 1.2,
-                  child: Checkbox(
-                    value: isCompletedToday,
-                    activeColor: ActionColors.habit,
-                    onChanged: (value) {
-                      if (value == true) {
-                        provider.completeHabit(habit.id, DateTime.now());
-                      } else {
-                        provider.uncompleteHabit(habit.id, DateTime.now());
-                      }
-                    },
-                  ),
-                ),
+          leading: Transform.scale(
+            scale: 1.2,
+            child: Checkbox(
+              value: isCompletedToday,
+              activeColor: ActionColors.habit,
+              onChanged: _isReorderMode ? null : (value) {
+                if (value == true) {
+                  provider.completeHabit(habit.id, DateTime.now());
+                } else {
+                  provider.uncompleteHabit(habit.id, DateTime.now());
+                }
+              },
+            ),
+          ),
           title: Row(
             children: [
               Expanded(
@@ -656,16 +732,28 @@ class _ActionsScreenState extends State<ActionsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildMaturityIndicator(habit),
-              const SizedBox(width: 4),
-              _buildFocusToggle(
-                context: context,
-                isFocused: habit.isFocused,
-                onToggle: () => _toggleHabitFocus(context, habit.id),
-              ),
+              if (!_isReorderMode) ...[
+                const SizedBox(width: 4),
+                _buildFocusToggle(
+                  context: context,
+                  isFocused: habit.isFocused,
+                  onToggle: () => _toggleHabitFocus(context, habit.id),
+                ),
+              ],
+              if (_isReorderMode && index != null) ...[
+                const SizedBox(width: 8),
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ],
           ),
-          onTap: () => _showEditHabitDialog(context, habit),
-          onLongPress: () => _showHabitOptions(context, habit, provider),
+          onTap: _isReorderMode ? null : () => _showEditHabitDialog(context, habit),
+          onLongPress: _isReorderMode ? null : () => _showHabitOptions(context, habit, provider),
         ),
       ),
     );
@@ -751,8 +839,10 @@ class _ActionsScreenState extends State<ActionsScreen> {
     Todo todo,
     TodoProvider provider, {
     bool isOverdue = false,
+    int? index,
   }) {
     return Card(
+      key: ValueKey('todo_${todo.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       clipBehavior: Clip.antiAlias,
       color: isOverdue ? Colors.red.withOpacity(0.05) : null,
@@ -766,25 +856,20 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ),
         child: ListTile(
-          leading: _isReorderMode
-              ? Icon(
-                  Icons.drag_handle,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                )
-              : Transform.scale(
-                  scale: 1.2,
-                  child: Checkbox(
-                    value: todo.status == TodoStatus.completed,
-                    activeColor: ActionColors.todo,
-                    onChanged: (value) {
-                      if (value == true) {
-                        provider.completeTodo(todo.id);
-                      } else {
-                        provider.uncompleteTodo(todo.id);
-                      }
-                    },
-                  ),
-                ),
+          leading: Transform.scale(
+            scale: 1.2,
+            child: Checkbox(
+              value: todo.status == TodoStatus.completed,
+              activeColor: ActionColors.todo,
+              onChanged: _isReorderMode ? null : (value) {
+                if (value == true) {
+                  provider.completeTodo(todo.id);
+                } else {
+                  provider.uncompleteTodo(todo.id);
+                }
+              },
+            ),
+          ),
           title: Row(
             children: [
               Expanded(
@@ -831,9 +916,24 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   ],
                 )
               : null,
-          trailing: _buildPriorityIndicator(todo.priority),
-          onTap: () => _showEditTodoDialog(context, todo, provider),
-          onLongPress: () => _showTodoOptions(context, todo, provider),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildPriorityIndicator(todo.priority),
+              if (_isReorderMode && index != null) ...[
+                const SizedBox(width: 8),
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          onTap: _isReorderMode ? null : () => _showEditTodoDialog(context, todo, provider),
+          onLongPress: _isReorderMode ? null : () => _showTodoOptions(context, todo, provider),
         ),
       ),
     );
