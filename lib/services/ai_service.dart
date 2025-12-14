@@ -32,6 +32,7 @@ import '../models/exercise.dart';
 import '../models/weight_entry.dart';
 import '../models/food_entry.dart';
 import '../models/win.dart';
+import '../models/hydration_entry.dart';
 import 'storage_service.dart';
 import 'debug_service.dart';
 import 'local_ai_service.dart';
@@ -323,6 +324,8 @@ class AIService {
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) async {
     // Route to local or cloud based on provider selection
     if (_selectedProvider == AIProvider.local) {
@@ -337,7 +340,7 @@ class AIService {
       }
       return _getLocalResponse(
         prompt, goals, habits, recentEntries, pulseEntries, conversationHistory,
-        workoutLogs, weightEntries, foodEntries, wins,
+        workoutLogs, weightEntries, foodEntries, wins, hydrationEntries, hydrationGoal,
       );
     }
 
@@ -353,7 +356,7 @@ class AIService {
     return _getCloudResponse(
       prompt, goals, habits, recentEntries, pulseEntries,
       exercisePlans, workoutLogs, weightEntries, weightGoal,
-      foodEntries, nutritionGoal, wins,
+      foodEntries, nutritionGoal, wins, hydrationEntries, hydrationGoal,
     );
   }
 
@@ -369,6 +372,8 @@ class AIService {
     List<WeightEntry>? weightEntries,
     List<FoodEntry>? foodEntries,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   ) async {
     final localAI = LocalAIService();
 
@@ -383,6 +388,8 @@ class AIService {
       weightEntries: weightEntries,
       foodEntries: foodEntries,
       wins: wins,
+      hydrationEntries: hydrationEntries,
+      hydrationGoal: hydrationGoal,
     );
 
     final fullPrompt = '''You are a supportive AI mentor helping with goals and habits.
@@ -455,6 +462,8 @@ CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   ) async {
     try {
       // Build comprehensive context for cloud AI (large context window)
@@ -470,6 +479,8 @@ CRITICAL: Keep responses under 150 words. Be warm but concise. 2-3 sentences for
         foodEntries: foodEntries,
         nutritionGoal: nutritionGoal,
         wins: wins,
+        hydrationEntries: hydrationEntries,
+        hydrationGoal: hydrationGoal,
       );
 
       final fullPrompt = '''You are an empathetic AI mentor and coach helping someone achieve their goals and build better habits.
@@ -683,6 +694,8 @@ IMPORTANT GUIDELINES:
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) async {
     // Function calling only supported by cloud AI
     if (_selectedProvider == AIProvider.local) {
@@ -705,6 +718,8 @@ IMPORTANT GUIDELINES:
         foodEntries: foodEntries,
         nutritionGoal: nutritionGoal,
         wins: wins,
+        hydrationEntries: hydrationEntries,
+        hydrationGoal: hydrationGoal,
       );
       return {
         'message': message,
@@ -735,6 +750,8 @@ IMPORTANT GUIDELINES:
       foodEntries,
       nutritionGoal,
       wins,
+      hydrationEntries,
+      hydrationGoal,
     );
   }
 
@@ -754,6 +771,8 @@ IMPORTANT GUIDELINES:
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   ) async {
     try {
       // Build comprehensive context for cloud AI
@@ -770,6 +789,8 @@ IMPORTANT GUIDELINES:
         foodEntries: foodEntries,
         nutritionGoal: nutritionGoal,
         wins: wins,
+        hydrationEntries: hydrationEntries,
+        hydrationGoal: hydrationGoal,
       );
 
       final fullPrompt = '''You are an empathetic AI mentor conducting a deep reflection session.

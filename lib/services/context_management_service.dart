@@ -24,6 +24,7 @@ import '../models/exercise.dart';
 import '../models/weight_entry.dart';
 import '../models/food_entry.dart';
 import '../models/win.dart';
+import '../models/hydration_entry.dart';
 
 /// Result of context building containing the formatted context string and metadata
 class ContextBuildResult {
@@ -81,6 +82,8 @@ class ContextManagementService {
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -392,7 +395,60 @@ class ContextManagementService {
       addSection(winsSection.toString(), 'wins', winCount);
     }
 
-    // 9. Conversation History (last 20 messages for multi-turn context)
+    // 9. Hydration Tracking (with drink times for nocturia correlation)
+    if (hydrationEntries != null && hydrationEntries.isNotEmpty) {
+      final hydrationSection = StringBuffer('\n**Hydration Tracking:**\n');
+      if (hydrationGoal != null) {
+        hydrationSection.writeln('Daily goal: $hydrationGoal glasses');
+      }
+      // Group by day and show times
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEntries = hydrationEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
+
+      if (todayEntries.isNotEmpty) {
+        final totalToday = todayEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+        // Count evening intake (after 6pm) - relevant for nocturia
+        final eveningEntries = todayEntries.where((e) => e.timestamp.hour >= 18).toList();
+        final eveningTotal = eveningEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+
+        hydrationSection.writeln('Today: $totalToday glasses${hydrationGoal != null ? " of $hydrationGoal goal" : ""}');
+        if (eveningTotal > 0) {
+          hydrationSection.writeln('  Evening intake (after 6pm): $eveningTotal glasses');
+        }
+
+        // Show individual drink times for correlation analysis
+        hydrationSection.writeln('  Drink times:');
+        for (final entry in todayEntries) {
+          final time = '${entry.timestamp.hour.toString().padLeft(2, '0')}:${entry.timestamp.minute.toString().padLeft(2, '0')}';
+          final isEvening = entry.timestamp.hour >= 18;
+          hydrationSection.writeln('    - $time${entry.glasses > 1 ? " (${entry.glasses} glasses)" : ""}${isEvening ? " [evening]" : ""}');
+        }
+      }
+
+      // Recent days summary for pattern detection
+      int hydrationCount = 0;
+      for (int i = 1; i <= 7; i++) {
+        final date = today.subtract(Duration(days: i));
+        final dateStart = DateTime(date.year, date.month, date.day);
+        final dateEnd = dateStart.add(const Duration(days: 1));
+        final dayEntries = hydrationEntries.where((e) =>
+          e.timestamp.isAfter(dateStart) && e.timestamp.isBefore(dateEnd)
+        ).toList();
+        if (dayEntries.isNotEmpty) {
+          final total = dayEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+          final eveningTotal = dayEntries.where((e) => e.timestamp.hour >= 18)
+              .fold<int>(0, (sum, e) => sum + e.glasses);
+          final eveningStr = eveningTotal > 0 ? ' (${eveningTotal} after 6pm)' : '';
+          hydrationSection.writeln('- ${_formatDate(date)}: $total glasses$eveningStr');
+          hydrationCount++;
+        }
+      }
+      hydrationSection.writeln();
+      addSection(hydrationSection.toString(), 'hydration_entries', hydrationCount + (todayEntries.isNotEmpty ? 1 : 0));
+    }
+
+    // 10. Conversation History (last 20 messages for multi-turn context)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\n**Recent Conversation:**\n');
       int msgCount = 0;
@@ -425,6 +481,7 @@ class ContextManagementService {
   /// - 1 most recent pulse entry
   /// - Recent workout summary
   /// - Recent food log summary
+  /// - Today's hydration summary
   /// - Last 2-4 conversation messages
   ContextBuildResult buildLocalContext({
     required List<Goal> goals,
@@ -436,6 +493,8 @@ class ContextManagementService {
     List<WeightEntry>? weightEntries,
     List<FoodEntry>? foodEntries,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -590,7 +649,26 @@ class ContextManagementService {
       }
     }
 
-    // 9. Last 2 Conversation Messages ONLY (very brief for tiny context window)
+    // 9. Today's Hydration (very brief)
+    if (hydrationEntries != null && hydrationEntries.isNotEmpty) {
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEntries = hydrationEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
+      if (todayEntries.isNotEmpty) {
+        final total = todayEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+        final eveningTotal = todayEntries.where((e) => e.timestamp.hour >= 18)
+            .fold<int>(0, (sum, e) => sum + e.glasses);
+        final eveningStr = eveningTotal > 0 ? ', $eveningTotal after 6pm' : '';
+        final hydrationSection = '\nWater: $total glasses today$eveningStr\n';
+        if (canAdd(hydrationSection)) {
+          buffer.write(hydrationSection);
+          currentTokens += estimateTokens(hydrationSection);
+          itemCounts['hydration'] = 1;
+        }
+      }
+    }
+
+    // 10. Last 2 Conversation Messages ONLY (very brief for tiny context window)
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       final historySection = StringBuffer('\nRecent:\n');
       for (final msg in conversationHistory.reversed.take(2).toList().reversed) {
@@ -630,6 +708,8 @@ class ContextManagementService {
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) {
     if (provider == AIProvider.cloud) {
       return buildCloudContext(
@@ -645,6 +725,8 @@ class ContextManagementService {
         foodEntries: foodEntries,
         nutritionGoal: nutritionGoal,
         wins: wins,
+        hydrationEntries: hydrationEntries,
+        hydrationGoal: hydrationGoal,
       );
     } else {
       return buildLocalContext(
@@ -657,6 +739,8 @@ class ContextManagementService {
         weightEntries: weightEntries,
         foodEntries: foodEntries,
         wins: wins,
+        hydrationEntries: hydrationEntries,
+        hydrationGoal: hydrationGoal,
       );
     }
   }
@@ -682,6 +766,8 @@ class ContextManagementService {
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) {
     final buffer = StringBuffer();
     final itemCounts = <String, int>{};
@@ -876,6 +962,56 @@ class ContextManagementService {
         buffer.writeln();
         itemCounts['wins'] = recentWins.take(10).length;
       }
+    }
+
+    // LAYER 3f: Hydration Tracking (with drink times)
+    if (hydrationEntries != null && hydrationEntries.isNotEmpty) {
+      buffer.writeln('## Hydration Tracking');
+      if (hydrationGoal != null) {
+        buffer.writeln('Daily goal: $hydrationGoal glasses');
+      }
+      // Today's intake with times
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEntries = hydrationEntries.where((e) => e.timestamp.isAfter(todayStart)).toList();
+      if (todayEntries.isNotEmpty) {
+        final totalToday = todayEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+        final eveningEntries = todayEntries.where((e) => e.timestamp.hour >= 18).toList();
+        final eveningTotal = eveningEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+
+        buffer.writeln('Today: $totalToday glasses');
+        if (eveningTotal > 0) {
+          buffer.writeln('  Evening intake (after 6pm): $eveningTotal glasses');
+        }
+        buffer.writeln('  Drink times:');
+        for (final entry in todayEntries) {
+          final time = '${entry.timestamp.hour.toString().padLeft(2, '0')}:${entry.timestamp.minute.toString().padLeft(2, '0')}';
+          final isEvening = entry.timestamp.hour >= 18;
+          buffer.writeln('    - $time${entry.glasses > 1 ? " (${entry.glasses} glasses)" : ""}${isEvening ? " [evening]" : ""}');
+        }
+      }
+      // Recent days
+      final cutoffDate = summary?.generatedAt ?? DateTime(2000);
+      int hydrationCount = 0;
+      for (int i = 1; i <= 7; i++) {
+        final date = today.subtract(Duration(days: i));
+        if (date.isBefore(cutoffDate)) break;
+        final dateStart = DateTime(date.year, date.month, date.day);
+        final dateEnd = dateStart.add(const Duration(days: 1));
+        final dayEntries = hydrationEntries.where((e) =>
+          e.timestamp.isAfter(dateStart) && e.timestamp.isBefore(dateEnd)
+        ).toList();
+        if (dayEntries.isNotEmpty) {
+          final total = dayEntries.fold<int>(0, (sum, e) => sum + e.glasses);
+          final eveningTotal = dayEntries.where((e) => e.timestamp.hour >= 18)
+              .fold<int>(0, (sum, e) => sum + e.glasses);
+          final eveningStr = eveningTotal > 0 ? ' ($eveningTotal after 6pm)' : '';
+          buffer.writeln('- ${_formatDate(date)}: $total glasses$eveningStr');
+          hydrationCount++;
+        }
+      }
+      buffer.writeln();
+      itemCounts['hydration_entries'] = hydrationCount + (todayEntries.isNotEmpty ? 1 : 0);
     }
 
     // LAYER 4: Conversation History

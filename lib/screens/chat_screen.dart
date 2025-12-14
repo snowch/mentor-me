@@ -16,6 +16,7 @@ import '../providers/food_log_provider.dart';
 import '../providers/win_provider.dart';
 import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
+import '../providers/hydration_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
@@ -115,6 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final exerciseProvider = context.read<ExerciseProvider>();
     final weightProvider = context.read<WeightProvider>();
     final foodLogProvider = context.read<FoodLogProvider>();
+    final hydrationProvider = context.read<HydrationProvider>();
 
     // Set providers for tool execution (habit/goal creation, etc.)
     chatProvider.setProviders(
@@ -148,6 +150,8 @@ class _ChatScreenState extends State<ChatScreen> {
         foodEntries: foodLogProvider.entries,
         nutritionGoal: foodLogProvider.goal,
         wins: winProvider.wins,
+        hydrationEntries: hydrationProvider.entries,
+        hydrationGoal: hydrationProvider.dailyGoal,
       );
 
       await chatProvider.addMentorMessage(response);
@@ -569,6 +573,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final weightProvider = context.read<WeightProvider>();
     final foodLogProvider = context.read<FoodLogProvider>();
     final winProvider = context.read<WinProvider>();
+    final hydrationProvider = context.read<HydrationProvider>();
 
     // Prepare message with optional system hint
     String messageToSend = prompt.text;
@@ -614,6 +619,8 @@ class _ChatScreenState extends State<ChatScreen> {
         foodEntries: foodLogProvider.entries.take(foodLimit).toList(),
         nutritionGoal: foodLogProvider.effectiveGoal,
         wins: winProvider.wins.take(20).toList(),
+        hydrationEntries: hydrationProvider.entries,
+        hydrationGoal: hydrationProvider.dailyGoal,
       );
 
       _scrollToBottom();
@@ -1000,20 +1007,61 @@ class _ChatScreenState extends State<ChatScreen> {
 
       final content = result['content'] as String;
       final goalIds = result['goalIds'] as List<String>;
+      final existingJournalId = chatProvider.currentSavedJournalId;
 
-      // Always create a new journal entry (don't overwrite previous saves)
-      final journalEntry = JournalEntry(
-        type: JournalEntryType.quickNote,
-        content: content,
-        goalIds: goalIds,
-      );
-      await journalProvider.addEntry(journalEntry);
-      // Track the most recent journal ID for this conversation
-      await chatProvider.setSavedJournalId(journalEntry.id);
+      String message;
 
-      final message = goalIds.isNotEmpty
-          ? 'Saved to journal and linked to ${goalIds.length} goal${goalIds.length > 1 ? 's' : ''}!'
-          : 'Saved to journal!';
+      // Check if we already saved this session - if so, update instead of creating new
+      if (existingJournalId != null) {
+        // Find the existing entry
+        JournalEntry? existingEntry;
+        try {
+          existingEntry = journalProvider.entries.firstWhere(
+            (e) => e.id == existingJournalId,
+          );
+        } catch (_) {
+          existingEntry = null;
+        }
+
+        if (existingEntry != null) {
+          // Update the existing entry with new content (create new instance with same id)
+          final updatedEntry = JournalEntry(
+            id: existingEntry.id,
+            createdAt: existingEntry.createdAt,
+            type: existingEntry.type,
+            content: content,
+            goalIds: goalIds,
+          );
+          await journalProvider.updateEntry(updatedEntry);
+          message = goalIds.isNotEmpty
+              ? 'Journal updated and linked to ${goalIds.length} goal${goalIds.length > 1 ? 's' : ''}!'
+              : 'Journal updated!';
+        } else {
+          // Entry was deleted, create a new one
+          final journalEntry = JournalEntry(
+            type: JournalEntryType.quickNote,
+            content: content,
+            goalIds: goalIds,
+          );
+          await journalProvider.addEntry(journalEntry);
+          await chatProvider.setSavedJournalId(journalEntry.id);
+          message = goalIds.isNotEmpty
+              ? 'Saved to journal and linked to ${goalIds.length} goal${goalIds.length > 1 ? 's' : ''}!'
+              : 'Saved to journal!';
+        }
+      } else {
+        // First save for this session - create new entry
+        final journalEntry = JournalEntry(
+          type: JournalEntryType.quickNote,
+          content: content,
+          goalIds: goalIds,
+        );
+        await journalProvider.addEntry(journalEntry);
+        await chatProvider.setSavedJournalId(journalEntry.id);
+        message = goalIds.isNotEmpty
+            ? 'Saved to journal and linked to ${goalIds.length} goal${goalIds.length > 1 ? 's' : ''}!'
+            : 'Saved to journal!';
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

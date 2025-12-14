@@ -13,6 +13,7 @@ import '../models/exercise.dart';
 import '../models/weight_entry.dart';
 import '../models/food_entry.dart';
 import '../models/win.dart';
+import '../models/hydration_entry.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
 import '../services/local_ai_service.dart';
@@ -425,6 +426,8 @@ class ChatProvider extends ChangeNotifier {
     List<FoodEntry>? foodEntries,
     NutritionGoal? nutritionGoal,
     List<Win>? wins,
+    List<HydrationEntry>? hydrationEntries,
+    int? hydrationGoal,
   }) async {
     // Get current AI provider
     final aiProvider = _ai.getProvider();
@@ -483,6 +486,8 @@ class ChatProvider extends ChangeNotifier {
           foodEntries: foodEntries,
           nutritionGoal: nutritionGoal,
           wins: wins,
+          hydrationEntries: hydrationEntries,
+          hydrationGoal: hydrationGoal,
         );
 
         final message = result['message'] as String? ?? '';
@@ -529,6 +534,8 @@ class ChatProvider extends ChangeNotifier {
           foodEntries: foodEntries,
           nutritionGoal: nutritionGoal,
           wins: wins,
+          hydrationEntries: hydrationEntries,
+          hydrationGoal: hydrationGoal,
         );
 
         await _debug.info('ChatProvider', 'AI response generated', metadata: {
