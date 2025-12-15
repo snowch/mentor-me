@@ -138,6 +138,13 @@ class DashboardWidgetRegistry {
       color: Colors.green,
     ),
     DashboardWidgetInfo(
+      id: 'fasting',
+      name: 'Fasting Tracker',
+      description: 'Track intermittent fasting',
+      icon: Icons.timer_outlined,
+      color: Colors.orange,
+    ),
+    DashboardWidgetInfo(
       id: 'quickCapture',
       name: 'Quick Capture',
       description: 'Quickly add todos and see upcoming tasks',

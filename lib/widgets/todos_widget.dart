@@ -10,8 +10,12 @@ import '../theme/app_spacing.dart';
 /// - Complete todos with a tap
 /// - Highlight overdue items
 /// - Scroll if there are many items (>5)
+/// - Navigate to all todos via "View All" link
 class TodosWidget extends StatelessWidget {
-  const TodosWidget({super.key});
+  /// Callback to navigate to the Actions screen filtered by todos
+  final VoidCallback? onViewAll;
+
+  const TodosWidget({super.key, this.onViewAll});
 
   @override
   Widget build(BuildContext context) {
@@ -130,13 +134,13 @@ class TodosWidget extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Todos',
+                    'Todos (${pendingTodos.length})',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                 ),
-                // Show counts
+                // Show overdue count
                 if (overdueTodos.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -154,12 +158,12 @@ class TodosWidget extends StatelessWidget {
                       ),
                     ),
                   ),
-                Text(
-                  '${pendingTodos.length} pending',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                ),
+                // View All link
+                if (onViewAll != null)
+                  TextButton(
+                    onPressed: onViewAll,
+                    child: const Text('View All'),
+                  ),
               ],
             ),
             const SizedBox(height: 12),

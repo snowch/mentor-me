@@ -86,4 +86,60 @@
         </intent>
     </shortcut>
 
+    <!-- Static shortcut for quick access - Log Exercise -->
+    <shortcut
+        android:shortcutId="log_exercise"
+        android:shortcutShortLabel="@string/shortcut_log_exercise"
+        android:shortcutLongLabel="@string/shortcut_log_exercise_long"
+        android:icon="@drawable/ic_exercise">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+            <extra android:name="action" android:value="log_exercise" />
+        </intent>
+    </shortcut>
+
+    <!-- Static shortcut for quick access - Start Workout -->
+    <shortcut
+        android:shortcutId="start_workout"
+        android:shortcutShortLabel="@string/shortcut_start_workout"
+        android:shortcutLongLabel="@string/shortcut_start_workout_long"
+        android:icon="@drawable/ic_workout">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+            <extra android:name="action" android:value="start_workout" />
+        </intent>
+    </shortcut>
+
+    <!-- Static shortcut for quick access - Reflect (Journal) -->
+    <shortcut
+        android:shortcutId="reflect"
+        android:shortcutShortLabel="@string/shortcut_reflect"
+        android:shortcutLongLabel="@string/shortcut_reflect_long"
+        android:icon="@drawable/ic_reflect">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+            <extra android:name="action" android:value="reflect" />
+        </intent>
+    </shortcut>
+
+    <!-- Static shortcut for quick access - Chat with Mentor -->
+    <shortcut
+        android:shortcutId="chat_mentor"
+        android:shortcutShortLabel="@string/shortcut_chat_mentor"
+        android:shortcutLongLabel="@string/shortcut_chat_mentor_long"
+        android:icon="@drawable/ic_chat">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.ai_mentor_coach"
+            android:targetClass="com.example.ai_mentor_coach.MainActivity">
+            <extra android:name="action" android:value="chat_mentor" />
+        </intent>
+    </shortcut>
+
 </shortcuts>

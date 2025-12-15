@@ -28,6 +28,7 @@ import '../providers/journal_provider.dart' as journal;
 import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
+import '../providers/todo_provider.dart';
 
 class ChatProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
@@ -52,6 +53,7 @@ class ChatProvider extends ChangeNotifier {
     required JournalTemplateProvider journalTemplateProvider,
     required CheckInTemplateProvider templateProvider,
     required WinProvider winProvider,
+    required TodoProvider todoProvider,
   }) {
     _actionService = ReflectionActionService(
       goalProvider: goalProvider,
@@ -60,6 +62,7 @@ class ChatProvider extends ChangeNotifier {
       journalTemplateProvider: journalTemplateProvider,
       templateProvider: templateProvider,
       winProvider: winProvider,
+      todoProvider: todoProvider,
       notificationService: NotificationService(),
     );
   }

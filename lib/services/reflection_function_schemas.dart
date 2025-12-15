@@ -40,6 +40,20 @@ class ReflectionFunctionSchemas {
 
     // Win tracking tools
     recordWinTool,
+
+    // Todo tools
+    createTodoTool,
+    updateTodoTool,
+    deleteTodoTool,
+    completeTodoTool,
+
+    // Conversion tools
+    convertHabitToGoalTool,
+    convertHabitToTodoTool,
+    convertGoalToHabitTool,
+    convertGoalToTodoTool,
+    convertTodoToGoalTool,
+    convertTodoToHabitTool,
   ];
 
   // ==========================================================================
@@ -548,6 +562,232 @@ class ReflectionFunctionSchemas {
         },
       },
       'required': ['description'],
+    },
+  };
+
+  // ==========================================================================
+  // TODO TOOLS
+  // ==========================================================================
+
+  static const Map<String, dynamic> createTodoTool = {
+    'name': 'create_todo',
+    'description': 'Creates a new one-time todo/task for the user. '
+        'Use this for quick action items that need to be done once (unlike habits which are recurring).',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'title': {
+          'type': 'string',
+          'description': 'The todo title (e.g., "Call the dentist", "Buy groceries")',
+        },
+        'description': {
+          'type': 'string',
+          'description': 'Optional detailed description',
+        },
+        'dueDate': {
+          'type': 'string',
+          'description': 'Optional due date in ISO 8601 format (e.g., "2025-12-31T00:00:00.000")',
+        },
+        'priority': {
+          'type': 'string',
+          'enum': ['low', 'medium', 'high'],
+          'description': 'Priority level (default: medium)',
+        },
+        'linkedGoalId': {
+          'type': 'string',
+          'description': 'Optional ID of a goal this todo supports',
+        },
+        'linkedHabitId': {
+          'type': 'string',
+          'description': 'Optional ID of a habit this todo relates to',
+        },
+      },
+      'required': ['title'],
+    },
+  };
+
+  static const Map<String, dynamic> updateTodoTool = {
+    'name': 'update_todo',
+    'description': 'Updates an existing todo',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'todoId': {'type': 'string', 'description': 'ID of the todo to update'},
+        'title': {'type': 'string', 'description': 'New title'},
+        'description': {'type': 'string', 'description': 'New description'},
+        'dueDate': {'type': 'string', 'description': 'New due date (ISO 8601)'},
+        'priority': {
+          'type': 'string',
+          'enum': ['low', 'medium', 'high'],
+        },
+      },
+      'required': ['todoId'],
+    },
+  };
+
+  static const Map<String, dynamic> deleteTodoTool = {
+    'name': 'delete_todo',
+    'description': 'Permanently deletes a todo',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'todoId': {'type': 'string', 'description': 'ID of the todo to delete'},
+      },
+      'required': ['todoId'],
+    },
+  };
+
+  static const Map<String, dynamic> completeTodoTool = {
+    'name': 'complete_todo',
+    'description': 'Marks a todo as completed',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'todoId': {'type': 'string', 'description': 'ID of the todo to complete'},
+      },
+      'required': ['todoId'],
+    },
+  };
+
+  // ==========================================================================
+  // CONVERSION TOOLS
+  // ==========================================================================
+
+  static const Map<String, dynamic> convertHabitToGoalTool = {
+    'name': 'convert_habit_to_goal',
+    'description': 'Converts a habit into a goal. Use when the user realizes their habit '
+        'is more of a one-time achievement than a daily practice.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'habitId': {'type': 'string', 'description': 'ID of the habit to convert'},
+        'category': {
+          'type': 'string',
+          'enum': ['health', 'career', 'personal', 'financial', 'learning', 'relationships'],
+          'description': 'Category for the new goal',
+        },
+        'targetDate': {
+          'type': 'string',
+          'description': 'Optional target date for the goal (ISO 8601)',
+        },
+        'deleteOriginal': {
+          'type': 'boolean',
+          'description': 'Whether to delete the original habit after conversion (default: true)',
+        },
+      },
+      'required': ['habitId', 'category'],
+    },
+  };
+
+  static const Map<String, dynamic> convertHabitToTodoTool = {
+    'name': 'convert_habit_to_todo',
+    'description': 'Converts a habit into a one-time todo. Use when the user realizes '
+        'their habit is a single task rather than a recurring practice.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'habitId': {'type': 'string', 'description': 'ID of the habit to convert'},
+        'dueDate': {
+          'type': 'string',
+          'description': 'Optional due date for the todo (ISO 8601)',
+        },
+        'priority': {
+          'type': 'string',
+          'enum': ['low', 'medium', 'high'],
+          'description': 'Priority for the new todo (default: medium)',
+        },
+        'deleteOriginal': {
+          'type': 'boolean',
+          'description': 'Whether to delete the original habit after conversion (default: true)',
+        },
+      },
+      'required': ['habitId'],
+    },
+  };
+
+  static const Map<String, dynamic> convertGoalToHabitTool = {
+    'name': 'convert_goal_to_habit',
+    'description': 'Converts a goal into a daily habit. Use when the user realizes their goal '
+        'is better tracked as a recurring practice (e.g., "Exercise daily" instead of "Get fit").',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'goalId': {'type': 'string', 'description': 'ID of the goal to convert'},
+        'deleteOriginal': {
+          'type': 'boolean',
+          'description': 'Whether to delete the original goal after conversion (default: true)',
+        },
+      },
+      'required': ['goalId'],
+    },
+  };
+
+  static const Map<String, dynamic> convertGoalToTodoTool = {
+    'name': 'convert_goal_to_todo',
+    'description': 'Converts a goal into a one-time todo. Use when the user realizes their goal '
+        'is a simple task rather than a larger objective.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'goalId': {'type': 'string', 'description': 'ID of the goal to convert'},
+        'dueDate': {
+          'type': 'string',
+          'description': 'Optional due date for the todo (defaults to goal target date)',
+        },
+        'priority': {
+          'type': 'string',
+          'enum': ['low', 'medium', 'high'],
+          'description': 'Priority for the new todo (default: medium)',
+        },
+        'deleteOriginal': {
+          'type': 'boolean',
+          'description': 'Whether to delete the original goal after conversion (default: true)',
+        },
+      },
+      'required': ['goalId'],
+    },
+  };
+
+  static const Map<String, dynamic> convertTodoToGoalTool = {
+    'name': 'convert_todo_to_goal',
+    'description': 'Converts a todo into a goal. Use when the user realizes their task '
+        'is a larger objective that needs milestones and tracking.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'todoId': {'type': 'string', 'description': 'ID of the todo to convert'},
+        'category': {
+          'type': 'string',
+          'enum': ['health', 'career', 'personal', 'financial', 'learning', 'relationships'],
+          'description': 'Category for the new goal',
+        },
+        'targetDate': {
+          'type': 'string',
+          'description': 'Optional target date for the goal (defaults to todo due date)',
+        },
+        'deleteOriginal': {
+          'type': 'boolean',
+          'description': 'Whether to delete the original todo after conversion (default: true)',
+        },
+      },
+      'required': ['todoId', 'category'],
+    },
+  };
+
+  static const Map<String, dynamic> convertTodoToHabitTool = {
+    'name': 'convert_todo_to_habit',
+    'description': 'Converts a todo into a daily habit. Use when the user realizes their task '
+        'should be a recurring practice rather than a one-time action.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'todoId': {'type': 'string', 'description': 'ID of the todo to convert'},
+        'deleteOriginal': {
+          'type': 'boolean',
+          'description': 'Whether to delete the original todo after conversion (default: true)',
+        },
+      },
+      'required': ['todoId'],
     },
   };
 }

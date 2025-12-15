@@ -28,6 +28,8 @@ import 'ai_settings_screen.dart';
 import 'wellness_dashboard_screen.dart';
 import 'crisis_resources_screen.dart';
 import 'food_log_screen.dart';
+import 'exercise_plans_screen.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -71,6 +73,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onCreateTodo: (title, dueDate) => _handleAppActionCreateTodo(title, dueDate),
         onOpenAddTodo: () => _handleAppActionOpenAddTodo(),
         onLogFood: () => _handleAppActionLogFood(),
+        onLogExercise: () => _handleAppActionLogExercise(),
+        onStartWorkout: () => _handleAppActionStartWorkout(),
+        onOpenReflect: () => _handleAppActionOpenReflect(),
+        onOpenChatMentor: () => _handleAppActionOpenChatMentor(),
       );
 
       // Initialize Android Auto service for hands-free driving
@@ -160,7 +166,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _handleAppActionLogFood() {
     if (mounted) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const FoodLogScreen()),
+        MaterialPageRoute(builder: (_) => const FoodLogScreen(showAddFoodOnOpen: true)),
+      );
+    }
+  }
+
+  /// Handle log exercise from launcher shortcut
+  void _handleAppActionLogExercise() {
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ExercisePlansScreen(showQuickLogOnOpen: true)),
+      );
+    }
+  }
+
+  /// Handle start workout from launcher shortcut
+  void _handleAppActionStartWorkout() {
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ExercisePlansScreen()),
+      );
+    }
+  }
+
+  /// Handle open reflect/journal from launcher shortcut
+  void _handleAppActionOpenReflect() {
+    if (mounted) {
+      setState(() {
+        _selectedIndex = 1; // Index 1 = JournalScreen (Reflect tab)
+      });
+    }
+  }
+
+  /// Handle open chat with mentor from launcher shortcut
+  void _handleAppActionOpenChatMentor() {
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChatScreen()),
       );
     }
   }

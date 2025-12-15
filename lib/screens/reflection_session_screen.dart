@@ -15,6 +15,7 @@ import '../providers/weight_provider.dart';
 import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
+import '../providers/todo_provider.dart';
 import '../services/reflection_session_service.dart';
 import '../services/reflection_analysis_service.dart';
 import '../services/reflection_action_service.dart';
@@ -103,6 +104,7 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
       journalTemplateProvider: context.read<JournalTemplateProvider>(),
       templateProvider: context.read<CheckInTemplateProvider>(),
       winProvider: context.read<WinProvider>(),
+      todoProvider: context.read<TodoProvider>(),
       notificationService: NotificationService(),
     );
 

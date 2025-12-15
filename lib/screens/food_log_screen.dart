@@ -24,7 +24,13 @@ import '../widgets/food_database_search_sheet.dart';
 import 'food_library_screen.dart';
 
 class FoodLogScreen extends StatefulWidget {
-  const FoodLogScreen({super.key});
+  /// If true, shows the add food dialog immediately on screen load
+  final bool showAddFoodOnOpen;
+
+  const FoodLogScreen({
+    super.key,
+    this.showAddFoodOnOpen = false,
+  });
 
   @override
   State<FoodLogScreen> createState() => _FoodLogScreenState();
@@ -32,6 +38,17 @@ class FoodLogScreen extends StatefulWidget {
 
 class _FoodLogScreenState extends State<FoodLogScreen> {
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    // Show add food dialog immediately if requested (e.g., from Android shortcut)
+    if (widget.showAddFoodOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showAddFoodDialog(context);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

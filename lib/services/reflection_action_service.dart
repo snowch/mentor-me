@@ -7,12 +7,14 @@ import 'package:mentor_me/models/journal_entry.dart';
 import 'package:mentor_me/models/journal_template.dart';
 import 'package:mentor_me/models/template_field.dart';
 import 'package:mentor_me/models/template_schedule.dart';
+import 'package:mentor_me/models/todo.dart';
 import 'package:mentor_me/providers/goal_provider.dart';
 import 'package:mentor_me/providers/habit_provider.dart';
 import 'package:mentor_me/providers/journal_provider.dart';
 import 'package:mentor_me/providers/journal_template_provider.dart';
 import 'package:mentor_me/providers/checkin_template_provider.dart';
 import 'package:mentor_me/providers/win_provider.dart';
+import 'package:mentor_me/providers/todo_provider.dart';
 import 'package:mentor_me/models/win.dart';
 import 'package:mentor_me/services/notification_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
@@ -59,6 +61,7 @@ class ReflectionActionService {
   final JournalTemplateProvider journalTemplateProvider;
   final CheckInTemplateProvider templateProvider; // Legacy - for backward compatibility
   final WinProvider winProvider;
+  final TodoProvider todoProvider;
   final NotificationService notificationService;
   final DebugService _debug = DebugService();
   final Uuid _uuid = const Uuid();
@@ -70,6 +73,7 @@ class ReflectionActionService {
     required this.journalTemplateProvider,
     required this.templateProvider,
     required this.winProvider,
+    required this.todoProvider,
     required this.notificationService,
   });
 
@@ -1280,6 +1284,541 @@ class ReflectionActionService {
         stackTrace: stackTrace.toString(),
       );
       return ActionResult.failure('Failed to record win: $e');
+    }
+  }
+
+  // =============================================================================
+  // TODO TOOLS
+  // =============================================================================
+
+  /// Create a new todo
+  Future<ActionResult> createTodo({
+    required String title,
+    String? description,
+    DateTime? dueDate,
+    String? priority,
+    String? linkedGoalId,
+    String? linkedHabitId,
+  }) async {
+    try {
+      // Parse priority
+      TodoPriority todoPriority = TodoPriority.medium;
+      if (priority != null) {
+        try {
+          todoPriority = TodoPriority.values.firstWhere(
+            (p) => p.name.toLowerCase() == priority.toLowerCase(),
+          );
+        } catch (e) {
+          // Keep default
+        }
+      }
+
+      final todo = Todo(
+        id: _uuid.v4(),
+        title: title,
+        description: description,
+        dueDate: dueDate,
+        priority: todoPriority,
+        linkedGoalId: linkedGoalId,
+        linkedHabitId: linkedHabitId,
+        status: TodoStatus.pending,
+      );
+
+      await todoProvider.addTodo(todo);
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Created todo: $title',
+        metadata: {'todoId': todo.id},
+      );
+
+      return ActionResult.success(
+        'Created todo: $title',
+        resultId: todo.id,
+        data: todo,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to create todo',
+        metadata: {'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to create todo: $e');
+    }
+  }
+
+  /// Update a todo
+  Future<ActionResult> updateTodo({
+    required String todoId,
+    String? title,
+    String? description,
+    DateTime? dueDate,
+    String? priority,
+  }) async {
+    try {
+      final todo = todoProvider.getTodoById(todoId);
+      if (todo == null) {
+        return ActionResult.failure('Todo not found');
+      }
+
+      TodoPriority? todoPriority;
+      if (priority != null) {
+        try {
+          todoPriority = TodoPriority.values.firstWhere(
+            (p) => p.name.toLowerCase() == priority.toLowerCase(),
+          );
+        } catch (e) {
+          // Keep existing
+        }
+      }
+
+      final updated = todo.copyWith(
+        title: title,
+        description: description,
+        dueDate: dueDate,
+        priority: todoPriority,
+      );
+
+      await todoProvider.updateTodo(updated);
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Updated todo: ${updated.title}',
+        metadata: {'todoId': todoId},
+      );
+
+      return ActionResult.success(
+        'Updated todo: ${updated.title}',
+        resultId: todoId,
+        data: updated,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to update todo',
+        metadata: {'todoId': todoId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to update todo: $e');
+    }
+  }
+
+  /// Delete a todo
+  Future<ActionResult> deleteTodo(String todoId) async {
+    try {
+      final todo = todoProvider.getTodoById(todoId);
+      if (todo == null) {
+        return ActionResult.failure('Todo not found');
+      }
+
+      await todoProvider.deleteTodo(todoId);
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Deleted todo: ${todo.title}',
+        metadata: {'todoId': todoId},
+      );
+
+      return ActionResult.success('Deleted todo: ${todo.title}');
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to delete todo',
+        metadata: {'todoId': todoId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to delete todo: $e');
+    }
+  }
+
+  /// Complete a todo
+  Future<ActionResult> completeTodo(String todoId) async {
+    try {
+      final todo = todoProvider.getTodoById(todoId);
+      if (todo == null) {
+        return ActionResult.failure('Todo not found');
+      }
+
+      await todoProvider.completeTodo(todoId);
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Completed todo: ${todo.title}',
+        metadata: {'todoId': todoId},
+      );
+
+      return ActionResult.success('Completed todo: ${todo.title}');
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to complete todo',
+        metadata: {'todoId': todoId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to complete todo: $e');
+    }
+  }
+
+  // =============================================================================
+  // CONVERSION TOOLS
+  // =============================================================================
+
+  /// Convert a habit to a goal
+  Future<ActionResult> convertHabitToGoal({
+    required String habitId,
+    required String category,
+    DateTime? targetDate,
+    bool deleteOriginal = true,
+  }) async {
+    try {
+      final habit = habitProvider.getHabitById(habitId);
+      if (habit == null) {
+        return ActionResult.failure('Habit not found');
+      }
+
+      // Parse category
+      GoalCategory goalCategory;
+      try {
+        goalCategory = GoalCategory.values.firstWhere(
+          (c) => c.name.toLowerCase() == category.toLowerCase(),
+        );
+      } catch (e) {
+        return ActionResult.failure('Invalid category: $category');
+      }
+
+      // Create goal from habit
+      final goal = Goal(
+        id: _uuid.v4(),
+        title: habit.title,
+        description: habit.description,
+        category: goalCategory,
+        targetDate: targetDate,
+        status: GoalStatus.active,
+      );
+
+      await goalProvider.addGoal(goal);
+
+      // Delete original habit if requested
+      if (deleteOriginal) {
+        await habitProvider.deleteHabit(habitId);
+      }
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Converted habit to goal: ${habit.title}',
+        metadata: {'habitId': habitId, 'goalId': goal.id, 'deleted': deleteOriginal},
+      );
+
+      return ActionResult.success(
+        'Converted habit "${habit.title}" to goal',
+        resultId: goal.id,
+        data: goal,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to convert habit to goal',
+        metadata: {'habitId': habitId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to convert habit to goal: $e');
+    }
+  }
+
+  /// Convert a habit to a todo
+  Future<ActionResult> convertHabitToTodo({
+    required String habitId,
+    DateTime? dueDate,
+    String? priority,
+    bool deleteOriginal = true,
+  }) async {
+    try {
+      final habit = habitProvider.getHabitById(habitId);
+      if (habit == null) {
+        return ActionResult.failure('Habit not found');
+      }
+
+      // Parse priority
+      TodoPriority todoPriority = TodoPriority.medium;
+      if (priority != null) {
+        try {
+          todoPriority = TodoPriority.values.firstWhere(
+            (p) => p.name.toLowerCase() == priority.toLowerCase(),
+          );
+        } catch (e) {
+          // Keep default
+        }
+      }
+
+      // Create todo from habit
+      final todo = Todo(
+        id: _uuid.v4(),
+        title: habit.title,
+        description: habit.description,
+        dueDate: dueDate,
+        priority: todoPriority,
+        status: TodoStatus.pending,
+      );
+
+      await todoProvider.addTodo(todo);
+
+      // Delete original habit if requested
+      if (deleteOriginal) {
+        await habitProvider.deleteHabit(habitId);
+      }
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Converted habit to todo: ${habit.title}',
+        metadata: {'habitId': habitId, 'todoId': todo.id, 'deleted': deleteOriginal},
+      );
+
+      return ActionResult.success(
+        'Converted habit "${habit.title}" to todo',
+        resultId: todo.id,
+        data: todo,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to convert habit to todo',
+        metadata: {'habitId': habitId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to convert habit to todo: $e');
+    }
+  }
+
+  /// Convert a goal to a habit
+  Future<ActionResult> convertGoalToHabit({
+    required String goalId,
+    bool deleteOriginal = true,
+  }) async {
+    try {
+      final goal = goalProvider.getGoalById(goalId);
+      if (goal == null) {
+        return ActionResult.failure('Goal not found');
+      }
+
+      // Create habit from goal
+      final habit = Habit(
+        id: _uuid.v4(),
+        title: goal.title,
+        description: goal.description,
+        completionDates: [],
+        currentStreak: 0,
+        longestStreak: 0,
+        createdAt: DateTime.now(),
+        isSystemCreated: false,
+        status: HabitStatus.active,
+      );
+
+      await habitProvider.addHabit(habit);
+
+      // Delete original goal if requested
+      if (deleteOriginal) {
+        await goalProvider.deleteGoal(goalId);
+      }
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Converted goal to habit: ${goal.title}',
+        metadata: {'goalId': goalId, 'habitId': habit.id, 'deleted': deleteOriginal},
+      );
+
+      return ActionResult.success(
+        'Converted goal "${goal.title}" to habit',
+        resultId: habit.id,
+        data: habit,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to convert goal to habit',
+        metadata: {'goalId': goalId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to convert goal to habit: $e');
+    }
+  }
+
+  /// Convert a goal to a todo
+  Future<ActionResult> convertGoalToTodo({
+    required String goalId,
+    DateTime? dueDate,
+    String? priority,
+    bool deleteOriginal = true,
+  }) async {
+    try {
+      final goal = goalProvider.getGoalById(goalId);
+      if (goal == null) {
+        return ActionResult.failure('Goal not found');
+      }
+
+      // Parse priority
+      TodoPriority todoPriority = TodoPriority.medium;
+      if (priority != null) {
+        try {
+          todoPriority = TodoPriority.values.firstWhere(
+            (p) => p.name.toLowerCase() == priority.toLowerCase(),
+          );
+        } catch (e) {
+          // Keep default
+        }
+      }
+
+      // Create todo from goal (use goal's target date as due date if not specified)
+      final todo = Todo(
+        id: _uuid.v4(),
+        title: goal.title,
+        description: goal.description,
+        dueDate: dueDate ?? goal.targetDate,
+        priority: todoPriority,
+        status: TodoStatus.pending,
+      );
+
+      await todoProvider.addTodo(todo);
+
+      // Delete original goal if requested
+      if (deleteOriginal) {
+        await goalProvider.deleteGoal(goalId);
+      }
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Converted goal to todo: ${goal.title}',
+        metadata: {'goalId': goalId, 'todoId': todo.id, 'deleted': deleteOriginal},
+      );
+
+      return ActionResult.success(
+        'Converted goal "${goal.title}" to todo',
+        resultId: todo.id,
+        data: todo,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to convert goal to todo',
+        metadata: {'goalId': goalId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to convert goal to todo: $e');
+    }
+  }
+
+  /// Convert a todo to a goal
+  Future<ActionResult> convertTodoToGoal({
+    required String todoId,
+    required String category,
+    DateTime? targetDate,
+    bool deleteOriginal = true,
+  }) async {
+    try {
+      final todo = todoProvider.getTodoById(todoId);
+      if (todo == null) {
+        return ActionResult.failure('Todo not found');
+      }
+
+      // Parse category
+      GoalCategory goalCategory;
+      try {
+        goalCategory = GoalCategory.values.firstWhere(
+          (c) => c.name.toLowerCase() == category.toLowerCase(),
+        );
+      } catch (e) {
+        return ActionResult.failure('Invalid category: $category');
+      }
+
+      // Create goal from todo (use todo's due date as target date if not specified)
+      final goal = Goal(
+        id: _uuid.v4(),
+        title: todo.title,
+        description: todo.description ?? '',
+        category: goalCategory,
+        targetDate: targetDate ?? todo.dueDate,
+        status: GoalStatus.active,
+      );
+
+      await goalProvider.addGoal(goal);
+
+      // Delete original todo if requested
+      if (deleteOriginal) {
+        await todoProvider.deleteTodo(todoId);
+      }
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Converted todo to goal: ${todo.title}',
+        metadata: {'todoId': todoId, 'goalId': goal.id, 'deleted': deleteOriginal},
+      );
+
+      return ActionResult.success(
+        'Converted todo "${todo.title}" to goal',
+        resultId: goal.id,
+        data: goal,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to convert todo to goal',
+        metadata: {'todoId': todoId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to convert todo to goal: $e');
+    }
+  }
+
+  /// Convert a todo to a habit
+  Future<ActionResult> convertTodoToHabit({
+    required String todoId,
+    bool deleteOriginal = true,
+  }) async {
+    try {
+      final todo = todoProvider.getTodoById(todoId);
+      if (todo == null) {
+        return ActionResult.failure('Todo not found');
+      }
+
+      // Create habit from todo
+      final habit = Habit(
+        id: _uuid.v4(),
+        title: todo.title,
+        description: todo.description ?? '',
+        completionDates: [],
+        currentStreak: 0,
+        longestStreak: 0,
+        createdAt: DateTime.now(),
+        isSystemCreated: false,
+        status: HabitStatus.active,
+      );
+
+      await habitProvider.addHabit(habit);
+
+      // Delete original todo if requested
+      if (deleteOriginal) {
+        await todoProvider.deleteTodo(todoId);
+      }
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Converted todo to habit: ${todo.title}',
+        metadata: {'todoId': todoId, 'habitId': habit.id, 'deleted': deleteOriginal},
+      );
+
+      return ActionResult.success(
+        'Converted todo "${todo.title}" to habit',
+        resultId: habit.id,
+        data: habit,
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to convert todo to habit',
+        metadata: {'todoId': todoId, 'error': e.toString()},
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to convert todo to habit: $e');
     }
   }
 

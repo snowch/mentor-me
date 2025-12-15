@@ -24,6 +24,7 @@ import 'worry_decision_tree_screen.dart';
 import 'exposure_ladder_screen.dart';
 import 'weight_tracking_screen.dart';
 import 'food_log_screen.dart';
+import 'fasting_screen.dart';
 import 'exercise_plans_screen.dart';
 import 'medication_screen.dart';
 import 'symptom_tracker_screen.dart';
@@ -420,6 +421,15 @@ class _WellnessDashboardScreenState extends State<WellnessDashboardScreen> {
                 description: 'Track meals with AI-powered nutrition estimation',
                 color: Colors.orange,
                 onTap: () => _navigate(context, const FoodLogScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.timer_outlined,
+                title: 'Fasting Tracker',
+                description: 'Track intermittent fasting with protocols and goals',
+                color: Colors.deepOrange,
+                onTap: () => _navigate(context, const FastingScreen()),
               ),
               const SizedBox(height: AppSpacing.md),
               _buildFeatureCard(

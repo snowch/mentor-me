@@ -17,6 +17,7 @@ import '../providers/win_provider.dart';
 import '../providers/journal_template_provider.dart';
 import '../providers/checkin_template_provider.dart';
 import '../providers/hydration_provider.dart';
+import '../providers/todo_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
@@ -111,6 +112,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final journalProvider = context.read<JournalProvider>();
     final pulseProvider = context.read<PulseProvider>();
     final winProvider = context.read<WinProvider>();
+    final todoProvider = context.read<TodoProvider>();
     final journalTemplateProvider = context.read<JournalTemplateProvider>();
     final templateProvider = context.read<CheckInTemplateProvider>();
     final exerciseProvider = context.read<ExerciseProvider>();
@@ -126,6 +128,7 @@ class _ChatScreenState extends State<ChatScreen> {
       journalTemplateProvider: journalTemplateProvider,
       templateProvider: templateProvider,
       winProvider: winProvider,
+      todoProvider: todoProvider,
     );
 
     // Ensure food log data is loaded before accessing (async constructor issue)

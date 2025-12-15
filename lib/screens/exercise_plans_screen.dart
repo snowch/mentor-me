@@ -7,8 +7,34 @@ import '../providers/weight_provider.dart';
 import '../services/ai_service.dart';
 import 'workout_history_screen.dart';
 
-class ExercisePlansScreen extends StatelessWidget {
-  const ExercisePlansScreen({super.key});
+class ExercisePlansScreen extends StatefulWidget {
+  /// If true, shows the quick log exercise sheet immediately on screen load
+  final bool showQuickLogOnOpen;
+
+  const ExercisePlansScreen({
+    super.key,
+    this.showQuickLogOnOpen = false,
+  });
+
+  @override
+  State<ExercisePlansScreen> createState() => _ExercisePlansScreenState();
+}
+
+class _ExercisePlansScreenState extends State<ExercisePlansScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Show quick log sheet immediately if requested (e.g., from Android shortcut)
+    if (widget.showQuickLogOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          builder: (context) => const _QuickLogBottomSheet(),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -893,6 +919,8 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
         reps: exercise.defaultReps,
         weight: exercise.defaultWeight,
         durationMinutes: exercise.defaultDurationMinutes,
+        level: exercise.defaultLevel,
+        targetDistance: exercise.defaultDistance,
         notes: exercise.notes,
         order: _exercises.length,
       ));

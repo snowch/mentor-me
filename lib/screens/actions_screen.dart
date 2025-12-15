@@ -537,92 +537,21 @@ class _ActionsScreenState extends State<ActionsScreen> {
             ),
           ),
           const Spacer(),
-          PopupMenuButton<SortOption>(
+          // Reorder mode toggle (same as header)
+          IconButton(
             icon: Icon(
-              Icons.sort,
-              color: _sortOption != SortOption.manual
+              _isReorderMode ? Icons.done : Icons.swap_vert,
+              color: _isReorderMode
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            tooltip: 'Sort by',
-            onSelected: (value) => setState(() => _sortOption = value),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: SortOption.manual,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.swap_vert,
-                      color: _sortOption == SortOption.manual
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Manual Order'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: SortOption.nameAsc,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.sort_by_alpha,
-                      color: _sortOption == SortOption.nameAsc
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Name (A-Z)'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: SortOption.nameDesc,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.sort_by_alpha,
-                      color: _sortOption == SortOption.nameDesc
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Name (Z-A)'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: SortOption.dateCreated,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      color: _sortOption == SortOption.dateCreated
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Oldest First'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: SortOption.dateCreatedDesc,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      color: _sortOption == SortOption.dateCreatedDesc
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Newest First'),
-                  ],
-                ),
-              ),
-            ],
+            tooltip: _isReorderMode ? 'Done reordering' : 'Reorder items',
+            onPressed: () => setState(() => _isReorderMode = !_isReorderMode),
+            style: IconButton.styleFrom(
+              backgroundColor: _isReorderMode
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : null,
+            ),
           ),
         ],
       ),
@@ -1179,6 +1108,9 @@ class _ActionsScreenState extends State<ActionsScreen> {
   }
 
   void _showHabitOptions(BuildContext context, Habit habit, HabitProvider provider) {
+    final goalProvider = context.read<GoalProvider>();
+    final todoProvider = context.read<TodoProvider>();
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -1211,6 +1143,26 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   provider.updateHabit(habit.copyWith(status: HabitStatus.active));
                 },
               ),
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.flag, color: ActionColors.goal),
+              title: const Text('Convert to Goal'),
+              subtitle: const Text('Make this a long-term objective'),
+              onTap: () {
+                Navigator.pop(context);
+                _convertHabitToGoal(context, habit, provider, goalProvider);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.check_circle_outline, color: ActionColors.todo),
+              title: const Text('Convert to Todo'),
+              subtitle: const Text('Make this a one-time task'),
+              onTap: () {
+                Navigator.pop(context);
+                _convertHabitToTodo(context, habit, provider, todoProvider);
+              },
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -1250,6 +1202,9 @@ class _ActionsScreenState extends State<ActionsScreen> {
   }
 
   void _showTodoOptions(BuildContext context, Todo todo, TodoProvider provider) {
+    final goalProvider = context.read<GoalProvider>();
+    final habitProvider = context.read<HabitProvider>();
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -1264,6 +1219,26 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 _showEditTodoDialog(context, todo, provider);
               },
             ),
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.flag, color: ActionColors.goal),
+              title: const Text('Convert to Goal'),
+              subtitle: const Text('Make this a long-term objective'),
+              onTap: () {
+                Navigator.pop(context);
+                _convertTodoToGoal(context, todo, provider, goalProvider);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.repeat, color: ActionColors.habit),
+              title: const Text('Convert to Habit'),
+              subtitle: const Text('Make this a recurring practice'),
+              onTap: () {
+                Navigator.pop(context);
+                _convertTodoToHabit(context, todo, provider, habitProvider);
+              },
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -1274,6 +1249,227 @@ class _ActionsScreenState extends State<ActionsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ==================== Conversion Methods ====================
+
+  /// Convert a habit to a goal
+  void _convertHabitToGoal(
+    BuildContext context,
+    Habit habit,
+    HabitProvider habitProvider,
+    GoalProvider goalProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convert to Goal'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Convert "${habit.title}" to a goal?'),
+            const SizedBox(height: 8),
+            Text(
+              'The habit will be removed and a new goal will be created.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              // Create new goal from habit
+              final goal = Goal(
+                title: habit.title,
+                description: habit.description,
+                category: GoalCategory.personal,
+              );
+              await goalProvider.addGoal(goal);
+
+              // Delete the habit
+              await habitProvider.deleteHabit(habit.id);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Converted "${habit.title}" to a goal')),
+                );
+              }
+            },
+            child: const Text('Convert'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Convert a habit to a todo
+  void _convertHabitToTodo(
+    BuildContext context,
+    Habit habit,
+    HabitProvider habitProvider,
+    TodoProvider todoProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convert to Todo'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Convert "${habit.title}" to a todo?'),
+            const SizedBox(height: 8),
+            Text(
+              'The habit and its streak history will be removed. A new one-time todo will be created.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              // Create new todo from habit
+              final todo = Todo(
+                title: habit.title,
+                description: habit.description,
+              );
+              await todoProvider.addTodo(todo);
+
+              // Delete the habit
+              await habitProvider.deleteHabit(habit.id);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Converted "${habit.title}" to a todo')),
+                );
+              }
+            },
+            child: const Text('Convert'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Convert a todo to a goal
+  void _convertTodoToGoal(
+    BuildContext context,
+    Todo todo,
+    TodoProvider todoProvider,
+    GoalProvider goalProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convert to Goal'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Convert "${todo.title}" to a goal?'),
+            const SizedBox(height: 8),
+            Text(
+              'The todo will be removed and a new goal will be created.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              // Create new goal from todo
+              final goal = Goal(
+                title: todo.title,
+                description: todo.description ?? '',
+                category: GoalCategory.personal,
+                targetDate: todo.dueDate,
+              );
+              await goalProvider.addGoal(goal);
+
+              // Delete the todo
+              await todoProvider.deleteTodo(todo.id);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Converted "${todo.title}" to a goal')),
+                );
+              }
+            },
+            child: const Text('Convert'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Convert a todo to a habit
+  void _convertTodoToHabit(
+    BuildContext context,
+    Todo todo,
+    TodoProvider todoProvider,
+    HabitProvider habitProvider,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convert to Habit'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Convert "${todo.title}" to a daily habit?'),
+            const SizedBox(height: 8),
+            Text(
+              'The todo will be removed and a new recurring habit will be created.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              // Create new habit from todo
+              final habit = Habit(
+                title: todo.title,
+                description: todo.description ?? '',
+              );
+              await habitProvider.addHabit(habit);
+
+              // Delete the todo
+              await todoProvider.deleteTodo(todo.id);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Converted "${todo.title}" to a habit')),
+                );
+              }
+            },
+            child: const Text('Convert'),
+          ),
+        ],
       ),
     );
   }
