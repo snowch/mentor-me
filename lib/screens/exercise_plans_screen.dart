@@ -919,6 +919,8 @@ class _EditExercisePlanScreenState extends State<EditExercisePlanScreen> {
         reps: exercise.defaultReps,
         weight: exercise.defaultWeight,
         durationMinutes: exercise.defaultDurationMinutes,
+        level: exercise.defaultLevel,
+        targetDistance: exercise.defaultDistance,
         notes: exercise.notes,
         order: _exercises.length,
       ));

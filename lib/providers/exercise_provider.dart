@@ -205,9 +205,13 @@ class ExerciseProvider extends ChangeNotifier {
       return PlanExercise(
         exerciseId: ex.id,
         name: ex.name,
+        exerciseType: ex.exerciseType,
         sets: ex.defaultSets,
         reps: ex.defaultReps,
         weight: ex.defaultWeight,
+        durationMinutes: ex.defaultDurationMinutes,
+        level: ex.defaultLevel,
+        targetDistance: ex.defaultDistance,
         notes: ex.notes,
         order: entry.key,
       );
