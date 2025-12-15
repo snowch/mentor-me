@@ -30,6 +30,7 @@ import 'crisis_resources_screen.dart';
 import 'food_log_screen.dart';
 import 'exercise_plans_screen.dart';
 import 'chat_screen.dart';
+import 'lab_home_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -737,6 +738,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             },
           ),
           const WellnessDashboardScreen(),
+          const LabHomeScreen(),
           const settings.SettingsScreen(),
         ],
       ),
@@ -763,6 +765,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             icon: const Icon(Icons.spa_outlined),
             selectedIcon: const Icon(Icons.spa),
             label: 'Wellness',
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.science_outlined),
+            selectedIcon: const Icon(Icons.science),
+            label: 'Lab',
           ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),
