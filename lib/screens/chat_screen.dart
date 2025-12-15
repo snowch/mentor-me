@@ -517,6 +517,28 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
 
+          // Experiments
+          _buildPromptCategory(
+            context,
+            icon: Icons.science_outlined,
+            title: 'Experiments',
+            prompts: const [
+              SuggestionPrompt(
+                'Suggest an experiment to improve my sleep',
+                systemHint: 'Design a concrete 1-2 week self-experiment with clear hypothesis, metrics to track, and success criteria for improving sleep quality.',
+              ),
+              SuggestionPrompt(
+                'Design an experiment for my goal',
+                emphasis: ContextEmphasis.goals,
+                systemHint: 'Look at their active goals and design a time-boxed experiment to test an approach or break through a blocker.',
+              ),
+              SuggestionPrompt(
+                'What should I test to boost my productivity?',
+                systemHint: 'Suggest a specific productivity experiment based on their habits and patterns, with measurable outcomes.',
+              ),
+            ],
+          ),
+
           AppSpacing.gapXl,
         ],
       ),
@@ -675,6 +697,28 @@ class _ChatScreenState extends State<ChatScreen> {
                 'Why am I not making progress?',
                 emphasis: ContextEmphasis.goals,
                 systemHint: 'Analyze potential blockers and suggest ways to overcome them.',
+              ),
+            ],
+          ),
+
+          // Experiments
+          _buildPromptCategory(
+            context,
+            icon: Icons.science_outlined,
+            title: 'Experiments',
+            prompts: const [
+              SuggestionPrompt(
+                'Suggest an experiment to improve my sleep',
+                systemHint: 'Design a concrete 1-2 week self-experiment with clear hypothesis, metrics to track, and success criteria for improving sleep quality.',
+              ),
+              SuggestionPrompt(
+                'Design an experiment for my goal',
+                emphasis: ContextEmphasis.goals,
+                systemHint: 'Look at their active goals and design a time-boxed experiment to test an approach or break through a blocker.',
+              ),
+              SuggestionPrompt(
+                'What should I test to boost my productivity?',
+                systemHint: 'Suggest a specific productivity experiment based on their habits and patterns, with measurable outcomes.',
               ),
             ],
           ),
