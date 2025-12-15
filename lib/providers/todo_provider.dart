@@ -212,6 +212,31 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
+  /// Reorder todos within a list
+  Future<void> reorderTodos(List<Todo> todosToReorder, int oldIndex, int newIndex) async {
+    if (oldIndex >= todosToReorder.length || newIndex >= todosToReorder.length) {
+      return; // Invalid indices
+    }
+
+    // Get the IDs of todos being reordered
+    final orderedIds = todosToReorder.map((t) => t.id).toList();
+
+    // Perform the reorder on the IDs
+    final movedId = orderedIds.removeAt(oldIndex);
+    orderedIds.insert(newIndex, movedId);
+
+    // Update sortOrder for all todos in the list
+    for (int i = 0; i < orderedIds.length; i++) {
+      final todoIndex = _todos.indexWhere((t) => t.id == orderedIds[i]);
+      if (todoIndex != -1) {
+        _todos[todoIndex] = _todos[todoIndex].copyWith(sortOrder: i);
+      }
+    }
+
+    await _storage.saveTodos(_todos);
+    notifyListeners();
+  }
+
   /// Get todos due today
   List<Todo> getTodayTodos() {
     return pendingTodos.where((t) => t.isDueToday).toList();

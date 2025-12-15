@@ -35,7 +35,6 @@ class ActionsScreen extends StatefulWidget {
 
 enum ActionFilter { all, goals, habits, todos }
 enum StatusFilter { all, active, backlog }
-enum SortOption { manual, nameAsc, nameDesc, dateCreated, dateCreatedDesc }
 
 /// Color scheme for differentiating action types
 class ActionColors {
@@ -50,26 +49,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _isReorderMode = false;
-  SortOption _sortOption = SortOption.manual;
 
   @override
   void initState() {
     super.initState();
     _typeFilter = widget.initialFilter ?? ActionFilter.all;
-    // Check if we should open the add todo dialog immediately
-    if (widget.openAddTodoDialog) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showAddTodoDialog(context);
-        widget.onAddTodoDialogOpened?.call();
-      });
-    }
-  }
 
-  @override
-  void didUpdateWidget(ActionsScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Open add todo dialog if flag changed from false to true
-    if (widget.openAddTodoDialog && !oldWidget.openAddTodoDialog) {
+    // Open add todo dialog if requested from parent
+    if (widget.openAddTodoDialog) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showAddTodoDialog(context);
         widget.onAddTodoDialogOpened?.call();
@@ -91,70 +78,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
         (description?.toLowerCase().contains(query) ?? false);
   }
 
-  /// Sort goals based on selected sort option
-  void _sortGoals(List<Goal> goals) {
-    switch (_sortOption) {
-      case SortOption.manual:
-        goals.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-        break;
-      case SortOption.nameAsc:
-        goals.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-        break;
-      case SortOption.nameDesc:
-        goals.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
-        break;
-      case SortOption.dateCreated:
-        goals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        break;
-      case SortOption.dateCreatedDesc:
-        goals.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-    }
-  }
-
-  /// Sort habits based on selected sort option
-  void _sortHabits(List<Habit> habits) {
-    switch (_sortOption) {
-      case SortOption.manual:
-        habits.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-        break;
-      case SortOption.nameAsc:
-        habits.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-        break;
-      case SortOption.nameDesc:
-        habits.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
-        break;
-      case SortOption.dateCreated:
-        habits.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        break;
-      case SortOption.dateCreatedDesc:
-        habits.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-    }
-  }
-
-  /// Sort todos based on selected sort option
-  void _sortTodos(List<Todo> todos) {
-    switch (_sortOption) {
-      case SortOption.manual:
-        // Todos don't have sortOrder, use creation date as default
-        todos.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        break;
-      case SortOption.nameAsc:
-        todos.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-        break;
-      case SortOption.nameDesc:
-        todos.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
-        break;
-      case SortOption.dateCreated:
-        todos.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-        break;
-      case SortOption.dateCreatedDesc:
-        todos.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final goalProvider = context.watch<GoalProvider>();
@@ -163,27 +86,22 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
     final isLoading = goalProvider.isLoading || habitProvider.isLoading || todoProvider.isLoading;
 
-    // Get all data with search filter, sorted by selected sort option
+    // Get all data with search filter
     final activeGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.active && _matchesSearch(g.title, g.description))
         .toList();
-    _sortGoals(activeGoals);
     final backlogGoals = goalProvider.goals
         .where((g) => g.status == GoalStatus.backlog && _matchesSearch(g.title, g.description))
         .toList();
-    _sortGoals(backlogGoals);
     final activeHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.active && _matchesSearch(h.title, h.description))
         .toList();
-    _sortHabits(activeHabits);
     final backlogHabits = habitProvider.habits
         .where((h) => h.status == HabitStatus.backlog && _matchesSearch(h.title, h.description))
         .toList();
-    _sortHabits(backlogHabits);
     final pendingTodos = todoProvider.pendingTodos
         .where((t) => _matchesSearch(t.title, t.description))
         .toList();
-    _sortTodos(pendingTodos);
 
     return Scaffold(
       body: isLoading
@@ -382,8 +300,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
             child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, activeGoals.length),
           ));
           if (_isReorderMode) {
-            widgets.add(SliverToBoxAdapter(
-              child: _buildReorderableGoalList(context, activeGoals, GoalStatus.active, goalProvider),
+            widgets.add(SliverReorderableList(
+              itemCount: activeGoals.length,
+              itemBuilder: (context, index) {
+                return _buildGoalCard(context, activeGoals[index], index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                goalProvider.reorderGoals(GoalStatus.active, oldIndex, newIndex);
+              },
             ));
           } else {
             widgets.addAll(activeGoals.map((goal) => SliverToBoxAdapter(
@@ -398,8 +322,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
             child: _buildTypeSubheader(context, 'Habits', ActionColors.habit, activeHabits.length),
           ));
           if (_isReorderMode) {
-            widgets.add(SliverToBoxAdapter(
-              child: _buildReorderableHabitList(context, activeHabits, HabitStatus.active, habitProvider),
+            widgets.add(SliverReorderableList(
+              itemCount: activeHabits.length,
+              itemBuilder: (context, index) {
+                return _buildHabitCard(context, activeHabits[index], habitProvider, index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                habitProvider.reorderHabits(HabitStatus.active, oldIndex, newIndex);
+              },
             ));
           } else {
             widgets.addAll(activeHabits.map((habit) => SliverToBoxAdapter(
@@ -417,17 +347,41 @@ class _ActionsScreenState extends State<ActionsScreen> {
             widgets.add(SliverToBoxAdapter(
               child: _buildTypeSubheader(context, 'Overdue Todos', Colors.red, overdue.length),
             ));
-            widgets.addAll(overdue.map((todo) => SliverToBoxAdapter(
-              child: _buildTodoCard(context, todo, todoProvider, isOverdue: true),
-            )));
+            if (_isReorderMode) {
+              widgets.add(SliverReorderableList(
+                itemCount: overdue.length,
+                itemBuilder: (context, index) {
+                  return _buildTodoCard(context, overdue[index], todoProvider, isOverdue: true, index: index);
+                },
+                onReorder: (oldIndex, newIndex) {
+                  todoProvider.reorderTodos(overdue, oldIndex, newIndex);
+                },
+              ));
+            } else {
+              widgets.addAll(overdue.map((todo) => SliverToBoxAdapter(
+                child: _buildTodoCard(context, todo, todoProvider, isOverdue: true),
+              )));
+            }
           }
           if (notOverdue.isNotEmpty) {
             widgets.add(SliverToBoxAdapter(
               child: _buildTypeSubheader(context, 'Todos', ActionColors.todo, notOverdue.length),
             ));
-            widgets.addAll(notOverdue.map((todo) => SliverToBoxAdapter(
-              child: _buildTodoCard(context, todo, todoProvider),
-            )));
+            if (_isReorderMode) {
+              widgets.add(SliverReorderableList(
+                itemCount: notOverdue.length,
+                itemBuilder: (context, index) {
+                  return _buildTodoCard(context, notOverdue[index], todoProvider, index: index);
+                },
+                onReorder: (oldIndex, newIndex) {
+                  todoProvider.reorderTodos(notOverdue, oldIndex, newIndex);
+                },
+              ));
+            } else {
+              widgets.addAll(notOverdue.map((todo) => SliverToBoxAdapter(
+                child: _buildTodoCard(context, todo, todoProvider),
+              )));
+            }
           }
         }
       }
@@ -449,8 +403,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
             child: _buildTypeSubheader(context, 'Goals', ActionColors.goal, backlogGoals.length),
           ));
           if (_isReorderMode) {
-            widgets.add(SliverToBoxAdapter(
-              child: _buildReorderableGoalList(context, backlogGoals, GoalStatus.backlog, goalProvider),
+            widgets.add(SliverReorderableList(
+              itemCount: backlogGoals.length,
+              itemBuilder: (context, index) {
+                return _buildGoalCard(context, backlogGoals[index], index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                goalProvider.reorderGoals(GoalStatus.backlog, oldIndex, newIndex);
+              },
             ));
           } else {
             widgets.addAll(backlogGoals.map((goal) => SliverToBoxAdapter(
@@ -465,8 +425,14 @@ class _ActionsScreenState extends State<ActionsScreen> {
             child: _buildTypeSubheader(context, 'Paused Habits', ActionColors.habit, backlogHabits.length),
           ));
           if (_isReorderMode) {
-            widgets.add(SliverToBoxAdapter(
-              child: _buildReorderableHabitList(context, backlogHabits, HabitStatus.backlog, habitProvider),
+            widgets.add(SliverReorderableList(
+              itemCount: backlogHabits.length,
+              itemBuilder: (context, index) {
+                return _buildHabitCard(context, backlogHabits[index], habitProvider, index: index);
+              },
+              onReorder: (oldIndex, newIndex) {
+                habitProvider.reorderHabits(HabitStatus.backlog, oldIndex, newIndex);
+              },
             ));
           } else {
             widgets.addAll(backlogHabits.map((habit) => SliverToBoxAdapter(
@@ -536,23 +502,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const Spacer(),
-          // Reorder mode toggle (same as header)
-          IconButton(
-            icon: Icon(
-              _isReorderMode ? Icons.done : Icons.swap_vert,
-              color: _isReorderMode
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            tooltip: _isReorderMode ? 'Done reordering' : 'Reorder items',
-            onPressed: () => setState(() => _isReorderMode = !_isReorderMode),
-            style: IconButton.styleFrom(
-              backgroundColor: _isReorderMode
-                  ? Theme.of(context).colorScheme.primaryContainer
-                  : null,
-            ),
-          ),
         ],
       ),
     );
@@ -589,52 +538,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  /// Build a reorderable list of goals
-  Widget _buildReorderableGoalList(
-    BuildContext context,
-    List<Goal> goals,
-    GoalStatus status,
-    GoalProvider provider,
-  ) {
-    return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: goals.length,
-      onReorder: (oldIndex, newIndex) {
-        if (newIndex > oldIndex) {
-          newIndex -= 1;
-        }
-        provider.reorderGoals(status, oldIndex, newIndex);
-      },
-      itemBuilder: (context, index) {
-        return _buildGoalCard(context, goals[index], reorderIndex: index);
-      },
-    );
-  }
-
-  /// Build a reorderable list of habits
-  Widget _buildReorderableHabitList(
-    BuildContext context,
-    List<Habit> habits,
-    HabitStatus status,
-    HabitProvider provider,
-  ) {
-    return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: habits.length,
-      onReorder: (oldIndex, newIndex) {
-        if (newIndex > oldIndex) {
-          newIndex -= 1;
-        }
-        provider.reorderHabits(status, oldIndex, newIndex);
-      },
-      itemBuilder: (context, index) {
-        return _buildHabitCard(context, habits[index], provider, reorderIndex: index);
-      },
     );
   }
 
@@ -675,7 +578,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
     }
   }
 
-  Widget _buildGoalCard(BuildContext context, Goal goal, {int? reorderIndex}) {
+  Widget _buildGoalCard(BuildContext context, Goal goal, {int? index}) {
     return Card(
       key: ValueKey('goal_${goal.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -737,17 +640,18 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   color: ActionColors.goal,
                 ),
               ),
-              const SizedBox(width: 4),
-              _buildFocusToggle(
-                context: context,
-                isFocused: goal.isFocused,
-                onToggle: () => _toggleGoalFocus(context, goal.id),
-              ),
-              // Drag handle on right side (like dashboard customization)
-              if (_isReorderMode && reorderIndex != null) ...[
+              if (!_isReorderMode) ...[
+                const SizedBox(width: 4),
+                _buildFocusToggle(
+                  context: context,
+                  isFocused: goal.isFocused,
+                  onToggle: () => _toggleGoalFocus(context, goal.id),
+                ),
+              ],
+              if (_isReorderMode && index != null) ...[
                 const SizedBox(width: 8),
                 ReorderableDragStartListener(
-                  index: reorderIndex,
+                  index: index,
                   child: Icon(
                     Icons.drag_handle,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -756,13 +660,13 @@ class _ActionsScreenState extends State<ActionsScreen> {
               ],
             ],
           ),
-          onTap: () => _showGoalDetail(context, goal),
+          onTap: _isReorderMode ? null : () => _showGoalDetail(context, goal),
         ),
       ),
     );
   }
 
-  Widget _buildHabitCard(BuildContext context, Habit habit, HabitProvider provider, {int? reorderIndex}) {
+  Widget _buildHabitCard(BuildContext context, Habit habit, HabitProvider provider, {int? index}) {
     final isCompletedToday = habit.isCompletedToday;
 
     return Card(
@@ -781,7 +685,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
             child: Checkbox(
               value: isCompletedToday,
               activeColor: ActionColors.habit,
-              onChanged: (value) {
+              onChanged: _isReorderMode ? null : (value) {
                 if (value == true) {
                   provider.completeHabit(habit.id, DateTime.now());
                 } else {
@@ -843,17 +747,18 @@ class _ActionsScreenState extends State<ActionsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildMaturityIndicator(habit),
-              const SizedBox(width: 4),
-              _buildFocusToggle(
-                context: context,
-                isFocused: habit.isFocused,
-                onToggle: () => _toggleHabitFocus(context, habit.id),
-              ),
-              // Drag handle on right side (like dashboard customization)
-              if (_isReorderMode && reorderIndex != null) ...[
+              if (!_isReorderMode) ...[
+                const SizedBox(width: 4),
+                _buildFocusToggle(
+                  context: context,
+                  isFocused: habit.isFocused,
+                  onToggle: () => _toggleHabitFocus(context, habit.id),
+                ),
+              ],
+              if (_isReorderMode && index != null) ...[
                 const SizedBox(width: 8),
                 ReorderableDragStartListener(
-                  index: reorderIndex,
+                  index: index,
                   child: Icon(
                     Icons.drag_handle,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -862,8 +767,8 @@ class _ActionsScreenState extends State<ActionsScreen> {
               ],
             ],
           ),
-          onTap: () => _showEditHabitDialog(context, habit),
-          onLongPress: () => _showHabitOptions(context, habit, provider),
+          onTap: _isReorderMode ? null : () => _showEditHabitDialog(context, habit),
+          onLongPress: _isReorderMode ? null : () => _showHabitOptions(context, habit, provider),
         ),
       ),
     );
@@ -949,7 +854,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
     Todo todo,
     TodoProvider provider, {
     bool isOverdue = false,
-    int? reorderIndex,
+    int? index,
   }) {
     return Card(
       key: ValueKey('todo_${todo.id}'),
@@ -971,7 +876,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
             child: Checkbox(
               value: todo.status == TodoStatus.completed,
               activeColor: ActionColors.todo,
-              onChanged: (value) {
+              onChanged: _isReorderMode ? null : (value) {
                 if (value == true) {
                   provider.completeTodo(todo.id);
                 } else {
@@ -1030,11 +935,10 @@ class _ActionsScreenState extends State<ActionsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildPriorityIndicator(todo.priority),
-              // Drag handle on right side (like dashboard customization)
-              if (_isReorderMode && reorderIndex != null) ...[
+              if (_isReorderMode && index != null) ...[
                 const SizedBox(width: 8),
                 ReorderableDragStartListener(
-                  index: reorderIndex,
+                  index: index,
                   child: Icon(
                     Icons.drag_handle,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1043,8 +947,8 @@ class _ActionsScreenState extends State<ActionsScreen> {
               ],
             ],
           ),
-          onTap: () => _showEditTodoDialog(context, todo, provider),
-          onLongPress: () => _showTodoOptions(context, todo, provider),
+          onTap: _isReorderMode ? null : () => _showEditTodoDialog(context, todo, provider),
+          onLongPress: _isReorderMode ? null : () => _showTodoOptions(context, todo, provider),
         ),
       ),
     );
@@ -1108,9 +1012,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
   }
 
   void _showHabitOptions(BuildContext context, Habit habit, HabitProvider provider) {
-    final goalProvider = context.read<GoalProvider>();
-    final todoProvider = context.read<TodoProvider>();
-
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -1143,26 +1044,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
                   provider.updateHabit(habit.copyWith(status: HabitStatus.active));
                 },
               ),
-            const Divider(),
-            ListTile(
-              leading: Icon(Icons.flag, color: ActionColors.goal),
-              title: const Text('Convert to Goal'),
-              subtitle: const Text('Make this a long-term objective'),
-              onTap: () {
-                Navigator.pop(context);
-                _convertHabitToGoal(context, habit, provider, goalProvider);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.check_circle_outline, color: ActionColors.todo),
-              title: const Text('Convert to Todo'),
-              subtitle: const Text('Make this a one-time task'),
-              onTap: () {
-                Navigator.pop(context);
-                _convertHabitToTodo(context, habit, provider, todoProvider);
-              },
-            ),
-            const Divider(),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -1202,9 +1083,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
   }
 
   void _showTodoOptions(BuildContext context, Todo todo, TodoProvider provider) {
-    final goalProvider = context.read<GoalProvider>();
-    final habitProvider = context.read<HabitProvider>();
-
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -1219,26 +1097,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 _showEditTodoDialog(context, todo, provider);
               },
             ),
-            const Divider(),
-            ListTile(
-              leading: Icon(Icons.flag, color: ActionColors.goal),
-              title: const Text('Convert to Goal'),
-              subtitle: const Text('Make this a long-term objective'),
-              onTap: () {
-                Navigator.pop(context);
-                _convertTodoToGoal(context, todo, provider, goalProvider);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.repeat, color: ActionColors.habit),
-              title: const Text('Convert to Habit'),
-              subtitle: const Text('Make this a recurring practice'),
-              onTap: () {
-                Navigator.pop(context);
-                _convertTodoToHabit(context, todo, provider, habitProvider);
-              },
-            ),
-            const Divider(),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -1249,227 +1107,6 @@ class _ActionsScreenState extends State<ActionsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ==================== Conversion Methods ====================
-
-  /// Convert a habit to a goal
-  void _convertHabitToGoal(
-    BuildContext context,
-    Habit habit,
-    HabitProvider habitProvider,
-    GoalProvider goalProvider,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Convert to Goal'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Convert "${habit.title}" to a goal?'),
-            const SizedBox(height: 8),
-            Text(
-              'The habit will be removed and a new goal will be created.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              // Create new goal from habit
-              final goal = Goal(
-                title: habit.title,
-                description: habit.description,
-                category: GoalCategory.personal,
-              );
-              await goalProvider.addGoal(goal);
-
-              // Delete the habit
-              await habitProvider.deleteHabit(habit.id);
-
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Converted "${habit.title}" to a goal')),
-                );
-              }
-            },
-            child: const Text('Convert'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Convert a habit to a todo
-  void _convertHabitToTodo(
-    BuildContext context,
-    Habit habit,
-    HabitProvider habitProvider,
-    TodoProvider todoProvider,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Convert to Todo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Convert "${habit.title}" to a todo?'),
-            const SizedBox(height: 8),
-            Text(
-              'The habit and its streak history will be removed. A new one-time todo will be created.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              // Create new todo from habit
-              final todo = Todo(
-                title: habit.title,
-                description: habit.description,
-              );
-              await todoProvider.addTodo(todo);
-
-              // Delete the habit
-              await habitProvider.deleteHabit(habit.id);
-
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Converted "${habit.title}" to a todo')),
-                );
-              }
-            },
-            child: const Text('Convert'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Convert a todo to a goal
-  void _convertTodoToGoal(
-    BuildContext context,
-    Todo todo,
-    TodoProvider todoProvider,
-    GoalProvider goalProvider,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Convert to Goal'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Convert "${todo.title}" to a goal?'),
-            const SizedBox(height: 8),
-            Text(
-              'The todo will be removed and a new goal will be created.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              // Create new goal from todo
-              final goal = Goal(
-                title: todo.title,
-                description: todo.description ?? '',
-                category: GoalCategory.personal,
-                targetDate: todo.dueDate,
-              );
-              await goalProvider.addGoal(goal);
-
-              // Delete the todo
-              await todoProvider.deleteTodo(todo.id);
-
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Converted "${todo.title}" to a goal')),
-                );
-              }
-            },
-            child: const Text('Convert'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Convert a todo to a habit
-  void _convertTodoToHabit(
-    BuildContext context,
-    Todo todo,
-    TodoProvider todoProvider,
-    HabitProvider habitProvider,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Convert to Habit'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Convert "${todo.title}" to a daily habit?'),
-            const SizedBox(height: 8),
-            Text(
-              'The todo will be removed and a new recurring habit will be created.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              // Create new habit from todo
-              final habit = Habit(
-                title: todo.title,
-                description: todo.description ?? '',
-              );
-              await habitProvider.addHabit(habit);
-
-              // Delete the todo
-              await todoProvider.deleteTodo(todo.id);
-
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Converted "${todo.title}" to a habit')),
-                );
-              }
-            },
-            child: const Text('Convert'),
-          ),
-        ],
       ),
     );
   }
