@@ -21,6 +21,7 @@ import '../models/mindful_eating_entry.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
 import '../models/todo.dart';
+import '../models/fasting_entry.dart';
 import 'package:mentor_me/services/migration_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
 
@@ -97,6 +98,10 @@ class StorageService {
 
   // Todos (unified actions)
   static const String _todosKey = 'todos';
+
+  // Fasting tracking
+  static const String _fastingEntriesKey = 'fasting_entries';
+  static const String _fastingGoalKey = 'fasting_goal';
 
   /// All storage keys that contain USER DATA and should be backed up.
   /// This is the SINGLE SOURCE OF TRUTH for backup coverage.
@@ -441,6 +446,50 @@ class StorageService {
   Future<int> loadHydrationGoal() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_hydrationGoalKey) ?? 8; // Default: 8 glasses
+  }
+
+  // Save/Load Fasting Entries
+  Future<void> saveFastingEntries(List<FastingEntry> entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = entries.map((entry) => entry.toJson()).toList();
+    await prefs.setString(_fastingEntriesKey, json.encode(jsonList));
+    await _notifyPersistence('fasting_entries');
+  }
+
+  Future<List<FastingEntry>> loadFastingEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_fastingEntriesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((json) => FastingEntry.fromJson(json)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted fasting entries data, returning empty list. Error: $e');
+      await prefs.remove(_fastingEntriesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Fasting Goal
+  Future<void> saveFastingGoal(FastingGoal goal) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fastingGoalKey, json.encode(goal.toJson()));
+    await _notifyPersistence('fasting_goal');
+  }
+
+  Future<FastingGoal> loadFastingGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_fastingGoalKey);
+    if (jsonString == null) return const FastingGoal();
+
+    try {
+      final jsonMap = json.decode(jsonString) as Map<String, dynamic>;
+      return FastingGoal.fromJson(jsonMap);
+    } catch (e) {
+      debugPrint('Warning: Corrupted fasting goal data, returning default. Error: $e');
+      return const FastingGoal();
+    }
   }
 
   // Save/Load Weight Entries
@@ -1028,6 +1077,8 @@ class StorageService {
       'pulseTypes': await loadPulseTypes(),
       'hydrationEntries': await loadHydrationEntries(),
       'hydrationGoal': await loadHydrationGoal(),
+      'fastingEntries': await loadFastingEntries(),
+      'fastingGoal': (await loadFastingGoal()).toJson(),
       'weightEntries': await loadWeightEntries(),
       'weightGoal': await loadWeightGoal(),
       'weightUnit': (await loadWeightUnit()).name,
@@ -1096,6 +1147,18 @@ class StorageService {
 
     if (data['hydrationGoal'] != null) {
       await saveHydrationGoal(data['hydrationGoal'] as int);
+    }
+
+    if (data['fastingEntries'] != null) {
+      final fastingEntries = (data['fastingEntries'] as List)
+          .map((json) => FastingEntry.fromJson(json))
+          .toList();
+      await saveFastingEntries(fastingEntries);
+    }
+
+    if (data['fastingGoal'] != null) {
+      final fastingGoal = FastingGoal.fromJson(data['fastingGoal'] as Map<String, dynamic>);
+      await saveFastingGoal(fastingGoal);
     }
 
     if (data['weightEntries'] != null) {

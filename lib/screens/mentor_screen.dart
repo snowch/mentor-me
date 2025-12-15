@@ -31,6 +31,7 @@ import 'dashboard_settings_screen.dart';
 import 'actions_screen.dart' show ActionFilter;
 import '../widgets/recent_wins_widget.dart';
 import '../widgets/food_log_widget.dart';
+import '../widgets/fasting_widget.dart';
 import '../widgets/quick_capture_widget.dart';
 import '../widgets/todos_widget.dart';
 import '../widgets/hands_free_discovery_card.dart';
@@ -729,6 +730,8 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         return const ExerciseWidget();
       case 'foodLog':
         return const FoodLogWidget();
+      case 'fasting':
+        return const FastingWidget();
       case 'quickCapture':
         return const QuickCaptureWidget();
       case 'todos':
