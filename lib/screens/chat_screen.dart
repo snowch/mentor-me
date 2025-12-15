@@ -749,6 +749,23 @@ class _ChatScreenState extends State<ChatScreen> {
     final foodLogProvider = context.read<FoodLogProvider>();
     final winProvider = context.read<WinProvider>();
     final hydrationProvider = context.read<HydrationProvider>();
+    final todoProvider = context.read<TodoProvider>();
+    final journalTemplateProvider = context.read<JournalTemplateProvider>();
+    final templateProvider = context.read<CheckInTemplateProvider>();
+
+    // Set providers for tool execution (habit/goal creation, etc.)
+    chatProvider.setProviders(
+      goalProvider: goalProvider,
+      habitProvider: habitProvider,
+      journalProvider: journalProvider,
+      journalTemplateProvider: journalTemplateProvider,
+      templateProvider: templateProvider,
+      winProvider: winProvider,
+      todoProvider: todoProvider,
+    );
+
+    // Ensure food log data is loaded
+    await foodLogProvider.ensureLoaded();
 
     // Prepare message with optional system hint
     String messageToSend = prompt.text;
@@ -756,6 +773,11 @@ class _ChatScreenState extends State<ChatScreen> {
       // Prepend hint as context instruction for the AI
       messageToSend = '[Analysis Focus: ${prompt.systemHint}]\n\n${prompt.text}';
     }
+
+    // Send user message (adds to conversation, sets typing state)
+    // Use the display text (without system hint) for what user sees
+    await chatProvider.sendUserMessage(prompt.text, skipAutoResponse: true);
+    _scrollToBottom();
 
     // Determine extended data limits based on emphasis
     int foodLimit = 50;     // Default
@@ -781,7 +803,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     try {
-      await chatProvider.generateContextualResponse(
+      final response = await chatProvider.generateContextualResponse(
         userMessage: messageToSend,
         goals: goalProvider.goals,
         habits: habitProvider.habits,
@@ -798,6 +820,7 @@ class _ChatScreenState extends State<ChatScreen> {
         hydrationGoal: hydrationProvider.dailyGoal,
       );
 
+      await chatProvider.addMentorMessage(response);
       _scrollToBottom();
     } catch (e) {
       if (mounted) {
