@@ -118,6 +118,13 @@ class FastingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update weekly fasting goal
+  Future<void> setWeeklyGoal(int days) async {
+    _goal = _goal.copyWith(weeklyFastingDays: days.clamp(1, 7));
+    await _storage.saveFastingGoal(_goal);
+    notifyListeners();
+  }
+
   /// Delete a fasting entry
   Future<void> deleteEntry(String id) async {
     _entries.removeWhere((e) => e.id == id);
