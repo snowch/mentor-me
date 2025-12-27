@@ -19,6 +19,7 @@ import '../providers/checkin_template_provider.dart';
 import '../providers/hydration_provider.dart';
 import '../providers/todo_provider.dart';
 import '../providers/experiment_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/chat_message.dart';
 import '../models/journal_entry.dart';
 import '../models/mentor_message.dart';
@@ -123,6 +124,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Set providers for tool execution (habit/goal creation, etc.)
     final experimentProvider = context.read<ExperimentProvider>();
+    final settingsProvider = context.read<SettingsProvider>();
     chatProvider.setProviders(
       goalProvider: goalProvider,
       habitProvider: habitProvider,
@@ -132,6 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
       winProvider: winProvider,
       todoProvider: todoProvider,
       experimentProvider: experimentProvider,
+      settingsProvider: settingsProvider,
     );
 
     // Ensure food log data is loaded before accessing (async constructor issue)
@@ -800,6 +803,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final journalTemplateProvider = context.read<JournalTemplateProvider>();
     final templateProvider = context.read<CheckInTemplateProvider>();
     final experimentProvider = context.read<ExperimentProvider>();
+    final settingsProvider = context.read<SettingsProvider>();
 
     // Set providers for tool execution (habit/goal creation, etc.)
     chatProvider.setProviders(
@@ -811,6 +815,7 @@ class _ChatScreenState extends State<ChatScreen> {
       winProvider: winProvider,
       todoProvider: todoProvider,
       experimentProvider: experimentProvider,
+      settingsProvider: settingsProvider,
     );
 
     // Ensure food log data is loaded

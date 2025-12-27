@@ -18,6 +18,7 @@ import 'package:mentor_me/providers/checkin_template_provider.dart';
 import 'package:mentor_me/providers/win_provider.dart';
 import 'package:mentor_me/providers/todo_provider.dart';
 import 'package:mentor_me/providers/experiment_provider.dart';
+import 'package:mentor_me/providers/settings_provider.dart';
 import 'package:mentor_me/models/win.dart';
 import 'package:mentor_me/services/notification_service.dart';
 import 'package:mentor_me/services/debug_service.dart';
@@ -66,6 +67,7 @@ class ReflectionActionService {
   final WinProvider winProvider;
   final TodoProvider todoProvider;
   final ExperimentProvider experimentProvider;
+  final SettingsProvider settingsProvider;
   final NotificationService notificationService;
   final DebugService _debug = DebugService();
   final Uuid _uuid = const Uuid();
@@ -80,6 +82,7 @@ class ReflectionActionService {
     required this.winProvider,
     required this.todoProvider,
     required this.experimentProvider,
+    required this.settingsProvider,
     required this.notificationService,
   });
 
@@ -2164,6 +2167,134 @@ class ReflectionActionService {
         stackTrace: stackTrace.toString(),
       );
       return ActionResult.failure('Failed to abandon experiment: $e');
+    }
+  }
+
+  // =============================================================================
+  // SETTINGS TOOLS (Feature Discovery)
+  // =============================================================================
+
+  /// Enable Lab features (experimental N-of-1 experiments)
+  ///
+  /// Shows the Lab tab in bottom navigation for running personal experiments.
+  Future<ActionResult> enableLabFeatures({
+    required String reason,
+  }) async {
+    try {
+      await settingsProvider.setShowExperimentalFeatures(true);
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Enabled Lab features via tool: $reason',
+        metadata: {'reason': reason},
+      );
+
+      return ActionResult.success(
+        'Lab features enabled! You can now find the Lab tab in your bottom navigation.',
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to enable Lab features: $e',
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to enable Lab features: $e');
+    }
+  }
+
+  /// Switch display mode between Simple and Advanced
+  ///
+  /// Simple mode shows core features only. Advanced mode shows all features.
+  Future<ActionResult> switchDisplayMode({
+    required String mode,
+    required String reason,
+  }) async {
+    try {
+      // Parse mode string
+      DisplayMode displayMode;
+      try {
+        displayMode = DisplayMode.values.firstWhere(
+          (m) => m.name.toLowerCase() == mode.toLowerCase(),
+        );
+      } catch (e) {
+        return ActionResult.failure('Invalid display mode: $mode. Must be "simple" or "advanced".');
+      }
+
+      await settingsProvider.setDisplayMode(displayMode);
+
+      final modeLabel = displayMode == DisplayMode.simple ? 'Simple' : 'Advanced';
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Switched to $modeLabel mode via tool: $reason',
+        metadata: {'mode': mode, 'reason': reason},
+      );
+
+      return ActionResult.success(
+        'Switched to $modeLabel mode. ${displayMode == DisplayMode.simple ? "You'll see fewer features for a cleaner experience." : "You now have access to all available features."}',
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to switch display mode: $e',
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to switch display mode: $e');
+    }
+  }
+
+  /// Enable a dashboard widget
+  ///
+  /// Shows a hidden widget on the home screen dashboard.
+  /// Available widgets: hydration, weight, exercise, foodLog, fasting, quickHalt
+  Future<ActionResult> enableDashboardWidget({
+    required String widgetId,
+    required String reason,
+  }) async {
+    try {
+      // Validate widget ID
+      const validWidgets = ['hydration', 'weight', 'exercise', 'foodLog', 'fasting', 'quickHalt'];
+      if (!validWidgets.contains(widgetId)) {
+        return ActionResult.failure(
+          'Invalid widget ID: $widgetId. Must be one of: ${validWidgets.join(", ")}',
+        );
+      }
+
+      // Check if widget is already visible
+      if (settingsProvider.isDashboardWidgetVisible(widgetId)) {
+        return ActionResult.failure('Widget "$widgetId" is already enabled on your dashboard.');
+      }
+
+      await settingsProvider.toggleDashboardWidget(widgetId);
+
+      // Get friendly widget names
+      final widgetNames = {
+        'hydration': 'Water Tracking',
+        'weight': 'Weight Tracking',
+        'exercise': 'Exercise Tracking',
+        'foodLog': 'Food Logging',
+        'fasting': 'Fasting Tracker',
+        'quickHalt': 'HALT Self-Assessment',
+      };
+
+      final widgetName = widgetNames[widgetId] ?? widgetId;
+
+      await _debug.info(
+        'ReflectionActionService',
+        'Enabled dashboard widget via tool: $widgetName',
+        metadata: {'widgetId': widgetId, 'reason': reason},
+      );
+
+      return ActionResult.success(
+        'Enabled "$widgetName" widget on your dashboard! You can find it on your home screen.',
+      );
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'ReflectionActionService',
+        'Failed to enable dashboard widget: $e',
+        stackTrace: stackTrace.toString(),
+      );
+      return ActionResult.failure('Failed to enable dashboard widget: $e');
     }
   }
 

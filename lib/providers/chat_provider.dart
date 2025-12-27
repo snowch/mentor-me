@@ -30,6 +30,7 @@ import '../providers/checkin_template_provider.dart';
 import '../providers/win_provider.dart';
 import '../providers/todo_provider.dart';
 import '../providers/experiment_provider.dart';
+import '../providers/settings_provider.dart';
 
 class ChatProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
@@ -56,6 +57,7 @@ class ChatProvider extends ChangeNotifier {
     required WinProvider winProvider,
     required TodoProvider todoProvider,
     required ExperimentProvider experimentProvider,
+    required SettingsProvider settingsProvider,
   }) {
     _actionService = ReflectionActionService(
       goalProvider: goalProvider,
@@ -66,6 +68,7 @@ class ChatProvider extends ChangeNotifier {
       winProvider: winProvider,
       todoProvider: todoProvider,
       experimentProvider: experimentProvider,
+      settingsProvider: settingsProvider,
       notificationService: NotificationService(),
     );
   }

@@ -309,7 +309,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Card(
             child: Consumer<SettingsProvider>(
               builder: (context, settingsProvider, child) {
-                final isSimple = settingsProvider.isSimpleMode;
                 return Column(
                   children: [
                     RadioListTile<DisplayMode>(
