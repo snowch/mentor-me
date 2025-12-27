@@ -315,14 +315,96 @@ class _TodayTab extends StatelessWidget {
 
   void _logMedication(BuildContext context, Medication med, MedicationLogStatus status) {
     final provider = context.read<MedicationProvider>();
+
     if (status == MedicationLogStatus.taken) {
-      provider.logMedicationTaken(med);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${med.displayString} logged as taken'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      // Check dosage constraints
+      final violations = provider.checkConstraints(med);
+
+      if (violations.isNotEmpty) {
+        // Show warning dialog
+        showDialog(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Safety Limit Warning'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Taking this medication now may exceed safety limits:'),
+                const SizedBox(height: 12),
+                ...violations.map((v) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('• '),
+                      Expanded(child: Text(v.message)),
+                    ],
+                  ),
+                )),
+                if (provider.getNextAvailableTime(med) != null &&
+                    provider.getNextAvailableTime(med)!.isAfter(DateTime.now())) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Next available: ${DateFormat('h:mm a').format(provider.getNextAvailableTime(med)!)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                const Text(
+                  'Do you still want to log this medication?',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  provider.logMedicationTaken(med);
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${med.displayString} logged as taken'),
+                      backgroundColor: Colors.orange,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                ),
+                child: const Text('Log Anyway'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        // No violations, log immediately
+        provider.logMedicationTaken(med);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${med.displayString} logged as taken'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -495,6 +577,12 @@ class _MedicationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final provider = context.watch<MedicationProvider>();
+
+    // Check dosage constraints
+    final violations = provider.checkConstraints(medication);
+    final canTake = violations.isEmpty;
+    final nextTime = provider.getNextAvailableTime(medication);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -536,6 +624,27 @@ class _MedicationCard extends StatelessWidget {
                 ),
               ],
             ),
+
+            // Show dosage constraints
+            if (medication.dosageConstraints != null && medication.dosageConstraints!.isNotEmpty) ...[
+              AppSpacing.gapSm,
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: medication.dosageConstraints!.map((constraint) =>
+                  Chip(
+                    label: Text(
+                      constraint.description,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide.none,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                  ),
+                ).toList(),
+              ),
+            ],
+
             if (medication.instructions != null) ...[
               AppSpacing.gapSm,
               Text(
@@ -546,6 +655,68 @@ class _MedicationCard extends StatelessWidget {
                 ),
               ),
             ],
+
+            // Show constraint violations
+            if (!canTake && violations.isNotEmpty) ...[
+              AppSpacing.gapSm,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 18, color: Colors.orange.shade700),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Safety limit reached',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...violations.map((v) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('• ', style: TextStyle(color: Colors.orange.shade700)),
+                          Expanded(
+                            child: Text(
+                              v.message,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.orange.shade900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                    if (nextTime != null && nextTime.isAfter(DateTime.now())) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Available: ${DateFormat('h:mm a').format(nextTime)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+
             if (isPending) ...[
               AppSpacing.gapMd,
               Row(
@@ -561,9 +732,9 @@ class _MedicationCard extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: FilledButton.icon(
-                      onPressed: onTaken,
+                      onPressed: canTake ? onTaken : null,
                       icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Take'),
+                      label: Text(canTake ? 'Take' : 'Not Available'),
                     ),
                   ),
                 ],
@@ -868,6 +1039,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
 
   late MedicationFrequency _frequency;
   late MedicationCategory _category;
+  late List<DosageConstraint> _constraints;
 
   bool get isEditing => widget.medication != null;
 
@@ -883,6 +1055,9 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
     _notesController = TextEditingController(text: med?.notes ?? '');
     _frequency = med?.frequency ?? MedicationFrequency.onceDaily;
     _category = med?.category ?? MedicationCategory.prescription;
+    _constraints = med?.dosageConstraints != null
+        ? List.from(med!.dosageConstraints!)
+        : [];
   }
 
   @override
@@ -1040,6 +1215,60 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
               ),
               AppSpacing.gapLg,
 
+              // Dosage Constraints Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Safety Limits',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _showAddConstraintDialog,
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Add Safety Limit',
+                  ),
+                ],
+              ),
+              if (_constraints.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No safety limits set (tap + to add)',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                )
+              else
+                ..._constraints.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final constraint = entry.value;
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(
+                        _getConstraintIcon(constraint.type),
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                      title: Text(constraint.description),
+                      subtitle: Text(constraint.type.displayName),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        onPressed: () {
+                          setState(() => _constraints.removeAt(index));
+                        },
+                      ),
+                    ),
+                  );
+                }),
+              AppSpacing.gapLg,
+
               // Buttons
               Row(
                 children: [
@@ -1093,6 +1322,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
       category: _category,
       createdAt: widget.medication?.createdAt,
       isActive: widget.medication?.isActive ?? true,
+      dosageConstraints: _constraints.isNotEmpty ? _constraints : null,
     );
 
     if (isEditing) {
@@ -1110,5 +1340,314 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  IconData _getConstraintIcon(DosageConstraintType type) {
+    switch (type) {
+      case DosageConstraintType.minTimeBetween:
+        return Icons.schedule;
+      case DosageConstraintType.maxPerPeriod:
+        return Icons.repeat;
+      case DosageConstraintType.maxCumulativeAmount:
+        return Icons.stacked_bar_chart;
+      case DosageConstraintType.timeWindow:
+        return Icons.access_time;
+      case DosageConstraintType.custom:
+        return Icons.info_outline;
+    }
+  }
+
+  void _showAddConstraintDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _ConstraintPickerDialog(
+        onConstraintAdded: (constraint) {
+          setState(() => _constraints.add(constraint));
+        },
+      ),
+    );
+  }
+}
+
+/// Dialog for picking and configuring a dosage constraint
+class _ConstraintPickerDialog extends StatefulWidget {
+  final Function(DosageConstraint) onConstraintAdded;
+
+  const _ConstraintPickerDialog({required this.onConstraintAdded});
+
+  @override
+  State<_ConstraintPickerDialog> createState() => _ConstraintPickerDialogState();
+}
+
+class _ConstraintPickerDialogState extends State<_ConstraintPickerDialog> {
+  DosageConstraintType? _selectedType;
+  final _customDescController = TextEditingController();
+
+  // Min time between
+  int _minHours = 3;
+  int _minMinutes = 0;
+
+  // Max per period
+  int _maxCount = 4;
+  int _periodHours = 24;
+
+  // Max cumulative amount
+  double _maxAmount = 3000;
+  String _unit = 'mg';
+  int _amountPeriodHours = 24;
+
+  // Time window
+  String _notBefore = '06:00';
+  String _notAfter = '22:00';
+  bool _useNotBefore = false;
+  bool _useNotAfter = true;
+
+  @override
+  void dispose() {
+    _customDescController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: const Text('Add Safety Limit'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Type picker
+            DropdownButtonFormField<DosageConstraintType>(
+              value: _selectedType,
+              decoration: const InputDecoration(
+                labelText: 'Limit Type',
+                border: OutlineInputBorder(),
+              ),
+              items: DosageConstraintType.values.map((type) {
+                return DropdownMenuItem(
+                  value: type,
+                  child: Text(type.displayName),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() => _selectedType = value);
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Configuration based on type
+            if (_selectedType == DosageConstraintType.minTimeBetween) ...[
+              Text('Minimum time between doses', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Hours',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      controller: TextEditingController(text: _minHours.toString()),
+                      onChanged: (v) => _minHours = int.tryParse(v) ?? 0,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Minutes',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      controller: TextEditingController(text: _minMinutes.toString()),
+                      onChanged: (v) => _minMinutes = int.tryParse(v) ?? 0,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            if (_selectedType == DosageConstraintType.maxPerPeriod) ...[
+              Text('Maximum doses per period', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Max Count',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                controller: TextEditingController(text: _maxCount.toString()),
+                onChanged: (v) => _maxCount = int.tryParse(v) ?? 1,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                value: _periodHours,
+                decoration: const InputDecoration(
+                  labelText: 'Period',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 6, child: Text('6 hours')),
+                  DropdownMenuItem(value: 12, child: Text('12 hours')),
+                  DropdownMenuItem(value: 24, child: Text('24 hours (day)')),
+                  DropdownMenuItem(value: 168, child: Text('7 days (week)')),
+                ],
+                onChanged: (v) => setState(() => _periodHours = v!),
+              ),
+            ],
+
+            if (_selectedType == DosageConstraintType.maxCumulativeAmount) ...[
+              Text('Maximum total amount per period', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Amount',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      controller: TextEditingController(text: _maxAmount.toString()),
+                      onChanged: (v) => _maxAmount = double.tryParse(v) ?? 0,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Unit',
+                        border: OutlineInputBorder(),
+                      ),
+                      controller: TextEditingController(text: _unit),
+                      onChanged: (v) => _unit = v,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                value: _amountPeriodHours,
+                decoration: const InputDecoration(
+                  labelText: 'Period',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 24, child: Text('Per day')),
+                  DropdownMenuItem(value: 168, child: Text('Per week')),
+                ],
+                onChanged: (v) => setState(() => _amountPeriodHours = v!),
+              ),
+            ],
+
+            if (_selectedType == DosageConstraintType.timeWindow) ...[
+              Text('Time window restrictions', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                title: const Text('Not before'),
+                value: _useNotBefore,
+                onChanged: (v) => setState(() => _useNotBefore = v!),
+              ),
+              if (_useNotBefore)
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Time (HH:MM)',
+                    border: OutlineInputBorder(),
+                  ),
+                  controller: TextEditingController(text: _notBefore),
+                  onChanged: (v) => _notBefore = v,
+                ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                title: const Text('Not after'),
+                value: _useNotAfter,
+                onChanged: (v) => setState(() => _useNotAfter = v!),
+              ),
+              if (_useNotAfter)
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Time (HH:MM)',
+                    border: OutlineInputBorder(),
+                  ),
+                  controller: TextEditingController(text: _notAfter),
+                  onChanged: (v) => _notAfter = v,
+                ),
+            ],
+
+            if (_selectedType == DosageConstraintType.custom) ...[
+              Text('Custom constraint', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _customDescController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  hintText: 'e.g., Take with food',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _selectedType == null ? null : _addConstraint,
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+
+  void _addConstraint() {
+    late final DosageConstraint constraint;
+
+    switch (_selectedType!) {
+      case DosageConstraintType.minTimeBetween:
+        constraint = DosageConstraint.minTimeBetween(
+          hours: _minHours,
+          minutes: _minMinutes,
+        );
+        break;
+
+      case DosageConstraintType.maxPerPeriod:
+        constraint = DosageConstraint.maxPerPeriod(
+          count: _maxCount,
+          hours: _periodHours,
+        );
+        break;
+
+      case DosageConstraintType.maxCumulativeAmount:
+        constraint = DosageConstraint.maxCumulativeAmount(
+          amount: _maxAmount,
+          unit: _unit,
+          hours: _amountPeriodHours,
+        );
+        break;
+
+      case DosageConstraintType.timeWindow:
+        constraint = DosageConstraint.timeWindow(
+          notBefore: _useNotBefore ? _notBefore : null,
+          notAfter: _useNotAfter ? _notAfter : null,
+        );
+        break;
+
+      case DosageConstraintType.custom:
+        if (_customDescController.text.trim().isEmpty) return;
+        constraint = DosageConstraint.custom(_customDescController.text.trim());
+        break;
+    }
+
+    widget.onConstraintAdded(constraint);
+    Navigator.pop(context);
   }
 }

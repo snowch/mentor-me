@@ -6,6 +6,39 @@ part of 'medication.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+DosageConstraint _$DosageConstraintFromJson(Map<String, dynamic> json) =>
+    DosageConstraint(
+      type: $enumDecode(_$DosageConstraintTypeEnumMap, json['type'],
+          unknownValue: DosageConstraintType.custom),
+      durationMinutes: (json['durationMinutes'] as num?)?.toInt(),
+      maxCount: (json['maxCount'] as num?)?.toInt(),
+      periodHours: (json['periodHours'] as num?)?.toInt(),
+      maxAmount: (json['maxAmount'] as num?)?.toDouble(),
+      unit: json['unit'] as String?,
+      params: json['params'] as Map<String, dynamic>?,
+      description: json['description'] as String,
+    );
+
+Map<String, dynamic> _$DosageConstraintToJson(DosageConstraint instance) =>
+    <String, dynamic>{
+      'type': _$DosageConstraintTypeEnumMap[instance.type]!,
+      'durationMinutes': instance.durationMinutes,
+      'maxCount': instance.maxCount,
+      'periodHours': instance.periodHours,
+      'maxAmount': instance.maxAmount,
+      'unit': instance.unit,
+      'params': instance.params,
+      'description': instance.description,
+    };
+
+const _$DosageConstraintTypeEnumMap = {
+  DosageConstraintType.minTimeBetween: 'minTimeBetween',
+  DosageConstraintType.maxPerPeriod: 'maxPerPeriod',
+  DosageConstraintType.maxCumulativeAmount: 'maxCumulativeAmount',
+  DosageConstraintType.timeWindow: 'timeWindow',
+  DosageConstraintType.custom: 'custom',
+};
+
 Medication _$MedicationFromJson(Map<String, dynamic> json) => Medication(
       id: json['id'] as String?,
       name: json['name'] as String,
@@ -29,6 +62,9 @@ Medication _$MedicationFromJson(Map<String, dynamic> json) => Medication(
       reminderTimes: (json['reminderTimes'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
+      dosageConstraints: (json['dosageConstraints'] as List<dynamic>?)
+          ?.map((e) => DosageConstraint.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
 
 Map<String, dynamic> _$MedicationToJson(Medication instance) =>
@@ -45,6 +81,7 @@ Map<String, dynamic> _$MedicationToJson(Medication instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'isActive': instance.isActive,
       'reminderTimes': instance.reminderTimes,
+      'dosageConstraints': instance.dosageConstraints,
     };
 
 const _$MedicationFrequencyEnumMap = {
