@@ -50,6 +50,7 @@ class SettingsProvider extends ChangeNotifier {
   // Display Mode Settings
   DisplayMode _displayMode = DisplayMode.simple; // Default: simple mode
   bool _showExperimentalFeatures = false; // Default: hide Lab features
+  bool _compactWidgets = false; // Default: normal widget size
 
   // Dashboard Layout Settings
   DashboardLayout _dashboardLayout = DashboardLayout.defaultLayout();
@@ -66,6 +67,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get enableClinicalFeatures => _enableClinicalFeatures;
   DisplayMode get displayMode => _displayMode;
   bool get showExperimentalFeatures => _showExperimentalFeatures;
+  bool get compactWidgets => _compactWidgets;
   DashboardLayout get dashboardLayout => _dashboardLayout;
 
   // Derived getters for feature visibility
@@ -116,6 +118,7 @@ class SettingsProvider extends ChangeNotifier {
         _displayMode = DisplayMode.fromJson(displayModeString);
       }
       _showExperimentalFeatures = settings['showExperimentalFeatures'] as bool? ?? false;
+      _compactWidgets = settings['compactWidgets'] as bool? ?? false;
 
       // Load dashboard layout
       final dashboardLayoutJson = settings['dashboardLayout'] as Map<String, dynamic>?;
@@ -402,6 +405,26 @@ class SettingsProvider extends ChangeNotifier {
     await _debug.info(
       'SettingsProvider',
       'Experimental features ${enabled ? "enabled" : "disabled"}',
+      metadata: {'enabled': enabled},
+    );
+  }
+
+  /// Set compact widgets mode and notify listeners
+  Future<void> setCompactWidgets(bool enabled) async {
+    if (_compactWidgets == enabled) return;
+
+    _compactWidgets = enabled;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['compactWidgets'] = enabled;
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Compact widgets ${enabled ? "enabled" : "disabled"}',
       metadata: {'enabled': enabled},
     );
   }

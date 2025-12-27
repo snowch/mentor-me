@@ -397,6 +397,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           AppSpacing.gapMd,
 
+          // Compact Widgets Toggle
+          Card(
+            child: Consumer<SettingsProvider>(
+              builder: (context, settingsProvider, child) {
+                return SwitchListTile(
+                  secondary: Icon(
+                    Icons.compress,
+                    color: settingsProvider.compactWidgets
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: const Text('Compact Widgets'),
+                  subtitle: Text(
+                    settingsProvider.compactWidgets
+                        ? 'Using condensed widget layouts'
+                        : 'Use smaller, more condensed widget layouts',
+                  ),
+                  value: settingsProvider.compactWidgets,
+                  onChanged: (value) async {
+                    await settingsProvider.setCompactWidgets(value);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            value
+                                ? 'Compact mode enabled - widgets will use less space'
+                                : 'Normal mode enabled - widgets will use standard spacing',
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+
+          AppSpacing.gapMd,
+
           // Dashboard Customization
           Card(
             child: ListTile(
