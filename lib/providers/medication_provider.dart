@@ -283,6 +283,13 @@ class MedicationProvider extends ChangeNotifier {
     }).toList();
   }
 
+  /// Get active as-needed medications (not on a schedule)
+  List<Medication> get asNeededMedications {
+    return activeMedications
+        .where((m) => m.frequency == MedicationFrequency.asNeeded)
+        .toList();
+  }
+
   /// Check if a medication is due based on its frequency and last log
   bool _isMedicationDue(Medication medication, DateTime now) {
     final logs = logsForMedication(medication.id)

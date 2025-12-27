@@ -167,6 +167,26 @@ class _TodayTab extends StatelessWidget {
             ),
             AppSpacing.gapSm,
             ...todayLogs.map((log) => _LogCard(log: log, onUndo: () => _undoLog(context, log))),
+            AppSpacing.gapMd,
+          ],
+
+          // As needed medications
+          if (provider.asNeededMedications.isNotEmpty) ...[
+            Text(
+              'As Needed',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            AppSpacing.gapSm,
+            ...provider.asNeededMedications.map(
+              (med) => _MedicationCard(
+                medication: med,
+                isPending: false,
+                onTaken: () => _logMedication(context, med, MedicationLogStatus.taken),
+                onSkipped: () {}, // No skip for as-needed
+              ),
+            ),
           ],
 
           AppSpacing.gapXl,
@@ -717,20 +737,24 @@ class _MedicationCard extends StatelessWidget {
               ),
             ],
 
-            if (isPending) ...[
+            // Show buttons for pending or as-needed medications
+            if (isPending || medication.frequency == MedicationFrequency.asNeeded) ...[
               AppSpacing.gapMd,
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onSkipped,
-                      icon: const Icon(Icons.skip_next, size: 18),
-                      label: const Text('Skip'),
+                  // Skip button only for pending scheduled medications
+                  if (isPending) ...[
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onSkipped,
+                        icon: const Icon(Icons.skip_next, size: 18),
+                        label: const Text('Skip'),
+                      ),
                     ),
-                  ),
-                  AppSpacing.gapSm,
+                    AppSpacing.gapSm,
+                  ],
                   Expanded(
-                    flex: 2,
+                    flex: isPending ? 2 : 1,
                     child: FilledButton.icon(
                       onPressed: canTake ? onTaken : null,
                       icon: const Icon(Icons.check, size: 18),
