@@ -8,6 +8,21 @@ import '../services/storage_service.dart';
 import '../services/ai_service.dart';
 import '../services/debug_service.dart';
 
+/// Display mode for app complexity level
+enum DisplayMode {
+  simple,   // Simplified interface with core features only
+  advanced; // Full interface with all features and experimental tools
+
+  String toJson() => name;
+
+  static DisplayMode fromJson(String value) {
+    return DisplayMode.values.firstWhere(
+      (mode) => mode.name == value,
+      orElse: () => DisplayMode.simple,
+    );
+  }
+}
+
 /// Provider for managing application settings
 /// Notifies listeners when AI provider, model, or configuration changes
 class SettingsProvider extends ChangeNotifier {
@@ -32,6 +47,10 @@ class SettingsProvider extends ChangeNotifier {
   // Wellness Features Settings
   bool _enableClinicalFeatures = false; // Default: disabled (opt-in for mental health tools)
 
+  // Display Mode Settings
+  DisplayMode _displayMode = DisplayMode.simple; // Default: simple mode
+  bool _showExperimentalFeatures = false; // Default: hide Lab features
+
   // Dashboard Layout Settings
   DashboardLayout _dashboardLayout = DashboardLayout.defaultLayout();
 
@@ -45,7 +64,14 @@ class SettingsProvider extends ChangeNotifier {
   bool get darkMode => _darkMode;
   bool get showAutoBackupIcon => _showAutoBackupIcon;
   bool get enableClinicalFeatures => _enableClinicalFeatures;
+  DisplayMode get displayMode => _displayMode;
+  bool get showExperimentalFeatures => _showExperimentalFeatures;
   DashboardLayout get dashboardLayout => _dashboardLayout;
+
+  // Derived getters for feature visibility
+  bool get isSimpleMode => _displayMode == DisplayMode.simple;
+  bool get isAdvancedMode => _displayMode == DisplayMode.advanced;
+  bool get showLabTab => _showExperimentalFeatures;
 
   /// Load settings from storage
   Future<void> loadSettings() async {
@@ -83,6 +109,13 @@ class SettingsProvider extends ChangeNotifier {
 
       // Load wellness features settings
       _enableClinicalFeatures = settings['enableClinicalFeatures'] as bool? ?? false;
+
+      // Load display mode settings
+      final displayModeString = settings['displayMode'] as String?;
+      if (displayModeString != null) {
+        _displayMode = DisplayMode.fromJson(displayModeString);
+      }
+      _showExperimentalFeatures = settings['showExperimentalFeatures'] as bool? ?? false;
 
       // Load dashboard layout
       final dashboardLayoutJson = settings['dashboardLayout'] as Map<String, dynamic>?;
@@ -331,5 +364,45 @@ class SettingsProvider extends ChangeNotifier {
   /// Check if a specific dashboard widget is visible
   bool isDashboardWidgetVisible(String widgetId) {
     return _dashboardLayout.isWidgetVisible(widgetId);
+  }
+
+  /// Set display mode and notify listeners
+  Future<void> setDisplayMode(DisplayMode mode) async {
+    if (_displayMode == mode) return;
+
+    _displayMode = mode;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['displayMode'] = mode.toJson();
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Display mode changed to ${mode.name}',
+      metadata: {'mode': mode.name},
+    );
+  }
+
+  /// Set experimental features visibility and notify listeners
+  Future<void> setShowExperimentalFeatures(bool enabled) async {
+    if (_showExperimentalFeatures == enabled) return;
+
+    _showExperimentalFeatures = enabled;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['showExperimentalFeatures'] = enabled;
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Experimental features ${enabled ? "enabled" : "disabled"}',
+      metadata: {'enabled': enabled},
+    );
   }
 }

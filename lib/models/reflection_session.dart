@@ -318,6 +318,11 @@ enum ActionType {
   startExperimentIntervention,
   completeExperiment,
   abandonExperiment,
+
+  // Settings actions (Feature Discovery)
+  enableLabFeatures,
+  switchDisplayMode,
+  enableDashboardWidget,
 }
 
 extension ActionTypeExtension on ActionType {
@@ -387,6 +392,12 @@ extension ActionTypeExtension on ActionType {
         return 'Complete Experiment';
       case ActionType.abandonExperiment:
         return 'Abandon Experiment';
+      case ActionType.enableLabFeatures:
+        return 'Enable Lab Features';
+      case ActionType.switchDisplayMode:
+        return 'Switch Display Mode';
+      case ActionType.enableDashboardWidget:
+        return 'Enable Dashboard Widget';
     }
   }
 
@@ -445,6 +456,12 @@ extension ActionTypeExtension on ActionType {
         return '💊';
       case ActionType.completeExperiment:
         return '✅';
+      case ActionType.enableLabFeatures:
+        return '🔬';
+      case ActionType.switchDisplayMode:
+        return '⚙️';
+      case ActionType.enableDashboardWidget:
+        return '📊';
     }
   }
 }

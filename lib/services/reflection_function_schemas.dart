@@ -63,6 +63,11 @@ class ReflectionFunctionSchemas {
     startExperimentInterventionTool,
     completeExperimentTool,
     abandonExperimentTool,
+
+    // Feature Discovery tools (Settings)
+    enableLabFeaturesTool,
+    switchDisplayModeTool,
+    enableDashboardWidgetTool,
   ];
 
   // ==========================================================================
@@ -927,6 +932,76 @@ class ReflectionFunctionSchemas {
         },
       },
       'required': ['experimentId'],
+    },
+  };
+
+  // ==========================================================================
+  // FEATURE DISCOVERY TOOLS (Settings Management)
+  // ==========================================================================
+
+  static const Map<String, dynamic> enableLabFeaturesTool = {
+    'name': 'enable_lab_features',
+    'description': 'Enables the Lab tab for running N-of-1 personal experiments. '
+        'Use when user expresses interest in scientifically testing hypotheses '
+        'about their habits, interventions, or lifestyle changes. '
+        'IMPORTANT: Always explain the benefit and ask for consent first.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'reason': {
+          'type': 'string',
+          'description': 'Brief explanation of why this feature would help the user',
+        },
+      },
+      'required': ['reason'],
+    },
+  };
+
+  static const Map<String, dynamic> switchDisplayModeTool = {
+    'name': 'switch_display_mode',
+    'description': 'Switches between Simple and Advanced display modes. '
+        'Use Simple Mode if user feels overwhelmed by features. '
+        'Use Advanced Mode if user needs access to more features and tools. '
+        'IMPORTANT: Always explain the benefit and ask for consent first.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'mode': {
+          'type': 'string',
+          'enum': ['simple', 'advanced'],
+          'description': 'The display mode to switch to',
+        },
+        'reason': {
+          'type': 'string',
+          'description': 'Brief explanation of why this mode would help',
+        },
+      },
+      'required': ['mode', 'reason'],
+    },
+  };
+
+  static const Map<String, dynamic> enableDashboardWidgetTool = {
+    'name': 'enable_dashboard_widget',
+    'description': 'Shows a hidden widget on the home screen dashboard. '
+        'Use when user asks about tracking something that has a dedicated widget. '
+        'Available widgets: hydration (water tracking), weight (weight tracking), '
+        'exercise (workout tracking), foodLog (meal tracking), fasting (intermittent fasting), '
+        'quickHalt (HALT self-assessment: Hungry, Angry, Lonely, Tired). '
+        'IMPORTANT: Always explain what the widget does and ask for consent first.',
+    'input_schema': {
+      'type': 'object',
+      'properties': {
+        'widgetId': {
+          'type': 'string',
+          'enum': ['hydration', 'weight', 'exercise', 'foodLog', 'fasting', 'quickHalt'],
+          'description': 'The widget to enable on the dashboard',
+        },
+        'reason': {
+          'type': 'string',
+          'description': 'Brief explanation of why this widget would help the user',
+        },
+      },
+      'required': ['widgetId', 'reason'],
     },
   };
 }

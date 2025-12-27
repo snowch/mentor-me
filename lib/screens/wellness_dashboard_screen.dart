@@ -40,14 +40,15 @@ class WellnessDashboardScreen extends StatefulWidget {
 class _WellnessDashboardScreenState extends State<WellnessDashboardScreen> {
   final _storage = StorageService();
 
-  // Section expansion states - default all to expanded for discoverability
-  // Crisis Support is always expanded (not collapsible for safety reasons)
-  bool _clinicalToolsExpanded = true;
-  bool _cognitiveExpanded = true;
-  bool _wellnessExpanded = true;
-  bool _physicalExpanded = true;
-  bool _healthExpanded = true;
-  bool _insightsExpanded = true;
+  // Section expansion states - default to collapsed to reduce visual clutter
+  // Physical wellness expanded by default (most commonly used)
+  // Crisis Support is always visible (not collapsible for safety reasons)
+  bool _clinicalToolsExpanded = false;
+  bool _cognitiveExpanded = false;
+  bool _wellnessExpanded = false;
+  bool _physicalExpanded = true; // Most commonly used
+  bool _healthExpanded = false;
+  bool _insightsExpanded = false;
 
   bool _isLoading = true;
 
@@ -62,13 +63,13 @@ class _WellnessDashboardScreenState extends State<WellnessDashboardScreen> {
 
     if (mounted) {
       setState(() {
-        // Load saved states, defaulting to expanded if not set
-        _clinicalToolsExpanded = settings['wellness_clinical_expanded'] as bool? ?? true;
-        _cognitiveExpanded = settings['wellness_cognitive_expanded'] as bool? ?? true;
-        _wellnessExpanded = settings['wellness_practices_expanded'] as bool? ?? true;
+        // Load saved states, defaulting to collapsed (except physical wellness)
+        _clinicalToolsExpanded = settings['wellness_clinical_expanded'] as bool? ?? false;
+        _cognitiveExpanded = settings['wellness_cognitive_expanded'] as bool? ?? false;
+        _wellnessExpanded = settings['wellness_practices_expanded'] as bool? ?? false;
         _physicalExpanded = settings['wellness_physical_expanded'] as bool? ?? true;
-        _healthExpanded = settings['wellness_health_expanded'] as bool? ?? true;
-        _insightsExpanded = settings['wellness_insights_expanded'] as bool? ?? true;
+        _healthExpanded = settings['wellness_health_expanded'] as bool? ?? false;
+        _insightsExpanded = settings['wellness_insights_expanded'] as bool? ?? false;
         _isLoading = false;
       });
     }
@@ -165,6 +166,36 @@ class _WellnessDashboardScreenState extends State<WellnessDashboardScreen> {
             'Choose a practice to support your mental health and wellbeing',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // User hint for collapsible sections
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.touch_app,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Tap sections below to expand and explore tools',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: AppSpacing.md),

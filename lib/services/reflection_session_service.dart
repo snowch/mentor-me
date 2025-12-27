@@ -64,6 +64,7 @@ You have access to tools that let you help the user directly:
 - Save important insights as journal entries
 - Schedule follow-up reminders
 - Record wins and accomplishments the user mentions
+- Enable app features to help users discover relevant tools (Lab experiments, display modes, dashboard widgets)
 
 CAPTURING WINS:
 - Listen for accomplishments, progress, or things the user is proud of
@@ -71,6 +72,36 @@ CAPTURING WINS:
 - Ask "Should I record that as a win?" or "That's worth celebrating - want me to save that?"
 - Wins can be linked to goals or habits when relevant
 - Recording wins helps build motivation and track progress over time
+
+FEATURE DISCOVERY:
+You can help users discover features that match their needs by contextually enabling tools:
+
+1. **Lab Features (enable_lab_features)** - Suggest when user:
+   - Wants to test hypotheses about their behavior or health
+   - Mentions wanting to experiment with interventions
+   - Asks "Does X really help with Y?" or "I wonder if doing X would improve Y"
+   - Example: "You're curious if meditation helps with focus. Want to run a personal experiment? I can enable Lab features where you can track baseline focus, test the intervention, and analyze results."
+
+2. **Display Mode (switch_display_mode)** - Suggest when user:
+   - Feels overwhelmed by too many features ("There's so much here...") → Suggest Simple mode
+   - Wants access to more advanced features ("Do you have tools for...") → Suggest Advanced mode
+   - Example: "I notice you're feeling overwhelmed by the app. Would it help to switch to Simple mode? I can hide advanced features so you can focus on the core tools."
+
+3. **Dashboard Widgets (enable_dashboard_widget)** - Suggest when user mentions tracking:
+   - Water intake → Enable 'hydration' widget
+   - Weight/body composition → Enable 'weight' widget
+   - Workouts/exercise → Enable 'exercise' widget
+   - Meals/nutrition → Enable 'foodLog' widget
+   - Intermittent fasting → Enable 'fasting' widget
+   - Emotional states (Hungry, Angry, Lonely, Tired) → Enable 'quickHalt' widget
+   - Example: "You mentioned wanting to track your water intake. I can enable a hydration widget on your dashboard - would that be helpful?"
+
+**When to suggest features:**
+- ONLY when genuinely relevant to the user's expressed needs
+- Explain the benefit clearly before enabling
+- Get consent ("Would that be helpful?" or "Should I enable that for you?")
+- Don't suggest multiple features at once - introduce one at a time
+- If user is already engaged with reflection, wait for a natural pause
 
 USE TOOLS THOUGHTFULLY:
 - Only suggest actions when they genuinely serve the user
@@ -809,6 +840,26 @@ Keep it genuine and warm.''';
           );
           break;
 
+        case ActionType.enableLabFeatures:
+          result = await _actionService!.enableLabFeatures(
+            reason: proposedAction.parameters['reason'] as String,
+          );
+          break;
+
+        case ActionType.switchDisplayMode:
+          result = await _actionService!.switchDisplayMode(
+            mode: proposedAction.parameters['mode'] as String,
+            reason: proposedAction.parameters['reason'] as String,
+          );
+          break;
+
+        case ActionType.enableDashboardWidget:
+          result = await _actionService!.enableDashboardWidget(
+            widgetId: proposedAction.parameters['widgetId'] as String,
+            reason: proposedAction.parameters['reason'] as String,
+          );
+          break;
+
         // Add other action types as needed
         default:
           result = ActionResult.failure('Action type not yet implemented: ${proposedAction.type.name}');
@@ -984,6 +1035,12 @@ Keep it genuine and warm.''';
         return ActionType.completeExperiment;
       case 'abandon_experiment':
         return ActionType.abandonExperiment;
+      case 'enable_lab_features':
+        return ActionType.enableLabFeatures;
+      case 'switch_display_mode':
+        return ActionType.switchDisplayMode;
+      case 'enable_dashboard_widget':
+        return ActionType.enableDashboardWidget;
       default:
         _debug.warning(
           'ReflectionSessionService',
@@ -1076,6 +1133,17 @@ Keep it genuine and warm.''';
       case ActionType.abandonExperiment:
         final reason = parameters['reason'] as String?;
         return reason != null ? 'Abandon experiment: $reason' : 'Abandon experiment';
+      case ActionType.enableLabFeatures:
+        final reason = parameters['reason'] as String? ?? 'for running N-of-1 experiments';
+        return 'Enable Lab features $reason';
+      case ActionType.switchDisplayMode:
+        final mode = parameters['mode'] as String? ?? 'advanced';
+        final modeCapitalized = mode.isEmpty ? mode : mode[0].toUpperCase() + mode.substring(1);
+        final reason = parameters['reason'] as String? ?? '';
+        return 'Switch to $modeCapitalized mode${reason.isNotEmpty ? ': $reason' : ''}';
+      case ActionType.enableDashboardWidget:
+        final widgetId = parameters['widgetId'] as String? ?? 'widget';
+        return 'Show $widgetId widget on dashboard';
     }
   }
 }
