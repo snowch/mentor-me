@@ -458,6 +458,241 @@ class MedicationProvider extends ChangeNotifier {
   int _minutesSinceMidnight(TimeOfDay time) {
     return time.hour * 60 + time.minute;
   }
+
+  // ============================================================================
+  // Dosage Constraint Validation
+  // ============================================================================
+
+  /// Check if a medication can be taken now based on its constraints
+  /// Returns a list of violated constraints (empty if all constraints pass)
+  List<ConstraintViolation> checkConstraints(
+    Medication medication, {
+    DateTime? proposedTime,
+  }) {
+    final violations = <ConstraintViolation>[];
+    final checkTime = proposedTime ?? DateTime.now();
+
+    if (medication.dosageConstraints == null || medication.dosageConstraints!.isEmpty) {
+      return violations; // No constraints, all good
+    }
+
+    final medLogs = logsForMedication(medication.id)
+        .where((l) => l.status == MedicationLogStatus.taken)
+        .toList();
+
+    for (final constraint in medication.dosageConstraints!) {
+      final violation = _validateConstraint(constraint, medLogs, checkTime, medication);
+      if (violation != null) {
+        violations.add(violation);
+      }
+    }
+
+    return violations;
+  }
+
+  /// Validate a single constraint
+  ConstraintViolation? _validateConstraint(
+    DosageConstraint constraint,
+    List<MedicationLog> logs,
+    DateTime checkTime,
+    Medication medication,
+  ) {
+    switch (constraint.type) {
+      case DosageConstraintType.minTimeBetween:
+        return _validateMinTimeBetween(constraint, logs, checkTime);
+
+      case DosageConstraintType.maxPerPeriod:
+        return _validateMaxPerPeriod(constraint, logs, checkTime);
+
+      case DosageConstraintType.maxCumulativeAmount:
+        return _validateMaxCumulativeAmount(constraint, logs, checkTime, medication);
+
+      case DosageConstraintType.timeWindow:
+        return _validateTimeWindow(constraint, checkTime);
+
+      case DosageConstraintType.custom:
+        // Custom constraints are informational only, no automatic validation
+        return null;
+    }
+  }
+
+  /// Validate minimum time between doses
+  ConstraintViolation? _validateMinTimeBetween(
+    DosageConstraint constraint,
+    List<MedicationLog> logs,
+    DateTime checkTime,
+  ) {
+    if (constraint.durationMinutes == null) return null;
+    if (logs.isEmpty) return null; // First dose, no constraint
+
+    // Get most recent log
+    final lastLog = logs.first; // Logs are sorted by timestamp desc
+    final minutesSinceLast = checkTime.difference(lastLog.timestamp).inMinutes;
+
+    if (minutesSinceLast < constraint.durationMinutes!) {
+      final remainingMinutes = constraint.durationMinutes! - minutesSinceLast;
+      return ConstraintViolation(
+        constraint: constraint,
+        message: 'Please wait ${_formatDuration(remainingMinutes)} before next dose',
+        timeUntilAllowed: Duration(minutes: remainingMinutes),
+      );
+    }
+
+    return null;
+  }
+
+  /// Validate maximum doses per period
+  ConstraintViolation? _validateMaxPerPeriod(
+    DosageConstraint constraint,
+    List<MedicationLog> logs,
+    DateTime checkTime,
+  ) {
+    if (constraint.maxCount == null || constraint.periodHours == null) return null;
+
+    final periodStart = checkTime.subtract(Duration(hours: constraint.periodHours!));
+    final logsInPeriod = logs.where((l) => l.timestamp.isAfter(periodStart)).length;
+
+    if (logsInPeriod >= constraint.maxCount!) {
+      // Find when the oldest log in the period will expire
+      final oldestInPeriod = logs
+          .where((l) => l.timestamp.isAfter(periodStart))
+          .reduce((a, b) => a.timestamp.isBefore(b.timestamp) ? a : b);
+
+      final periodEnd = oldestInPeriod.timestamp.add(Duration(hours: constraint.periodHours!));
+      final waitDuration = periodEnd.difference(checkTime);
+
+      return ConstraintViolation(
+        constraint: constraint,
+        message: 'Maximum ${constraint.maxCount} dose${constraint.maxCount! > 1 ? 's' : ''} '
+            'per ${_formatPeriod(constraint.periodHours!)} reached',
+        timeUntilAllowed: waitDuration.isNegative ? Duration.zero : waitDuration,
+      );
+    }
+
+    return null;
+  }
+
+  /// Validate maximum cumulative amount per period
+  ConstraintViolation? _validateMaxCumulativeAmount(
+    DosageConstraint constraint,
+    List<MedicationLog> logs,
+    DateTime checkTime,
+    Medication medication,
+  ) {
+    if (constraint.maxAmount == null || constraint.periodHours == null) return null;
+
+    // Note: This is a simplified check - assumes each log represents one dose
+    // In reality, you might need to track actual amounts per log
+    final periodStart = checkTime.subtract(Duration(hours: constraint.periodHours!));
+    final dosesInPeriod = logs.where((l) => l.timestamp.isAfter(periodStart)).length;
+
+    // Try to parse the amount from medication dosage
+    final doseAmount = _parseDosageAmount(medication.dosage ?? '');
+    if (doseAmount == null) return null; // Can't validate without knowing amount
+
+    final totalAmount = dosesInPeriod * doseAmount;
+
+    if (totalAmount >= constraint.maxAmount!) {
+      return ConstraintViolation(
+        constraint: constraint,
+        message: 'Maximum ${constraint.maxAmount}${constraint.unit} '
+            'per ${_formatPeriod(constraint.periodHours!)} reached',
+      );
+    }
+
+    return null;
+  }
+
+  /// Validate time window restriction
+  ConstraintViolation? _validateTimeWindow(
+    DosageConstraint constraint,
+    DateTime checkTime,
+  ) {
+    if (constraint.params == null) return null;
+
+    final currentTime = TimeOfDay.fromDateTime(checkTime);
+    final notBefore = constraint.params!['notBefore'] as String?;
+    final notAfter = constraint.params!['notAfter'] as String?;
+
+    if (notBefore != null) {
+      final beforeTime = _parseTimeString(notBefore);
+      if (beforeTime != null && _isTimeBefore(currentTime, beforeTime)) {
+        return ConstraintViolation(
+          constraint: constraint,
+          message: 'Cannot take before $notBefore',
+        );
+      }
+    }
+
+    if (notAfter != null) {
+      final afterTime = _parseTimeString(notAfter);
+      if (afterTime != null && !_isTimeBefore(currentTime, afterTime)) {
+        return ConstraintViolation(
+          constraint: constraint,
+          message: 'Cannot take after $notAfter',
+        );
+      }
+    }
+
+    return null;
+  }
+
+  /// Parse dosage amount from string like "500mg", "10ml", "2 tablets"
+  double? _parseDosageAmount(String dosage) {
+    final regex = RegExp(r'(\d+(?:\.\d+)?)');
+    final match = regex.firstMatch(dosage);
+    if (match != null) {
+      return double.tryParse(match.group(1)!);
+    }
+    return null;
+  }
+
+  /// Format duration in human-readable form
+  String _formatDuration(int minutes) {
+    if (minutes < 60) {
+      return '$minutes minute${minutes != 1 ? 's' : ''}';
+    }
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    if (mins == 0) {
+      return '$hours hour${hours != 1 ? 's' : ''}';
+    }
+    return '${hours}h ${mins}m';
+  }
+
+  /// Format period in human-readable form
+  String _formatPeriod(int hours) {
+    if (hours == 24) return 'day';
+    if (hours == 168) return 'week';
+    if (hours == 720) return 'month';
+    if (hours < 24) return '$hours hour${hours != 1 ? 's' : ''}';
+    final days = hours ~/ 24;
+    return '$days day${days != 1 ? 's' : ''}';
+  }
+
+  /// Check if medication can be taken now (convenience method)
+  bool canTakeNow(Medication medication) {
+    return checkConstraints(medication).isEmpty;
+  }
+
+  /// Get next available time to take medication
+  DateTime? getNextAvailableTime(Medication medication) {
+    final violations = checkConstraints(medication);
+    if (violations.isEmpty) return DateTime.now(); // Can take now
+
+    // Find the longest wait time
+    Duration maxWait = Duration.zero;
+    for (final violation in violations) {
+      if (violation.timeUntilAllowed != null &&
+          violation.timeUntilAllowed! > maxWait) {
+        maxWait = violation.timeUntilAllowed!;
+      }
+    }
+
+    return maxWait > Duration.zero
+        ? DateTime.now().add(maxWait)
+        : null;
+  }
 }
 
 /// Represents a medication that is overdue
@@ -483,5 +718,38 @@ class OverdueMedication {
       return '$hours hr overdue';
     }
     return '${hours}h ${mins}m overdue';
+  }
+}
+
+/// Represents a violated dosage constraint
+class ConstraintViolation {
+  final DosageConstraint constraint;
+  final String message;
+  final Duration? timeUntilAllowed;
+
+  const ConstraintViolation({
+    required this.constraint,
+    required this.message,
+    this.timeUntilAllowed,
+  });
+
+  /// Whether this is a blocking violation (prevents taking medication now)
+  bool get isBlocking => timeUntilAllowed != null && timeUntilAllowed! > Duration.zero;
+
+  /// Get human-readable time until allowed
+  String? get timeUntilAllowedDisplay {
+    if (timeUntilAllowed == null) return null;
+
+    final minutes = timeUntilAllowed!.inMinutes;
+    if (minutes < 60) {
+      return 'in $minutes minute${minutes != 1 ? 's' : ''}';
+    }
+
+    final hours = timeUntilAllowed!.inHours;
+    final mins = minutes % 60;
+    if (mins == 0) {
+      return 'in $hours hour${hours != 1 ? 's' : ''}';
+    }
+    return 'in ${hours}h ${mins}m';
   }
 }

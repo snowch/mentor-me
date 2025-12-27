@@ -111,6 +111,191 @@ enum MedicationCategory {
   }
 }
 
+/// Type of dosage constraint
+enum DosageConstraintType {
+  minTimeBetween,     // Minimum time between doses (e.g., 3-4 hours)
+  maxPerPeriod,       // Max doses in a time period (e.g., 4 per 24 hours)
+  maxCumulativeAmount,// Max total amount in period (e.g., 3000mg per 24 hours)
+  timeWindow,         // Time restrictions (e.g., "not after 8pm")
+  custom;             // User-defined constraint with description
+
+  String get displayName {
+    switch (this) {
+      case DosageConstraintType.minTimeBetween:
+        return 'Minimum time between doses';
+      case DosageConstraintType.maxPerPeriod:
+        return 'Maximum doses per period';
+      case DosageConstraintType.maxCumulativeAmount:
+        return 'Maximum amount per period';
+      case DosageConstraintType.timeWindow:
+        return 'Time window restriction';
+      case DosageConstraintType.custom:
+        return 'Custom constraint';
+    }
+  }
+}
+
+/// Represents a flexible dosage safety constraint
+///
+/// Supports various constraint patterns:
+/// - Min time between doses: type=minTimeBetween, durationMinutes=180 (3 hours)
+/// - Max per day: type=maxPerPeriod, maxCount=4, periodHours=24
+/// - Max per week: type=maxPerPeriod, maxCount=7, periodHours=168
+/// - Max cumulative: type=maxCumulativeAmount, maxAmount=3000, unit='mg', periodHours=24
+/// - Time window: type=timeWindow, params={'notAfter': '20:00', 'notBefore': '06:00'}
+/// - Custom: type=custom, description='Take with food, wait 30 min before lying down'
+@JsonSerializable()
+class DosageConstraint {
+  @JsonKey(unknownEnumValue: DosageConstraintType.custom)
+  final DosageConstraintType type;
+
+  // For minTimeBetween: duration in minutes
+  final int? durationMinutes;
+
+  // For maxPerPeriod: count and period
+  final int? maxCount;
+  final int? periodHours;
+
+  // For maxCumulativeAmount: amount, unit, and period
+  final double? maxAmount;
+  final String? unit; // 'mg', 'ml', 'tablets', etc.
+
+  // For timeWindow or custom parameters
+  final Map<String, dynamic>? params;
+
+  // Human-readable description
+  final String description;
+
+  DosageConstraint({
+    required this.type,
+    this.durationMinutes,
+    this.maxCount,
+    this.periodHours,
+    this.maxAmount,
+    this.unit,
+    this.params,
+    required this.description,
+  });
+
+  /// Create a minimum time between doses constraint
+  /// Example: DosageConstraint.minTimeBetween(hours: 3)
+  factory DosageConstraint.minTimeBetween({
+    required int hours,
+    int minutes = 0,
+  }) {
+    final totalMinutes = (hours * 60) + minutes;
+    final hoursStr = hours > 0 ? '$hours hour${hours != 1 ? 's' : ''}' : '';
+    final minsStr = minutes > 0 ? '$minutes min${minutes != 1 ? 's' : ''}' : '';
+    final timeStr = [hoursStr, minsStr].where((s) => s.isNotEmpty).join(' ');
+
+    return DosageConstraint(
+      type: DosageConstraintType.minTimeBetween,
+      durationMinutes: totalMinutes,
+      description: 'Wait at least $timeStr between doses',
+    );
+  }
+
+  /// Create a maximum doses per period constraint
+  /// Example: DosageConstraint.maxPerPeriod(count: 4, hours: 24)
+  factory DosageConstraint.maxPerPeriod({
+    required int count,
+    required int hours,
+  }) {
+    String periodStr;
+    if (hours == 24) {
+      periodStr = 'day';
+    } else if (hours == 168) {
+      periodStr = 'week';
+    } else if (hours == 720) {
+      periodStr = 'month';
+    } else {
+      periodStr = '$hours hours';
+    }
+
+    return DosageConstraint(
+      type: DosageConstraintType.maxPerPeriod,
+      maxCount: count,
+      periodHours: hours,
+      description: 'No more than $count dose${count != 1 ? 's' : ''} per $periodStr',
+    );
+  }
+
+  /// Create a maximum cumulative amount constraint
+  /// Example: DosageConstraint.maxCumulativeAmount(amount: 3000, unit: 'mg', hours: 24)
+  factory DosageConstraint.maxCumulativeAmount({
+    required double amount,
+    required String unit,
+    required int hours,
+  }) {
+    String periodStr = hours == 24 ? 'day' : hours == 168 ? 'week' : '$hours hours';
+
+    return DosageConstraint(
+      type: DosageConstraintType.maxCumulativeAmount,
+      maxAmount: amount,
+      unit: unit,
+      periodHours: hours,
+      description: 'No more than $amount$unit per $periodStr',
+    );
+  }
+
+  /// Create a time window constraint
+  /// Example: DosageConstraint.timeWindow(notAfter: '20:00', notBefore: '06:00')
+  factory DosageConstraint.timeWindow({
+    String? notBefore,
+    String? notAfter,
+  }) {
+    final constraints = <String>[];
+    if (notBefore != null) constraints.add('not before $notBefore');
+    if (notAfter != null) constraints.add('not after $notAfter');
+
+    return DosageConstraint(
+      type: DosageConstraintType.timeWindow,
+      params: {
+        if (notBefore != null) 'notBefore': notBefore,
+        if (notAfter != null) 'notAfter': notAfter,
+      },
+      description: 'Take ${constraints.join(' and ')}',
+    );
+  }
+
+  /// Create a custom constraint with description
+  /// Example: DosageConstraint.custom('Take with food')
+  factory DosageConstraint.custom(String description, {Map<String, dynamic>? params}) {
+    return DosageConstraint(
+      type: DosageConstraintType.custom,
+      params: params,
+      description: description,
+    );
+  }
+
+  DosageConstraint copyWith({
+    DosageConstraintType? type,
+    int? durationMinutes,
+    int? maxCount,
+    int? periodHours,
+    double? maxAmount,
+    String? unit,
+    Map<String, dynamic>? params,
+    String? description,
+  }) {
+    return DosageConstraint(
+      type: type ?? this.type,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      maxCount: maxCount ?? this.maxCount,
+      periodHours: periodHours ?? this.periodHours,
+      maxAmount: maxAmount ?? this.maxAmount,
+      unit: unit ?? this.unit,
+      params: params ?? this.params,
+      description: description ?? this.description,
+    );
+  }
+
+  /// Auto-generated serialization
+  factory DosageConstraint.fromJson(Map<String, dynamic> json) =>
+      _$DosageConstraintFromJson(json);
+  Map<String, dynamic> toJson() => _$DosageConstraintToJson(this);
+}
+
 /// A medication that the user tracks
 @JsonSerializable()
 class Medication {
@@ -129,6 +314,9 @@ class Medication {
   final bool isActive; // false if discontinued
   final List<String>? reminderTimes; // e.g., ["08:00", "20:00"]
 
+  // Dosage constraints (flexible safety limits)
+  final List<DosageConstraint>? dosageConstraints;
+
   Medication({
     String? id,
     required this.name,
@@ -142,6 +330,7 @@ class Medication {
     DateTime? createdAt,
     this.isActive = true,
     this.reminderTimes,
+    this.dosageConstraints,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -178,6 +367,7 @@ class Medication {
     DateTime? createdAt,
     bool? isActive,
     List<String>? reminderTimes,
+    List<DosageConstraint>? dosageConstraints,
   }) {
     return Medication(
       id: id ?? this.id,
@@ -192,6 +382,7 @@ class Medication {
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
       reminderTimes: reminderTimes ?? this.reminderTimes,
+      dosageConstraints: dosageConstraints ?? this.dosageConstraints,
     );
   }
 
