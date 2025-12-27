@@ -22,6 +22,7 @@ import 'ai_settings_screen.dart';
 import 'backup_restore_screen.dart';
 import 'profile_settings_screen.dart';
 import 'template_settings_screen.dart';
+import 'dashboard_settings_screen.dart';
 import '../widgets/voice_settings_card.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -286,6 +287,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const VoiceSettingsCard(),
 
           AppSpacing.gapLg,
+
+          // Display Preferences Section
+          Text(
+            'Display & Interface',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          AppSpacing.gapSm,
+          Text(
+            'Customize how the app looks and feels',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          AppSpacing.gapMd,
+
+          // Display Mode Toggle
+          Card(
+            child: Consumer<SettingsProvider>(
+              builder: (context, settingsProvider, child) {
+                final isSimple = settingsProvider.isSimpleMode;
+                return Column(
+                  children: [
+                    RadioListTile<DisplayMode>(
+                      secondary: const Icon(Icons.filter_1),
+                      title: const Text('Simple Mode'),
+                      subtitle: const Text('Core features only - clean and focused'),
+                      value: DisplayMode.simple,
+                      groupValue: settingsProvider.displayMode,
+                      onChanged: (mode) async {
+                        if (mode != null) {
+                          await settingsProvider.setDisplayMode(mode);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Switched to Simple Mode - showing core features only'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    RadioListTile<DisplayMode>(
+                      secondary: const Icon(Icons.tune),
+                      title: const Text('Advanced Mode'),
+                      subtitle: const Text('All features and advanced tools'),
+                      value: DisplayMode.advanced,
+                      groupValue: settingsProvider.displayMode,
+                      onChanged: (mode) async {
+                        if (mode != null) {
+                          await settingsProvider.setDisplayMode(mode);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Switched to Advanced Mode - all features unlocked'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          AppSpacing.gapMd,
+
+          // Experimental Features Toggle
+          Card(
+            child: Consumer<SettingsProvider>(
+              builder: (context, settingsProvider, child) {
+                return SwitchListTile(
+                  secondary: Icon(
+                    Icons.science_outlined,
+                    color: settingsProvider.showExperimentalFeatures
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  title: const Text('Experimental Features'),
+                  subtitle: Text(
+                    settingsProvider.showExperimentalFeatures
+                        ? 'Lab tab visible - run personal experiments'
+                        : 'Show Lab tab for N-of-1 experiments',
+                  ),
+                  value: settingsProvider.showExperimentalFeatures,
+                  onChanged: (value) async {
+                    await settingsProvider.setShowExperimentalFeatures(value);
+                    if (value && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Lab tab enabled! Test what works for you with personal experiments.',
+                          ),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+
+          AppSpacing.gapMd,
+
+          // Dashboard Customization
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.dashboard_customize),
+              title: const Text('Customize Dashboard'),
+              subtitle: const Text('Reorder and show/hide home screen widgets'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const DashboardSettingsScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          AppSpacing.gapLg,
+
+          // Wellness & Clinical Tools Section Header
+          Text(
+            'Wellness & Clinical Tools',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          AppSpacing.gapSm,
+          Text(
+            'Advanced mental health interventions',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+          AppSpacing.gapMd,
 
           // Mental Health Tools Toggle
           Card(

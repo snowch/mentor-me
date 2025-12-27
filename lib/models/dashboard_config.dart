@@ -183,10 +183,19 @@ class DashboardWidgetRegistry {
     }
   }
 
-  /// Get default configuration (most widgets visible, quickCapture hidden by default)
+  /// Get default configuration (Simple Mode - core features visible)
+  /// Advanced physical tracking widgets hidden by default to reduce clutter
   static List<DashboardWidgetConfig> getDefaultConfig() {
     // Widgets to hide by default (users can enable via dashboard settings)
-    const hiddenByDefault = {'quickCapture'};
+    // Focus on core mentor/productivity features, hide advanced physical tracking
+    const hiddenByDefault = {
+      'hydration',   // Advanced: Water tracking
+      'weight',      // Advanced: Weight tracking
+      'exercise',    // Advanced: Exercise tracking
+      'foodLog',     // Advanced: Food logging
+      'fasting',     // Advanced: Fasting tracking
+      'quickHalt',   // Advanced: HALT self-assessment
+    };
 
     return availableWidgets.asMap().entries.map((entry) {
       return DashboardWidgetConfig(

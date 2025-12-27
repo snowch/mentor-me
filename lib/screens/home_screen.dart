@@ -510,8 +510,68 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final showNotificationWarning = !_notificationsEnabled || !_exactAlarmsEnabled;
 
-    return Scaffold(
-      appBar: AppBar(
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        final showLabTab = settingsProvider.showLabTab;
+
+        // Build list of destinations based on settings
+        final destinations = <NavigationDestination>[
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: AppStrings.featureHome,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.book_outlined),
+            selectedIcon: const Icon(Icons.book),
+            label: AppStrings.featureJournal,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.task_alt_outlined),
+            selectedIcon: const Icon(Icons.task_alt),
+            label: 'Actions',
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.spa_outlined),
+            selectedIcon: const Icon(Icons.spa),
+            label: 'Wellness',
+          ),
+          if (showLabTab)
+            NavigationDestination(
+              icon: const Icon(Icons.science_outlined),
+              selectedIcon: const Icon(Icons.science),
+              label: 'Lab',
+            ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: AppStrings.featureSettings,
+          ),
+        ];
+
+        // Build list of screens based on settings
+        final screens = <Widget>[
+          MentorScreen(
+            onNavigateToTab: _navigateToTab,
+          ),
+          const JournalScreen(),
+          ActionsScreen(
+            initialFilter: _actionsFilter,
+            openAddTodoDialog: _openAddTodoDialog,
+            onAddTodoDialogOpened: () {
+              if (_openAddTodoDialog) {
+                setState(() => _openAddTodoDialog = false);
+              }
+            },
+          ),
+          const WellnessDashboardScreen(),
+          if (showLabTab)
+            const LabHomeScreen(),
+          const settings.SettingsScreen(),
+        ];
+
+        return Scaffold(
+          appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -721,63 +781,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
         ],
       ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          MentorScreen(
-            onNavigateToTab: _navigateToTab,
+          body: IndexedStack(
+            index: _selectedIndex,
+            children: screens,
           ),
-          const JournalScreen(),
-          ActionsScreen(
-            initialFilter: _actionsFilter,
-            openAddTodoDialog: _openAddTodoDialog,
-            onAddTodoDialogOpened: () {
-              if (_openAddTodoDialog) {
-                setState(() => _openAddTodoDialog = false);
-              }
-            },
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _navigateToTab,
+            destinations: destinations,
           ),
-          const WellnessDashboardScreen(),
-          const LabHomeScreen(),
-          const settings.SettingsScreen(),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _navigateToTab,
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: AppStrings.featureHome,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.book_outlined),
-            selectedIcon: const Icon(Icons.book),
-            label: AppStrings.featureJournal,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.task_alt_outlined),
-            selectedIcon: const Icon(Icons.task_alt),
-            label: 'Actions',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.spa_outlined),
-            selectedIcon: const Icon(Icons.spa),
-            label: 'Wellness',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.science_outlined),
-            selectedIcon: const Icon(Icons.science),
-            label: 'Lab',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings),
-            label: AppStrings.featureSettings,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
