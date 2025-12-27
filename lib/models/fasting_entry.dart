@@ -173,6 +173,12 @@ class FastingEntry {
   Map<String, dynamic> toJson() => _$FastingEntryToJson(this);
 }
 
+/// Current fasting phase
+enum FastingPhase {
+  fasting,
+  eatingWindow,
+}
+
 /// Fasting goals and settings
 @JsonSerializable()
 class FastingGoal {
@@ -180,12 +186,16 @@ class FastingGoal {
   final int customTargetHours; // Used when protocol is custom
   final int weeklyFastingDays; // Target days per week to fast (0-7)
   final TimeOfDay? preferredStartTime; // Typical time to start fasting
+  final TimeOfDay? eatingWindowStart; // When eating window begins (e.g., 12:00 PM)
+  final TimeOfDay? eatingWindowEnd; // When eating window ends (e.g., 6:00 PM)
 
   const FastingGoal({
     this.protocol = FastingProtocol.fasting16_8,
     this.customTargetHours = 16,
     this.weeklyFastingDays = 7,
     this.preferredStartTime,
+    this.eatingWindowStart,
+    this.eatingWindowEnd,
   });
 
   /// Get the effective target hours
@@ -196,17 +206,124 @@ class FastingGoal {
     return protocol.targetHours;
   }
 
+  /// Get eating window duration in hours
+  int get eatingWindowHours {
+    // Calculate from protocol (24 - fasting hours)
+    return 24 - targetHours;
+  }
+
+  /// Get current fasting phase based on eating window times
+  FastingPhase getCurrentPhase([DateTime? now]) {
+    now ??= DateTime.now();
+
+    // If eating window not configured, assume always fasting
+    if (eatingWindowStart == null || eatingWindowEnd == null) {
+      return FastingPhase.fasting;
+    }
+
+    final currentMinutes = now.hour * 60 + now.minute;
+    final startMinutes = eatingWindowStart!.hour * 60 + eatingWindowStart!.minute;
+    final endMinutes = eatingWindowEnd!.hour * 60 + eatingWindowEnd!.minute;
+
+    // Handle eating window that crosses midnight (e.g., 10 PM to 6 AM)
+    if (startMinutes > endMinutes) {
+      // If current time is after start OR before end, we're in eating window
+      if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
+        return FastingPhase.eatingWindow;
+      }
+      return FastingPhase.fasting;
+    } else {
+      // Normal case: eating window within same day
+      if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+        return FastingPhase.eatingWindow;
+      }
+      return FastingPhase.fasting;
+    }
+  }
+
+  /// Get time until next phase change
+  Duration getTimeUntilNextPhase([DateTime? now]) {
+    now ??= DateTime.now();
+
+    if (eatingWindowStart == null || eatingWindowEnd == null) {
+      return Duration.zero;
+    }
+
+    final currentPhase = getCurrentPhase(now);
+    final currentMinutes = now.hour * 60 + now.minute;
+
+    if (currentPhase == FastingPhase.fasting) {
+      // Time until eating window starts
+      final startMinutes = eatingWindowStart!.hour * 60 + eatingWindowStart!.minute;
+      int minutesUntilStart;
+
+      if (startMinutes > currentMinutes) {
+        minutesUntilStart = startMinutes - currentMinutes;
+      } else {
+        // Eating window is tomorrow
+        minutesUntilStart = (24 * 60) - currentMinutes + startMinutes;
+      }
+
+      return Duration(minutes: minutesUntilStart);
+    } else {
+      // Time until eating window ends (fasting starts)
+      final endMinutes = eatingWindowEnd!.hour * 60 + eatingWindowEnd!.minute;
+      int minutesUntilEnd;
+
+      if (endMinutes > currentMinutes) {
+        minutesUntilEnd = endMinutes - currentMinutes;
+      } else {
+        // Eating window ends tomorrow (crosses midnight)
+        minutesUntilEnd = (24 * 60) - currentMinutes + endMinutes;
+      }
+
+      return Duration(minutes: minutesUntilEnd);
+    }
+  }
+
+  /// Get default eating window times based on protocol
+  /// Most common: eating window in the afternoon (12pm-8pm for 16:8)
+  static TimeOfDay getDefaultEatingWindowStart(FastingProtocol protocol) {
+    switch (protocol) {
+      case FastingProtocol.fasting12_12:
+        return const TimeOfDay(hour: 8, minute: 0); // 8 AM
+      case FastingProtocol.fasting14_10:
+        return const TimeOfDay(hour: 10, minute: 0); // 10 AM
+      case FastingProtocol.fasting16_8:
+        return const TimeOfDay(hour: 12, minute: 0); // 12 PM
+      case FastingProtocol.fasting18_6:
+        return const TimeOfDay(hour: 13, minute: 0); // 1 PM
+      case FastingProtocol.fasting20_4:
+        return const TimeOfDay(hour: 14, minute: 0); // 2 PM
+      case FastingProtocol.fasting23_1:
+        return const TimeOfDay(hour: 18, minute: 0); // 6 PM (dinner)
+      default:
+        return const TimeOfDay(hour: 12, minute: 0); // Default noon
+    }
+  }
+
+  static TimeOfDay getDefaultEatingWindowEnd(FastingProtocol protocol) {
+    final start = getDefaultEatingWindowStart(protocol);
+    final eatingHours = 24 - protocol.targetHours;
+    final endHour = (start.hour + eatingHours) % 24;
+    return TimeOfDay(hour: endHour, minute: start.minute);
+  }
+
   FastingGoal copyWith({
     FastingProtocol? protocol,
     int? customTargetHours,
     int? weeklyFastingDays,
     TimeOfDay? preferredStartTime,
+    TimeOfDay? eatingWindowStart,
+    TimeOfDay? eatingWindowEnd,
   }) {
     return FastingGoal(
       protocol: protocol ?? this.protocol,
       customTargetHours: customTargetHours ?? this.customTargetHours,
       weeklyFastingDays: weeklyFastingDays ?? this.weeklyFastingDays,
       preferredStartTime: preferredStartTime ?? this.preferredStartTime,
+      eatingWindowStart: eatingWindowStart ?? this.eatingWindowStart,
+      eatingWindowEnd: eatingWindowEnd ?? this.eatingWindowEnd,
     );
   }
 

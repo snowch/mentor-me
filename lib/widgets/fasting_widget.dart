@@ -119,9 +119,56 @@ class _FastingWidgetState extends State<FastingWidget> {
     final duration = fast.duration;
     final progress = fast.progress.clamp(0.0, 1.0);
     final goalMet = fast.goalMet;
+    final goal = provider.goal;
+    final currentPhase = goal.getCurrentPhase();
+    final isFasting = currentPhase == FastingPhase.fasting;
 
     return Column(
       children: [
+        // Phase indicator (when eating window is configured)
+        if (goal.eatingWindowStart != null && goal.eatingWindowEnd != null) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isFasting
+                  ? Colors.green.shade50
+                  : Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isFasting
+                    ? Colors.green.shade300
+                    : Colors.orange.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isFasting
+                        ? Colors.green.shade500
+                        : Colors.orange.shade500,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isFasting ? 'FASTING PERIOD' : 'EATING WINDOW',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isFasting
+                        ? Colors.green.shade700
+                        : Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         // Timer display
         Row(
           children: [
@@ -203,9 +250,81 @@ class _FastingWidgetState extends State<FastingWidget> {
     FastingGoal goal,
   ) {
     final theme = Theme.of(context);
+    final currentPhase = goal.getCurrentPhase();
+    final timeUntilChange = goal.getTimeUntilNextPhase();
+    final isFasting = currentPhase == FastingPhase.fasting;
 
     return Column(
       children: [
+        // Phase indicator badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isFasting
+                ? Colors.green.shade50
+                : Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isFasting
+                  ? Colors.green.shade300
+                  : Colors.orange.shade300,
+              width: 2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: isFasting
+                      ? Colors.green.shade500
+                      : Colors.orange.shade500,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isFasting ? 'FASTING PERIOD' : 'EATING WINDOW',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isFasting
+                            ? Colors.green.shade700
+                            : Colors.orange.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    if (goal.eatingWindowStart != null &&
+                        goal.eatingWindowEnd != null) ...[
+                      Text(
+                        isFasting
+                            ? 'Eating window opens in ${_formatDuration(timeUntilChange)}'
+                            : 'Fasting starts in ${_formatDuration(timeUntilChange)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Eating window: ${goal.eatingWindowStart!.format()} - ${goal.eatingWindowEnd!.format()}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        AppSpacing.gapMd,
+
         // Protocol display
         Container(
           padding: const EdgeInsets.all(16),
