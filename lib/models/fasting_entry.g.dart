@@ -52,6 +52,13 @@ FastingGoal _$FastingGoalFromJson(Map<String, dynamic> json) => FastingGoal(
           ? null
           : TimeOfDay.fromJson(
               json['preferredStartTime'] as Map<String, dynamic>),
+      eatingWindowStart: json['eatingWindowStart'] == null
+          ? null
+          : TimeOfDay.fromJson(
+              json['eatingWindowStart'] as Map<String, dynamic>),
+      eatingWindowEnd: json['eatingWindowEnd'] == null
+          ? null
+          : TimeOfDay.fromJson(json['eatingWindowEnd'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$FastingGoalToJson(FastingGoal instance) =>
@@ -60,4 +67,6 @@ Map<String, dynamic> _$FastingGoalToJson(FastingGoal instance) =>
       'customTargetHours': instance.customTargetHours,
       'weeklyFastingDays': instance.weeklyFastingDays,
       'preferredStartTime': instance.preferredStartTime,
+      'eatingWindowStart': instance.eatingWindowStart,
+      'eatingWindowEnd': instance.eatingWindowEnd,
     };

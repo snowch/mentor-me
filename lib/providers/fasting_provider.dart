@@ -44,6 +44,9 @@ class FastingProvider extends ChangeNotifier {
     // Sort by start time (most recent first)
     _entries.sort((a, b) => b.startTime.compareTo(a.startTime));
 
+    // Ensure eating window is set with defaults if not configured
+    await ensureEatingWindowSet();
+
     _isLoading = false;
     notifyListeners();
   }
@@ -103,7 +106,15 @@ class FastingProvider extends ChangeNotifier {
 
   /// Update protocol
   Future<void> setProtocol(FastingProtocol protocol) async {
-    _goal = _goal.copyWith(protocol: protocol);
+    // Update protocol and adjust eating window to match new protocol defaults
+    final defaultStart = FastingGoal.getDefaultEatingWindowStart(protocol);
+    final defaultEnd = FastingGoal.getDefaultEatingWindowEnd(protocol);
+
+    _goal = _goal.copyWith(
+      protocol: protocol,
+      eatingWindowStart: defaultStart,
+      eatingWindowEnd: defaultEnd,
+    );
     await _storage.saveFastingGoal(_goal);
     notifyListeners();
   }
@@ -123,6 +134,28 @@ class FastingProvider extends ChangeNotifier {
     _goal = _goal.copyWith(weeklyFastingDays: days.clamp(1, 7));
     await _storage.saveFastingGoal(_goal);
     notifyListeners();
+  }
+
+  /// Update eating window times
+  Future<void> setEatingWindow({
+    required TimeOfDay start,
+    required TimeOfDay end,
+  }) async {
+    _goal = _goal.copyWith(
+      eatingWindowStart: start,
+      eatingWindowEnd: end,
+    );
+    await _storage.saveFastingGoal(_goal);
+    notifyListeners();
+  }
+
+  /// Initialize default eating window if not set
+  Future<void> ensureEatingWindowSet() async {
+    if (_goal.eatingWindowStart == null || _goal.eatingWindowEnd == null) {
+      final defaultStart = FastingGoal.getDefaultEatingWindowStart(_goal.protocol);
+      final defaultEnd = FastingGoal.getDefaultEatingWindowEnd(_goal.protocol);
+      await setEatingWindow(start: defaultStart, end: defaultEnd);
+    }
   }
 
   /// Delete a fasting entry
