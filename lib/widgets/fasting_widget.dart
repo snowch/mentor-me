@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/fasting_entry.dart';
 import '../providers/fasting_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
 
 class FastingWidget extends StatefulWidget {
@@ -38,6 +39,9 @@ class _FastingWidgetState extends State<FastingWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
+
     return Consumer<FastingProvider>(
       builder: (context, provider, child) {
         final theme = Theme.of(context);
@@ -48,60 +52,72 @@ class _FastingWidgetState extends State<FastingWidget> {
         return Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 12 : 16),
             side: BorderSide(
               color: colorScheme.outlineVariant.withValues(alpha: 0.5),
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(compact ? 12.0 : 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header row
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                    if (!compact)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.timer_outlined,
+                          color: Colors.orange.shade600,
+                          size: 20,
+                        ),
                       ),
-                      child: Icon(
+                    if (!compact) AppSpacing.gapSm,
+                    if (compact)
+                      Icon(
                         Icons.timer_outlined,
                         color: Colors.orange.shade600,
-                        size: 20,
+                        size: 18,
                       ),
-                    ),
-                    AppSpacing.gapSm,
+                    if (compact) const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Fasting',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
+                          fontSize: compact ? 14 : null,
                         ),
                       ),
                     ),
-                    // Settings button
-                    IconButton(
-                      icon: const Icon(Icons.tune, size: 20),
-                      onPressed: () => _showSettingsDialog(context, provider),
-                      tooltip: 'Fasting settings',
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    // Settings button - hide in compact mode
+                    if (!compact)
+                      IconButton(
+                        icon: const Icon(Icons.tune, size: 20),
+                        onPressed: () => _showSettingsDialog(context, provider),
+                        tooltip: 'Fasting settings',
+                        visualDensity: VisualDensity.compact,
+                      ),
                   ],
                 ),
-                AppSpacing.gapMd,
+                SizedBox(height: compact ? 8 : 16),
 
                 // Content based on state
                 if (activeFast != null)
-                  _buildActiveFastView(context, provider, activeFast)
+                  _buildActiveFastView(context, provider, activeFast, compact)
                 else
-                  _buildIdleView(context, provider, goal),
+                  _buildIdleView(context, provider, goal, compact),
 
-                // Stats row
-                AppSpacing.gapMd,
-                _buildStatsRow(context, provider),
+                // Stats row - hide in compact mode
+                if (!compact) ...[
+                  AppSpacing.gapMd,
+                  _buildStatsRow(context, provider),
+                ],
               ],
             ),
           ),
@@ -114,6 +130,7 @@ class _FastingWidgetState extends State<FastingWidget> {
     BuildContext context,
     FastingProvider provider,
     FastingEntry fast,
+    bool compact,
   ) {
     final theme = Theme.of(context);
     final duration = fast.duration;
@@ -125,8 +142,10 @@ class _FastingWidgetState extends State<FastingWidget> {
 
     return Column(
       children: [
-        // Phase indicator (when eating window is configured)
-        if (goal.eatingWindowStart != null && goal.eatingWindowEnd != null) ...[
+        // Phase indicator (when eating window is configured) - hide in compact mode
+        if (!compact &&
+            goal.eatingWindowStart != null &&
+            goal.eatingWindowEnd != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -178,13 +197,16 @@ class _FastingWidgetState extends State<FastingWidget> {
                 children: [
                   Text(
                     _formatDuration(duration),
-                    style: theme.textTheme.headlineMedium?.copyWith(
+                    style: (compact
+                            ? theme.textTheme.titleLarge
+                            : theme.textTheme.headlineMedium)
+                        ?.copyWith(
                       fontWeight: FontWeight.bold,
                       fontFamily: 'monospace',
                       color: goalMet ? Colors.green.shade600 : null,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: compact ? 2 : 4),
                   Text(
                     goalMet
                         ? 'Goal reached! ${fast.targetHours}h'
@@ -193,53 +215,57 @@ class _FastingWidgetState extends State<FastingWidget> {
                       color: goalMet
                           ? Colors.green.shade600
                           : theme.colorScheme.onSurfaceVariant,
+                      fontSize: compact ? 11 : null,
                     ),
                   ),
                 ],
               ),
             ),
-            // Stop button
-            _StopFastButton(
-              onTap: () => _confirmEndFast(context, provider, fast),
-              goalMet: goalMet,
-            ),
+            // Stop button - hide in compact mode
+            if (!compact)
+              _StopFastButton(
+                onTap: () => _confirmEndFast(context, provider, fast),
+                goalMet: goalMet,
+              ),
           ],
         ),
-        AppSpacing.gapMd,
+        SizedBox(height: compact ? 8 : 16),
 
         // Progress bar
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(compact ? 6 : 8),
           child: LinearProgressIndicator(
             value: progress,
-            minHeight: 12,
+            minHeight: compact ? 8 : 12,
             backgroundColor: Colors.orange.shade50,
             valueColor: AlwaysStoppedAnimation<Color>(
               goalMet ? Colors.green.shade400 : Colors.orange.shade400,
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: compact ? 2 : 4),
 
-        // Progress labels
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Started ${_formatTime(fast.startTime)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+        // Progress labels - hide in compact mode
+        if (!compact)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Started ${_formatTime(fast.startTime)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            Text(
-              '${(progress * 100).toInt()}%',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: goalMet ? Colors.green.shade600 : Colors.orange.shade600,
-                fontWeight: FontWeight.bold,
+              Text(
+                '${(progress * 100).toInt()}%',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      goalMet ? Colors.green.shade600 : Colors.orange.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
@@ -248,6 +274,7 @@ class _FastingWidgetState extends State<FastingWidget> {
     BuildContext context,
     FastingProvider provider,
     FastingGoal goal,
+    bool compact,
   ) {
     final theme = Theme.of(context);
     final currentPhase = goal.getCurrentPhase();
@@ -256,7 +283,7 @@ class _FastingWidgetState extends State<FastingWidget> {
 
     return Column(
       children: [
-        // Phase indicator badge
+        // Phase indicator badge - simplified in compact mode
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
