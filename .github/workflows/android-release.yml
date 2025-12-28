@@ -81,6 +81,26 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Set up release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          # Decode the keystore from base64
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+
+          # Create key.properties file
+          echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+
+          echo "✓ Release signing configured"
+          echo "Keystore file exists: $(test -f android/app/upload-keystore.jks && echo 'yes' || echo 'no')"
+          echo "Key properties exists: $(test -f android/key.properties && echo 'yes' || echo 'no')"
+
       - name: Run Flutter analyzer
         run: flutter analyze
         continue-on-error: true
@@ -238,3 +258,37 @@ jobs:
             build/app/outputs/flutter-apk/mentor-me-${{ steps.version.outputs.version }}-*.apk.md5
             build/app/outputs/bundle/release/mentor-me-${{ steps.version.outputs.version }}.aab
           retention-days: 90
+
+      - name: Upload to Google Play Store
+        uses: r0adkll/upload-google-play@v1
+        continue-on-error: true  # Don't fail the workflow if Play Store upload fails
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.example.ai_mentor_coach
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          releaseName: ${{ steps.version.outputs.version }}
+
+      - name: Play Store upload status
+        if: always()
+        run: |
+          echo "============================================"
+          echo "📦 AAB available in GitHub Release assets"
+          echo "============================================"
+          echo ""
+          echo "If Play Store upload failed, you can:"
+          echo "1. Download the AAB from the GitHub Release page"
+          echo "2. Upload manually to Play Console"
+          echo ""
+          echo "To enable automatic uploads, add the secret:"
+          echo "  PLAY_STORE_SERVICE_ACCOUNT_JSON"
+          echo ""
+          echo "See docs/android_deployment.md for setup instructions."
+
+      - name: Clean up signing files
+        if: always()
+        run: |
+          rm -f android/app/upload-keystore.jks
+          rm -f android/key.properties
+          echo "✓ Signing files cleaned up"
