@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/pulse_entry.dart';
 import '../providers/pulse_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
 
 class QuickHaltWidget extends StatefulWidget {
@@ -267,8 +268,14 @@ class _QuickHaltWidgetState extends State<QuickHaltWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
+
     return Card(
       elevation: _isExpanded ? 2 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
+      ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -281,24 +288,32 @@ class _QuickHaltWidgetState extends State<QuickHaltWidget> {
                   _isExpanded = !_isExpanded;
                 });
               },
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(compact ? 12 : 16)),
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: EdgeInsets.all(compact ? 12.0 : AppSpacing.md),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                    if (!compact)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.self_improvement_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
                       ),
-                      child: Icon(
+                    if (!compact) const SizedBox(width: AppSpacing.sm),
+                    if (compact)
+                      Icon(
                         Icons.self_improvement_outlined,
                         color: Theme.of(context).colorScheme.primary,
-                        size: 20,
+                        size: 18,
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
+                    if (compact) const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,9 +322,10 @@ class _QuickHaltWidgetState extends State<QuickHaltWidget> {
                             'Quick HALT Check',
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
+                                  fontSize: compact ? 14 : null,
                                 ),
                           ),
-                          if (!_isExpanded)
+                          if (!_isExpanded && !compact)
                             Text(
                               'Tap to check in on your basic needs',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -322,6 +338,7 @@ class _QuickHaltWidgetState extends State<QuickHaltWidget> {
                     Icon(
                       _isExpanded ? Icons.expand_less : Icons.expand_more,
                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      size: compact ? 20 : 24,
                     ),
                   ],
                 ),
@@ -332,7 +349,7 @@ class _QuickHaltWidgetState extends State<QuickHaltWidget> {
             if (_isExpanded) ...[
               const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: EdgeInsets.all(compact ? 12.0 : AppSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/win.dart';
 import '../providers/win_provider.dart';
-import '../theme/app_spacing.dart';
+import '../providers/settings_provider.dart';
 import 'add_win_dialog.dart';
 
 /// A widget that displays the user's recent wins for motivation.
@@ -130,12 +130,14 @@ class _RecentWinsWidgetState extends State<RecentWinsWidget>
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
     final winProvider = context.watch<WinProvider>();
     final recentWins = winProvider.getRecentWinsFromDays(7);
 
     // Show empty state if no recent wins
     if (recentWins.isEmpty) {
-      return _buildEmptyState(context);
+      return _buildEmptyState(context, compact);
     }
 
     // Ensure index is valid
@@ -149,33 +151,41 @@ class _RecentWinsWidgetState extends State<RecentWinsWidget>
       elevation: 0,
       color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
         side: BorderSide(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
       child: Padding(
-        padding: AppSpacing.cardPadding,
+        padding: EdgeInsets.all(compact ? 12.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                if (!compact)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.emoji_events,
+                      color: Colors.amber.shade600,
+                      size: 20,
+                    ),
                   ),
-                  child: Icon(
+                if (!compact) const SizedBox(width: 12),
+                if (compact)
+                  Icon(
                     Icons.emoji_events,
                     color: Colors.amber.shade600,
-                    size: 20,
+                    size: 18,
                   ),
-                ),
-                const SizedBox(width: 12),
+                if (compact) const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,66 +194,79 @@ class _RecentWinsWidgetState extends State<RecentWinsWidget>
                         'Recent Wins',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: compact ? 14 : null,
                             ),
                       ),
-                      Text(
-                        '${recentWins.length} win${recentWins.length == 1 ? '' : 's'} this week',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Add win button
-                IconButton(
-                  onPressed: () => AddWinDialog.show(context),
-                  icon: const Icon(Icons.add_circle_outline),
-                  tooltip: 'Record a win',
-                  iconSize: 20,
-                  visualDensity: VisualDensity.compact,
-                ),
-                // Weekly stats badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.local_fire_department,
-                        color: Colors.amber.shade700,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${recentWins.length}',
-                        style: TextStyle(
-                          color: Colors.amber.shade800,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                      if (!compact)
+                        Text(
+                          '${recentWins.length} win${recentWins.length == 1 ? '' : 's'} this week',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                         ),
-                      ),
                     ],
                   ),
                 ),
+                // Add win button - hide in compact mode
+                if (!compact)
+                  IconButton(
+                    onPressed: () => AddWinDialog.show(context),
+                    icon: const Icon(Icons.add_circle_outline),
+                    tooltip: 'Record a win',
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                // Weekly stats badge
+                if (!compact)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.local_fire_department,
+                          color: Colors.amber.shade700,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${recentWins.length}',
+                          style: TextStyle(
+                            color: Colors.amber.shade800,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (compact)
+                  Text(
+                    '${recentWins.length}',
+                    style: TextStyle(
+                      color: Colors.amber.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: compact ? 8 : 16),
 
             // Single win with slot machine animation
             ClipRect(
               child: SlideTransition(
                 position: _slideAnimation,
-                child: _WinItem(win: currentWin),
+                child: _WinItem(win: currentWin, compact: compact),
               ),
             ),
 
-            // Navigation dots and arrows (if multiple wins)
-            if (recentWins.length > 1) ...[
+            // Navigation dots and arrows (if multiple wins) - hide in compact mode
+            if (recentWins.length > 1 && !compact) ...[
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -295,59 +318,69 @@ class _RecentWinsWidgetState extends State<RecentWinsWidget>
   }
 
   /// Build an encouraging empty state when there are no recent wins
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, bool compact) {
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
         side: BorderSide(
           color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
       child: Padding(
-        padding: AppSpacing.cardPadding,
+        padding: EdgeInsets.all(compact ? 12.0 : 16.0),
         child: Column(
           children: [
-            // Trophy icon
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
+            // Trophy icon - hide decorative container in compact mode
+            if (!compact)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.emoji_events_outlined,
+                  color: Colors.amber.shade400,
+                  size: 32,
+                ),
               ),
-              child: Icon(
+            if (compact)
+              Icon(
                 Icons.emoji_events_outlined,
                 color: Colors.amber.shade400,
-                size: 32,
+                size: 24,
               ),
-            ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 8 : 12),
             Text(
               'Your Wins',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
+                    fontSize: compact ? 14 : null,
                   ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Celebrate your accomplishments, big or small',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => AddWinDialog.show(context),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Record a Win'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.amber.shade600,
-                foregroundColor: Colors.white,
+            if (!compact) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Celebrate your accomplishments, big or small',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => AddWinDialog.show(context),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Record a Win'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.amber.shade600,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -358,28 +391,36 @@ class _RecentWinsWidgetState extends State<RecentWinsWidget>
 /// Individual win item in the list
 class _WinItem extends StatelessWidget {
   final Win win;
+  final bool compact;
 
-  const _WinItem({required this.win});
+  const _WinItem({required this.win, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Source icon
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: _getSourceColor(win.source).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+        // Source icon - hide container in compact mode
+        if (!compact)
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _getSourceColor(win.source).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _getSourceIcon(win.source),
+              color: _getSourceColor(win.source),
+              size: 16,
+            ),
           ),
-          child: Icon(
+        if (compact)
+          Icon(
             _getSourceIcon(win.source),
             color: _getSourceColor(win.source),
-            size: 16,
+            size: 14,
           ),
-        ),
-        const SizedBox(width: 12),
+        SizedBox(width: compact ? 8 : 12),
         // Win description and metadata
         Expanded(
           child: Column(
@@ -389,37 +430,40 @@ class _WinItem extends StatelessWidget {
                 win.description,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
+                      fontSize: compact ? 13 : null,
                     ),
-                maxLines: 2,
+                maxLines: compact ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    _formatDate(win.createdAt),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  if (win.category != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        win.category!.displayName,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
+              if (!compact) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      _formatDate(win.createdAt),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
+                    if (win.category != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          win.category!.displayName,
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
+                ),
+              ],
             ],
           ),
         ),

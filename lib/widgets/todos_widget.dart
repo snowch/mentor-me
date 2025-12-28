@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/todo.dart';
 import '../providers/todo_provider.dart';
-import '../theme/app_spacing.dart';
+import '../providers/settings_provider.dart';
 
 /// Dashboard widget that displays pending todos in a clean list format.
 ///
@@ -19,6 +19,9 @@ class TodosWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
+
     return Consumer<TodoProvider>(
       builder: (context, todoProvider, _) {
         final pendingTodos = todoProvider.pendingTodos;
@@ -27,7 +30,7 @@ class TodosWidget extends StatelessWidget {
 
         // If no pending todos, show empty state
         if (pendingTodos.isEmpty) {
-          return _buildEmptyState(context);
+          return _buildEmptyState(context, compact);
         }
 
         return _buildTodosList(
@@ -36,17 +39,21 @@ class TodosWidget extends StatelessWidget {
           pendingTodos,
           overdueTodos,
           todayTodos,
+          compact,
         );
       },
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, bool compact) {
     return Card(
       elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
+      ),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: AppSpacing.cardPadding,
+        padding: EdgeInsets.all(compact ? 12.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -55,34 +62,37 @@ class TodosWidget extends StatelessWidget {
                 Icon(
                   Icons.checklist,
                   color: Theme.of(context).colorScheme.primary,
-                  size: 20,
+                  size: compact ? 18 : 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Todos',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
+                        fontSize: compact ? 14 : null,
                       ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 8 : 12),
             Text(
               'No pending todos',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                fontSize: 14,
+                fontSize: compact ? 13 : 14,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Add todos from Quick Capture or the Actions tab.',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
+            if (!compact) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Add todos from Quick Capture or the Actions tab.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -95,30 +105,34 @@ class TodosWidget extends StatelessWidget {
     List<Todo> pendingTodos,
     List<Todo> overdueTodos,
     List<Todo> todayTodos,
+    bool compact,
   ) {
     // Build list of todo widgets
     final todoWidgets = <Widget>[];
 
     // Add overdue todos first (highlighted)
     for (final todo in overdueTodos) {
-      todoWidgets.add(_buildTodoItem(context, todoProvider, todo, isOverdue: true));
+      todoWidgets.add(_buildTodoItem(context, todoProvider, todo, compact, isOverdue: true));
     }
 
     // Add today's todos (not overdue)
     for (final todo in todayTodos.where((t) => !t.isOverdue)) {
-      todoWidgets.add(_buildTodoItem(context, todoProvider, todo, isDueToday: true));
+      todoWidgets.add(_buildTodoItem(context, todoProvider, todo, compact, isDueToday: true));
     }
 
     // Add remaining pending todos (not overdue and not due today)
     for (final todo in pendingTodos.where((t) => !t.isOverdue && !t.isDueToday)) {
-      todoWidgets.add(_buildTodoItem(context, todoProvider, todo));
+      todoWidgets.add(_buildTodoItem(context, todoProvider, todo, compact));
     }
 
     return Card(
       elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(compact ? 12 : 16),
+      ),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Padding(
-        padding: AppSpacing.cardPadding,
+        padding: EdgeInsets.all(compact ? 12.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -129,7 +143,7 @@ class TodosWidget extends StatelessWidget {
                 Icon(
                   Icons.checklist,
                   color: Theme.of(context).colorScheme.primary,
-                  size: 20,
+                  size: compact ? 18 : 20,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -137,13 +151,17 @@ class TodosWidget extends StatelessWidget {
                     'Todos (${pendingTodos.length})',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: compact ? 14 : null,
                         ),
                   ),
                 ),
                 // Show overdue count
                 if (overdueTodos.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 6 : 8,
+                      vertical: 2,
+                    ),
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.1),
@@ -151,22 +169,22 @@ class TodosWidget extends StatelessWidget {
                     ),
                     child: Text(
                       '${overdueTodos.length} overdue',
-                      style: const TextStyle(
-                        fontSize: 11,
+                      style: TextStyle(
+                        fontSize: compact ? 10 : 11,
                         color: Colors.red,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-                // View All link
-                if (onViewAll != null)
+                // View All link - hide in compact mode
+                if (onViewAll != null && !compact)
                   TextButton(
                     onPressed: onViewAll,
                     child: const Text('View All'),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 8 : 12),
 
             // Scrollable list if more than 5 items
             if (todoWidgets.length > 5)
@@ -187,12 +205,13 @@ class TodosWidget extends StatelessWidget {
   Widget _buildTodoItem(
     BuildContext context,
     TodoProvider todoProvider,
-    Todo todo, {
+    Todo todo,
+    bool compact, {
     bool isOverdue = false,
     bool isDueToday = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: compact ? 6 : 8),
       child: InkWell(
         onTap: () async {
           // Toggle completion
@@ -204,7 +223,7 @@ class TodosWidget extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: EdgeInsets.symmetric(vertical: compact ? 2 : 4),
           child: Row(
             children: [
               Icon(
@@ -216,9 +235,9 @@ class TodosWidget extends StatelessWidget {
                     : isOverdue
                         ? Colors.red.withValues(alpha: 0.7)
                         : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                size: 22,
+                size: compact ? 20 : 22,
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: compact ? 8 : 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,6 +246,7 @@ class TodosWidget extends StatelessWidget {
                       todo.title,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w500,
+                            fontSize: compact ? 13 : null,
                             decoration: todo.status == TodoStatus.completed
                                 ? TextDecoration.lineThrough
                                 : null,
@@ -237,7 +257,7 @@ class TodosWidget extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (todo.dueDate != null)
+                    if (todo.dueDate != null && !compact)
                       Text(
                         _formatDueDate(todo.dueDate!),
                         style: TextStyle(
@@ -253,7 +273,7 @@ class TodosWidget extends StatelessWidget {
                 ),
               ),
               // Priority indicator
-              if (todo.priority == TodoPriority.high)
+              if (todo.priority == TodoPriority.high && !compact)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
