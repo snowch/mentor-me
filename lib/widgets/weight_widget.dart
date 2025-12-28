@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/weight_entry.dart';
 import '../screens/weight_tracking_screen.dart';
 import '../theme/app_spacing.dart';
@@ -41,6 +42,9 @@ class WeightWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
+
     return Consumer<WeightProvider>(
       builder: (context, provider, child) {
         final theme = Theme.of(context);
@@ -52,50 +56,60 @@ class WeightWidget extends StatelessWidget {
         return Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 12 : 16),
             side: BorderSide(
               color: colorScheme.outlineVariant.withValues(alpha: 0.5),
             ),
           ),
           child: InkWell(
             onTap: () => _openWeightScreen(context),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 12 : 16),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(compact ? 12.0 : 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header row
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                      if (!compact)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.monitor_weight,
+                            color: Colors.blue.shade600,
+                            size: 20,
+                          ),
                         ),
-                        child: Icon(
+                      if (!compact) AppSpacing.gapSm,
+                      if (compact)
+                        Icon(
                           Icons.monitor_weight,
                           color: Colors.blue.shade600,
-                          size: 20,
+                          size: 18,
                         ),
-                      ),
-                      AppSpacing.gapSm,
+                      if (compact) const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Weight',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
+                            fontSize: compact ? 14 : null,
                           ),
                         ),
                       ),
-                      // Quick log button
-                      _QuickLogButton(
-                        onTap: () => _showQuickLogDialog(context, provider),
-                      ),
+                      // Quick log button - hide in compact mode
+                      if (!compact)
+                        _QuickLogButton(
+                          onTap: () => _showQuickLogDialog(context, provider),
+                        ),
                     ],
                   ),
-                  AppSpacing.gapMd,
+                  SizedBox(height: compact ? 8 : 16),
 
                   // Weight display row
                   Row(
@@ -109,7 +123,10 @@ class WeightWidget extends StatelessWidget {
                             if (currentWeight != null)
                               Text(
                                 _formatWeight(currentWeight, unit),
-                                style: theme.textTheme.headlineMedium?.copyWith(
+                                style: (compact
+                                        ? theme.textTheme.titleLarge
+                                        : theme.textTheme.headlineMedium)
+                                    ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.onSurface,
                                 ),
@@ -119,31 +136,34 @@ class WeightWidget extends StatelessWidget {
                                 'No entries yet',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
+                                  fontSize: compact ? 14 : null,
                                 ),
                               ),
-                            AppSpacing.gapXs,
-                            // Trend indicator
-                            if (provider.entries.length >= 2)
+                            SizedBox(height: compact ? 4 : 8),
+                            // Trend indicator - hide in compact mode
+                            if (!compact && provider.entries.length >= 2)
                               _buildTrendChip(context, provider),
                           ],
                         ),
                       ),
 
-                      // Goal progress mini-indicator
-                      if (goal != null && currentWeight != null)
+                      // Goal progress mini-indicator - hide in compact mode
+                      if (!compact && goal != null && currentWeight != null)
                         _buildGoalMiniProgress(context, provider),
                     ],
                   ),
 
-                  // Goal summary (if exists)
-                  if (goal != null && currentWeight != null) ...[
+                  // Goal summary - hide in compact mode
+                  if (!compact && goal != null && currentWeight != null) ...[
                     AppSpacing.gapMd,
                     _buildGoalSummary(context, provider),
                   ],
 
-                  // Streak / last logged
-                  AppSpacing.gapSm,
-                  _buildStatusRow(context, provider),
+                  // Streak / last logged - hide in compact mode
+                  if (!compact) ...[
+                    AppSpacing.gapSm,
+                    _buildStatusRow(context, provider),
+                  ],
                 ],
               ),
             ),

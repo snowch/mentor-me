@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/settings_provider.dart';
 import '../screens/exercise_plans_screen.dart';
 import '../screens/workout_history_screen.dart';
 import '../theme/app_spacing.dart';
@@ -15,6 +16,9 @@ class ExerciseWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
+
     return Consumer<ExerciseProvider>(
       builder: (context, provider, child) {
         final theme = Theme.of(context);
@@ -28,50 +32,60 @@ class ExerciseWidget extends StatelessWidget {
         return Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 12 : 16),
             side: BorderSide(
               color: colorScheme.outlineVariant.withOpacity(0.5),
             ),
           ),
           child: InkWell(
             onTap: () => _openExerciseScreen(context),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 12 : 16),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(compact ? 12.0 : 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header row
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                      if (!compact)
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.fitness_center,
+                            color: Colors.orange.shade600,
+                            size: 20,
+                          ),
                         ),
-                        child: Icon(
+                      if (!compact) AppSpacing.gapSm,
+                      if (compact)
+                        Icon(
                           Icons.fitness_center,
                           color: Colors.orange.shade600,
-                          size: 20,
+                          size: 18,
                         ),
-                      ),
-                      AppSpacing.gapSm,
+                      if (compact) const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Exercise',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
+                            fontSize: compact ? 14 : null,
                           ),
                         ),
                       ),
-                      // Quick start button
-                      _QuickStartButton(
-                        onTap: () => _showQuickStartDialog(context, provider),
-                      ),
+                      // Quick start button - hide in compact mode
+                      if (!compact)
+                        _QuickStartButton(
+                          onTap: () => _showQuickStartDialog(context, provider),
+                        ),
                     ],
                   ),
-                  AppSpacing.gapMd,
+                  SizedBox(height: compact ? 8 : 16),
 
                   // Stats row
                   Row(
@@ -83,7 +97,10 @@ class ExerciseWidget extends StatelessWidget {
                           children: [
                             Text(
                               '$workoutsThisWeek',
-                              style: theme.textTheme.headlineSmall?.copyWith(
+                              style: (compact
+                                      ? theme.textTheme.titleLarge
+                                      : theme.textTheme.headlineSmall)
+                                  ?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colorScheme.primary,
                               ),
@@ -92,13 +109,14 @@ class ExerciseWidget extends StatelessWidget {
                               'this week',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
+                                fontSize: compact ? 11 : null,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      // Today's calories
-                      if (todayCalories > 0)
+                      // Today's calories - hide in compact mode
+                      if (!compact && todayCalories > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -136,24 +154,24 @@ class ExerciseWidget extends StatelessWidget {
                             ],
                           ),
                         ),
-                      // Streak
+                      // Streak - show smaller in compact mode
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compact ? 8 : 10,
+                          vertical: compact ? 6 : 8,
                         ),
                         decoration: BoxDecoration(
                           color: streak > 0
                               ? Colors.orange.shade50
                               : colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(compact ? 8 : 12),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.whatshot,
-                              size: 16,
+                              size: compact ? 14 : 16,
                               color: streak > 0
                                   ? Colors.orange.shade600
                                   : Colors.grey,
@@ -161,104 +179,109 @@ class ExerciseWidget extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               '$streak',
-                              style: theme.textTheme.titleSmall?.copyWith(
+                              style: (compact
+                                      ? theme.textTheme.bodyMedium
+                                      : theme.textTheme.titleSmall)
+                                  ?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: streak > 0
                                     ? Colors.orange.shade600
                                     : Colors.grey,
                               ),
                             ),
-                            const SizedBox(width: 2),
-                            Text(
-                              'day',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: streak > 0
-                                    ? Colors.orange.shade600
-                                    : Colors.grey,
-                                fontSize: 11,
+                            if (!compact) const SizedBox(width: 2),
+                            if (!compact)
+                              Text(
+                                'day',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: streak > 0
+                                      ? Colors.orange.shade600
+                                      : Colors.grey,
+                                  fontSize: 11,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  AppSpacing.gapMd,
+                  SizedBox(height: compact ? 8 : 16),
 
-                  // Recent workouts or empty state
-                  if (recentWorkouts.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.directions_run,
-                            color: Colors.grey[400],
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              hasPlans
-                                  ? 'No workouts this week'
-                                  : 'Create a plan to get started',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.grey[600],
+                  // Recent workouts or empty state - hide in compact mode
+                  if (!compact)
+                    if (recentWorkouts.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.directions_run,
+                              color: Colors.grey[400],
+                              size: 24,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                hasPlans
+                                    ? 'No workouts this week'
+                                    : 'Create a plan to get started',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.grey[600],
+                                ),
                               ),
                             ),
-                          ),
+                          ],
+                        ),
+                      )
+                    else
+                      // Show last 2 workouts
+                      Column(
+                        children: [
+                          ...recentWorkouts.take(2).map((workout) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    size: 16,
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      workout.planName ?? 'Freestyle',
+                                      style: theme.textTheme.bodyMedium,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDate(workout.startTime),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                          if (provider.workoutLogs.length > 2)
+                            TextButton(
+                              onPressed: () => _openHistoryScreen(context),
+                              child: Text(
+                                'View all ${provider.workoutLogs.length} workouts',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
-                    )
-                  else
-                    // Show last 2 workouts
-                    Column(
-                      children: [
-                        ...recentWorkouts.take(2).map((workout) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.check_circle,
-                                  size: 16,
-                                  color: Colors.green,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    workout.planName ?? 'Freestyle',
-                                    style: theme.textTheme.bodyMedium,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Text(
-                                  _formatDate(workout.startTime),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }),
-                        if (provider.workoutLogs.length > 2)
-                          TextButton(
-                            onPressed: () => _openHistoryScreen(context),
-                            child: Text(
-                              'View all ${provider.workoutLogs.length} workouts',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
                 ],
               ),
             ),
