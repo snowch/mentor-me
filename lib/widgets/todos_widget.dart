@@ -107,6 +107,11 @@ class TodosWidget extends StatelessWidget {
     List<Todo> todayTodos,
     bool compact,
   ) {
+    // Get completed todos (limit to most recent 10 to avoid clutter)
+    final completedTodos = todoProvider.completedTodos
+        .take(10)
+        .toList();
+
     // Build list of todo widgets
     final todoWidgets = <Widget>[];
 
@@ -123,6 +128,11 @@ class TodosWidget extends StatelessWidget {
     // Add remaining pending todos (not overdue and not due today)
     for (final todo in pendingTodos.where((t) => !t.isOverdue && !t.isDueToday)) {
       todoWidgets.add(_buildTodoItem(context, todoProvider, todo, compact));
+    }
+
+    // Add completed todos at the end
+    for (final todo in completedTodos) {
+      todoWidgets.add(_buildTodoItem(context, todoProvider, todo, compact, isCompleted: true));
     }
 
     return Card(
@@ -176,6 +186,39 @@ class TodosWidget extends StatelessWidget {
                       ),
                     ),
                   ),
+                // Clear completed button
+                if (completedTodos.isNotEmpty && !compact)
+                  TextButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Clear Completed Todos?'),
+                          content: Text(
+                            'This will permanently delete ${completedTodos.length} completed todo${completedTodos.length == 1 ? '' : 's'}.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('Clear'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true) {
+                        await todoProvider.clearCompleted();
+                      }
+                    },
+                    icon: const Icon(Icons.delete_sweep, size: 16),
+                    label: const Text('Clear'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 // View All link - hide in compact mode
                 if (onViewAll != null && !compact)
                   TextButton(
@@ -209,87 +252,145 @@ class TodosWidget extends StatelessWidget {
     bool compact, {
     bool isOverdue = false,
     bool isDueToday = false,
+    bool isCompleted = false,
   }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 6 : 8),
-      child: InkWell(
-        onTap: () async {
-          // Toggle completion
-          if (todo.status == TodoStatus.completed) {
-            await todoProvider.uncompleteTodo(todo.id);
-          } else {
-            await todoProvider.completeTodo(todo.id);
-          }
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: compact ? 2 : 4),
-          child: Row(
-            children: [
-              Icon(
-                todo.status == TodoStatus.completed
-                    ? Icons.check_circle
-                    : Icons.circle_outlined,
-                color: todo.status == TodoStatus.completed
-                    ? Colors.green
-                    : isOverdue
-                        ? Colors.red.withValues(alpha: 0.7)
-                        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                size: compact ? 20 : 22,
-              ),
-              SizedBox(width: compact ? 8 : 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      todo.title,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            fontSize: compact ? 13 : null,
-                            decoration: todo.status == TodoStatus.completed
-                                ? TextDecoration.lineThrough
-                                : null,
-                            color: todo.status == TodoStatus.completed
-                                ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
-                                : null,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (todo.dueDate != null && !compact)
-                      Text(
-                        _formatDueDate(todo.dueDate!),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isOverdue
-                              ? Colors.red
-                              : isDueToday
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+    final todoItem = InkWell(
+      onTap: () async {
+        // Toggle completion
+        if (todo.status == TodoStatus.completed) {
+          await todoProvider.uncompleteTodo(todo.id);
+        } else {
+          await todoProvider.completeTodo(todo.id);
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: compact ? 2 : 4),
+        child: Row(
+          children: [
+            Icon(
+              todo.status == TodoStatus.completed
+                  ? Icons.check_circle
+                  : Icons.circle_outlined,
+              color: todo.status == TodoStatus.completed
+                  ? Colors.green
+                  : isOverdue
+                      ? Colors.red.withValues(alpha: 0.7)
+                      : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+              size: compact ? 20 : 22,
+            ),
+            SizedBox(width: compact ? 8 : 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    todo.title,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          fontSize: compact ? 13 : null,
+                          decoration: todo.status == TodoStatus.completed
+                              ? TextDecoration.lineThrough
+                              : null,
+                          color: todo.status == TodoStatus.completed
+                              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)
+                              : null,
                         ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (todo.dueDate != null && !compact)
+                    Text(
+                      _formatDueDate(todo.dueDate!),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isOverdue
+                            ? Colors.red
+                            : isDueToday
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
-                  ],
+                    ),
+                ],
+              ),
+            ),
+            // Priority indicator
+            if (todo.priority == TodoPriority.high && !compact)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.priority_high,
+                  size: 14,
+                  color: Colors.orange,
                 ),
               ),
-              // Priority indicator
-              if (todo.priority == TodoPriority.high && !compact)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.priority_high,
-                    size: 14,
-                    color: Colors.orange,
-                  ),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
+    );
+
+    // Wrap completed todos in Dismissible for swipe-to-delete
+    if (isCompleted) {
+      return Dismissible(
+        key: Key(todo.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: EdgeInsets.only(right: compact ? 12 : 16),
+          color: Colors.red,
+          child: const Icon(
+            Icons.delete,
+            color: Colors.white,
+          ),
+        ),
+        confirmDismiss: (direction) async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Delete Todo?'),
+              content: Text('Permanently delete "${todo.title}"?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ],
+            ),
+          );
+        },
+        onDismissed: (direction) async {
+          await todoProvider.deleteTodo(todo.id);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Deleted "${todo.title}"'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
+        },
+        child: Padding(
+          padding: EdgeInsets.only(bottom: compact ? 6 : 8),
+          child: todoItem,
+        ),
+      );
+    }
+
+    // Non-completed todos - just return the item with padding
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 6 : 8),
+      child: todoItem,
     );
   }
 
