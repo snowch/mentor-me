@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/food_log_provider.dart';
+import '../providers/settings_provider.dart';
 import '../screens/food_log_screen.dart';
 import '../theme/app_spacing.dart';
 import '../models/food_entry.dart';
@@ -14,6 +15,9 @@ class FoodLogWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final compact = settingsProvider.compactWidgets;
+
     return Consumer<FoodLogProvider>(
       builder: (context, provider, child) {
         final todayEntries = provider.todayEntries;
@@ -32,63 +36,73 @@ class FoodLogWidget extends StatelessWidget {
         return Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 12 : 16),
             side: BorderSide(
               color: colorScheme.outlineVariant.withValues(alpha: 0.5),
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(compact ? 12.0 : 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header row
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                    if (!compact)
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.restaurant_menu,
+                          color: Colors.green.shade600,
+                          size: 20,
+                        ),
                       ),
-                      child: Icon(
+                    if (!compact) AppSpacing.gapSm,
+                    if (compact)
+                      Icon(
                         Icons.restaurant_menu,
                         color: Colors.green.shade600,
-                        size: 20,
+                        size: 18,
                       ),
-                    ),
-                    AppSpacing.gapSm,
+                    if (compact) const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Food Today',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
+                          fontSize: compact ? 14 : null,
                         ),
                       ),
                     ),
-                    // View all button
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const FoodLogScreen(),
+                    // View all button - hide in compact mode
+                    if (!compact)
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const FoodLogScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.list, size: 16),
+                        label: const Text('All'),
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.list, size: 16),
-                      label: const Text('All'),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
                         ),
                       ),
-                    ),
                   ],
                 ),
-                AppSpacing.gapMd,
+                SizedBox(height: compact ? 8 : 16),
 
                 // Progress section
                 Row(
@@ -104,7 +118,10 @@ class FoodLogWidget extends StatelessWidget {
                               children: [
                                 TextSpan(
                                   text: '${summary.totalCalories}',
-                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                  style: (compact
+                                          ? theme.textTheme.titleLarge
+                                          : theme.textTheme.headlineMedium)
+                                      ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: overGoal
                                         ? Colors.orange.shade600
@@ -115,20 +132,23 @@ class FoodLogWidget extends StatelessWidget {
                                 ),
                                 TextSpan(
                                   text: ' / ${goal.targetCalories} cal',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                  style: (compact
+                                          ? theme.textTheme.bodySmall
+                                          : theme.textTheme.bodyMedium)
+                                      ?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          AppSpacing.gapSm,
+                          SizedBox(height: compact ? 4 : 8),
                           // Progress bar
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(compact ? 6 : 8),
                             child: LinearProgressIndicator(
                               value: calorieProgress.clamp(0.0, 1.0),
-                              minHeight: 12,
+                              minHeight: compact ? 8 : 12,
                               backgroundColor: Colors.green.shade50,
                               valueColor: AlwaysStoppedAnimation<Color>(
                                 overGoal
@@ -139,88 +159,94 @@ class FoodLogWidget extends StatelessWidget {
                               ),
                             ),
                           ),
-                          AppSpacing.gapXs,
-                          // Status text
-                          Row(
-                            children: [
-                              Text(
-                                _getStatusText(summary, goal),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: overGoal
-                                      ? Colors.orange.shade600
-                                      : goalMet
-                                          ? Colors.green.shade600
-                                          : colorScheme.onSurfaceVariant,
+                          // Status text and meal count - hide in compact mode
+                          if (!compact) ...[
+                            AppSpacing.gapXs,
+                            Row(
+                              children: [
+                                Text(
+                                  _getStatusText(summary, goal),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: overGoal
+                                        ? Colors.orange.shade600
+                                        : goalMet
+                                            ? Colors.green.shade600
+                                            : colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
-                              const Spacer(),
-                              // Meal count
-                              Icon(
-                                Icons.lunch_dining,
-                                size: 14,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${todayEntries.length} ${todayEntries.length == 1 ? 'meal' : 'meals'}',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                                const Spacer(),
+                                // Meal count
+                                Icon(
+                                  Icons.lunch_dining,
+                                  size: 14,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${todayEntries.length} ${todayEntries.length == 1 ? 'meal' : 'meals'}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: compact ? 8 : 16),
+                    // Add button - hide in compact mode
+                    if (!compact)
+                      _AddFoodButton(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const FoodLogScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+
+                // Quick meal type chips and prompts - hide in compact mode
+                if (!compact) ...[
+                  // Quick meal type chips (if entries exist today)
+                  if (todayEntries.isNotEmpty) ...[
+                    AppSpacing.gapMd,
+                    _buildMealChips(context, provider),
+                  ],
+
+                  // No entries prompt
+                  if (todayEntries.isEmpty) ...[
+                    AppSpacing.gapSm,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb_outline,
+                            size: 16,
+                            color: Colors.green.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Log your meals to track nutrition and build healthy eating habits',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.green.shade800,
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    AppSpacing.gapMd,
-                    // Add button
-                    _AddFoodButton(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const FoodLogScreen(),
-                          ),
-                        );
-                      },
-                    ),
                   ],
-                ),
-
-                // Quick meal type chips (if entries exist today)
-                if (todayEntries.isNotEmpty) ...[
-                  AppSpacing.gapMd,
-                  _buildMealChips(context, provider),
-                ],
-
-                // No entries prompt
-                if (todayEntries.isEmpty) ...[
-                  AppSpacing.gapSm,
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          size: 16,
-                          color: Colors.green.shade700,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Log your meals to track nutrition and build healthy eating habits',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ],
             ),
