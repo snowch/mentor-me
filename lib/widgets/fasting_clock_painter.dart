@@ -4,10 +4,10 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../models/fasting_entry.dart';
+import '../models/fasting_entry.dart' as fasting;
 
 class FastingClockPainter extends CustomPainter {
-  final FastingGoal goal;
+  final fasting.FastingGoal goal;
   final DateTime currentTime;
   final bool isFasting;
 
@@ -73,7 +73,7 @@ class FastingClockPainter extends CustomPainter {
 
     // Draw fasting zone (red/orange)
     final fastingPaint = Paint()
-      ..color = Colors.red.shade100.withOpacity(0.5)
+      ..color = Colors.red.shade100.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - 10),
@@ -85,7 +85,7 @@ class FastingClockPainter extends CustomPainter {
 
     // Draw eating zone (green)
     final eatingPaint = Paint()
-      ..color = Colors.green.shade100.withOpacity(0.5)
+      ..color = Colors.green.shade100.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius - 10),
@@ -187,7 +187,7 @@ class FastingClockPainter extends CustomPainter {
     );
   }
 
-  double _timeToAngle(TimeOfDay time) {
+  double _timeToAngle(fasting.TimeOfDay time) {
     // Convert time to angle (0-360 degrees, with 0 at 12 o'clock)
     final totalMinutes = time.hour * 60 + time.minute;
     return (totalMinutes / (24 * 60)) * 360;
