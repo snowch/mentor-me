@@ -795,7 +795,7 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: AppSpacing.sm, // Reduced from md for tighter layout
               mainAxisSpacing: AppSpacing.sm, // Reduced from md for tighter layout
-              childAspectRatio: 1.1, // Slightly wider than square
+              childAspectRatio: 1.8, // Wider aspect ratio for compact height (~half of original)
               children: gridChildren,
             ),
           );
