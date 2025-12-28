@@ -793,8 +793,8 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
               crossAxisCount: crossAxisCount,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: AppSpacing.md,
-              mainAxisSpacing: AppSpacing.md,
+              crossAxisSpacing: AppSpacing.sm, // Reduced from md for tighter layout
+              mainAxisSpacing: AppSpacing.sm, // Reduced from md for tighter layout
               childAspectRatio: 1.1, // Slightly wider than square
               children: gridChildren,
             ),
