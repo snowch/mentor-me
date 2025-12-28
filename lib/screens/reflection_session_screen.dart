@@ -1081,9 +1081,11 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
                 bottomRight: Radius.circular(16),
               ),
             ),
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium,
+            child: SelectionArea(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium,
+              ),
             ),
           ),
         ),
@@ -1110,10 +1112,12 @@ class _ReflectionSessionScreenState extends State<ReflectionSessionScreen> {
                 bottomRight: Radius.circular(16),
               ),
             ),
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onPrimaryContainer,
+            child: SelectionArea(
+              child: Text(
+                message,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
           ),

@@ -41,6 +41,7 @@ class _FastingWidgetState extends State<FastingWidget> {
   Widget build(BuildContext context) {
     final settingsProvider = context.watch<SettingsProvider>();
     final compact = settingsProvider.compactWidgets;
+    final gridLayout = settingsProvider.gridLayout;
 
     return Consumer<FastingProvider>(
       builder: (context, provider, child) {
@@ -111,7 +112,7 @@ class _FastingWidgetState extends State<FastingWidget> {
                 if (activeFast != null)
                   _buildActiveFastView(context, provider, activeFast, compact)
                 else
-                  _buildIdleView(context, provider, goal, compact),
+                  _buildIdleView(context, provider, goal, compact, gridLayout),
 
                 // Stats row - hide in compact mode
                 if (!compact) ...[
@@ -275,6 +276,7 @@ class _FastingWidgetState extends State<FastingWidget> {
     FastingProvider provider,
     FastingGoal goal,
     bool compact,
+    bool gridLayout,
   ) {
     final theme = Theme.of(context);
     final currentPhase = goal.getCurrentPhase();
@@ -283,74 +285,76 @@ class _FastingWidgetState extends State<FastingWidget> {
 
     return Column(
       children: [
-        // Phase indicator badge - simplified in compact mode
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: isFasting
-                ? Colors.green.shade50
-                : Colors.orange.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
+        // Phase indicator badge - hide in grid layout to save space
+        if (!gridLayout) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
               color: isFasting
-                  ? Colors.green.shade300
-                  : Colors.orange.shade300,
-              width: 2,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: isFasting
-                      ? Colors.green.shade500
-                      : Colors.orange.shade500,
-                  shape: BoxShape.circle,
-                ),
+                  ? Colors.green.shade50
+                  : Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isFasting
+                    ? Colors.green.shade300
+                    : Colors.orange.shade300,
+                width: 2,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isFasting ? 'FASTING PERIOD' : 'EATING WINDOW',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isFasting
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    if (goal.eatingWindowStart != null &&
-                        goal.eatingWindowEnd != null) ...[
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: isFasting
+                        ? Colors.green.shade500
+                        : Colors.orange.shade500,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        isFasting
-                            ? 'Eating window opens in ${_formatDuration(timeUntilChange)}'
-                            : 'Fasting starts in ${_formatDuration(timeUntilChange)}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        isFasting ? 'FASTING PERIOD' : 'EATING WINDOW',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isFasting
+                              ? Colors.green.shade700
+                              : Colors.orange.shade700,
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'Eating window: ${goal.eatingWindowStart!.format()} - ${goal.eatingWindowEnd!.format()}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w500,
+                      if (goal.eatingWindowStart != null &&
+                          goal.eatingWindowEnd != null) ...[
+                        Text(
+                          isFasting
+                              ? 'Eating window opens in ${_formatDuration(timeUntilChange)}'
+                              : 'Fasting starts in ${_formatDuration(timeUntilChange)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Eating window: ${goal.eatingWindowStart!.format()} - ${goal.eatingWindowEnd!.format()}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        AppSpacing.gapMd,
+          AppSpacing.gapMd,
+        ],
 
         // Protocol display
         Container(

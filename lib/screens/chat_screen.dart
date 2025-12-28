@@ -929,32 +929,34 @@ class _ChatScreenState extends State<ChatScreen> {
                       bottomRight: Radius.circular(isUser ? 4 : AppRadius.lg),
                     ),
                   ),
-                  child: isUser
-                      ? Text(
-                          message.content,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  child: SelectionArea(
+                    child: isUser
+                        ? Text(
+                            message.content,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          )
+                        : MarkdownBody(
+                            data: message.content.replaceAll('\\n', '\n'), // Convert literal \n to actual newlines
+                            styleSheet: MarkdownStyleSheet(
+                              p: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              strong: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              em: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              listBullet: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
-                        )
-                      : MarkdownBody(
-                          data: message.content.replaceAll('\\n', '\n'), // Convert literal \n to actual newlines
-                          styleSheet: MarkdownStyleSheet(
-                            p: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                            strong: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            em: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              fontStyle: FontStyle.italic,
-                            ),
-                            listBullet: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
+                  ),
                 ),
                 // Action buttons (only for mentor messages)
                 if (message.hasSuggestedActions) ...[

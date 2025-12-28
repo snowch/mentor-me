@@ -1200,6 +1200,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
   void _showAddTodoDialog(BuildContext context) {
     final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
     DateTime? selectedDate;
 
     showDialog(
@@ -1207,45 +1208,59 @@ class _ActionsScreenState extends State<ActionsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('New Todo'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'What needs to be done?',
-                  border: OutlineInputBorder(),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Summary',
+                    hintText: 'What needs to be done?',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today),
-                title: Text(
-                  selectedDate != null
-                      ? DateFormat('MMM d, yyyy').format(selectedDate!)
-                      : 'Set due date (optional)',
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Details (optional)',
+                    hintText: 'Additional notes or context...',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
                 ),
-                trailing: selectedDate != null
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => setState(() => selectedDate = null),
-                      )
-                    : null,
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (date != null) {
-                    setState(() => selectedDate = date);
-                  }
-                },
-              ),
-            ],
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(
+                    selectedDate != null
+                        ? DateFormat('MMM d, yyyy').format(selectedDate!)
+                        : 'Set due date (optional)',
+                  ),
+                  trailing: selectedDate != null
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setState(() => selectedDate = null),
+                        )
+                      : null,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      setState(() => selectedDate = date);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -1257,6 +1272,9 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 if (titleController.text.trim().isNotEmpty) {
                   final todo = Todo(
                     title: titleController.text.trim(),
+                    description: descriptionController.text.trim().isNotEmpty
+                        ? descriptionController.text.trim()
+                        : null,
                     dueDate: selectedDate,
                     hasReminder: selectedDate != null,
                     reminderTime: selectedDate,
@@ -1275,6 +1293,7 @@ class _ActionsScreenState extends State<ActionsScreen> {
 
   void _showEditTodoDialog(BuildContext context, Todo todo, TodoProvider provider) {
     final titleController = TextEditingController(text: todo.title);
+    final descriptionController = TextEditingController(text: todo.description);
     DateTime? selectedDate = todo.dueDate;
 
     showDialog(
@@ -1282,44 +1301,58 @@ class _ActionsScreenState extends State<ActionsScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Edit Todo'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  hintText: 'What needs to be done?',
-                  border: OutlineInputBorder(),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Summary',
+                    hintText: 'What needs to be done?',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_today),
-                title: Text(
-                  selectedDate != null
-                      ? DateFormat('MMM d, yyyy').format(selectedDate!)
-                      : 'Set due date (optional)',
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Details (optional)',
+                    hintText: 'Additional notes or context...',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
                 ),
-                trailing: selectedDate != null
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () => setState(() => selectedDate = null),
-                      )
-                    : null,
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate ?? DateTime.now(),
-                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                  );
-                  if (date != null) {
-                    setState(() => selectedDate = date);
-                  }
-                },
-              ),
-            ],
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(
+                    selectedDate != null
+                        ? DateFormat('MMM d, yyyy').format(selectedDate!)
+                        : 'Set due date (optional)',
+                  ),
+                  trailing: selectedDate != null
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setState(() => selectedDate = null),
+                        )
+                      : null,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      setState(() => selectedDate = date);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -1331,6 +1364,9 @@ class _ActionsScreenState extends State<ActionsScreen> {
                 if (titleController.text.trim().isNotEmpty) {
                   final updatedTodo = todo.copyWith(
                     title: titleController.text.trim(),
+                    description: descriptionController.text.trim().isNotEmpty
+                        ? descriptionController.text.trim()
+                        : null,
                     dueDate: selectedDate,
                     hasReminder: selectedDate != null,
                     reminderTime: selectedDate,
