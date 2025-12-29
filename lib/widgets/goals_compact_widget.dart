@@ -212,69 +212,66 @@ class GoalsCompactWidget extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: AppSpacing.cardPadding,
+          padding: const EdgeInsets.all(12),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(),
-
-              // Icon
-              Icon(
-                Icons.calendar_today,
-                color: progressColor,
-                size: 32,
+              // Header row: Icon + Title
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    color: progressColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Today's Goal Tasks",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
-
-              // Title
-              Text(
-                "Today's Goal Tasks",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
 
               if (totalTasks > 0) ...[
                 // Large completion count
                 Text(
                   '$completedTasks',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: progressColor,
                       ),
-                  textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 4),
 
                 // Small "of X" text
                 Text(
                   '/ $totalTasks',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                  textAlign: TextAlign.center,
                 ),
               ] else ...[
                 Text(
                   '0',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                  textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 4),
                 Text(
                   'tasks today',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                  textAlign: TextAlign.center,
                 ),
               ],
-
-              const Spacer(),
             ],
           ),
         ),
@@ -301,51 +298,49 @@ class GoalsCompactWidget extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: AppSpacing.cardPadding,
+          padding: const EdgeInsets.all(12),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(),
-
-              // Icon
-              Icon(
-                Icons.flag,
-                color: progressColor,
-                size: 32,
+              // Header row: Icon + Title
+              Row(
+                children: [
+                  Icon(
+                    Icons.flag,
+                    color: progressColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Active Goals',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
-
-              // Title
-              Text(
-                'Active Goals',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
 
               // Large progress percentage
               Text(
                 '${averageProgress.round()}%',
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: progressColor,
                     ),
-                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 4),
 
               // Small "on track" text
               Text(
                 '$onTrackCount / ${activeGoals.length} on track',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                textAlign: TextAlign.center,
               ),
-
-              const Spacer(),
             ],
           ),
         ),
