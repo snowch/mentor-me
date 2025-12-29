@@ -137,22 +137,26 @@ class HabitsCompactWidget extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Large completion count
-              Text(
-                '$completedCount',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: progressColor,
-                    ),
-              ),
-              const SizedBox(height: 4),
-
-              // Small "of X" text
-              Text(
-                '/ $totalCount',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+              // Completion count on one line
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '$completedCount',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: progressColor,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '/ $totalCount',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ),
             ],
           ),

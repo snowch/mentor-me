@@ -238,40 +238,27 @@ class GoalsCompactWidget extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              if (totalTasks > 0) ...[
-                // Large completion count
-                Text(
-                  '$completedTasks',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: progressColor,
-                      ),
-                ),
-                const SizedBox(height: 4),
-
-                // Small "of X" text
-                Text(
-                  '/ $totalTasks',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ] else ...[
-                Text(
-                  '0',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'tasks today',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+              // Completion count on one line
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '$completedTasks',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: progressColor,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '/ $totalTasks',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
