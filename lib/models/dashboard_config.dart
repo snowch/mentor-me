@@ -145,6 +145,13 @@ class DashboardWidgetRegistry {
       color: Colors.orange,
     ),
     DashboardWidgetInfo(
+      id: 'medication',
+      name: 'Medication Tracker',
+      description: 'Track medications and adherence',
+      icon: Icons.medication,
+      color: Colors.purple,
+    ),
+    DashboardWidgetInfo(
       id: 'quickCapture',
       name: 'Quick Capture',
       description: 'Quickly add todos and see upcoming tasks',
@@ -194,6 +201,7 @@ class DashboardWidgetRegistry {
       'exercise',    // Advanced: Exercise tracking
       'foodLog',     // Advanced: Food logging
       'fasting',     // Advanced: Fasting tracking
+      'medication',  // Advanced: Medication tracking
       'quickHalt',   // Advanced: HALT self-assessment
     };
 

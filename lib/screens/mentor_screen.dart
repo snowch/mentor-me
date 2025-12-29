@@ -26,6 +26,7 @@ import '../widgets/quick_halt_widget.dart';
 import '../widgets/hydration_widget.dart';
 import '../widgets/weight_widget.dart';
 import '../widgets/exercise_widget.dart';
+import '../widgets/medication_summary_widget.dart';
 import '../providers/settings_provider.dart';
 import '../models/dashboard_config.dart';
 import 'dashboard_settings_screen.dart';
@@ -732,6 +733,7 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
       'exercise',
       'foodLog',
       'fasting',
+      'medication',
     };
 
     // Group consecutive grid-friendly widgets
@@ -841,6 +843,8 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         return const FoodLogWidget();
       case 'fasting':
         return const FastingWidget();
+      case 'medication':
+        return const MedicationSummaryWidget();
       case 'quickCapture':
         return const QuickCaptureWidget();
       case 'todos':
