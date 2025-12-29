@@ -7,6 +7,7 @@ import '../providers/goal_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_spacing.dart';
 import '../models/goal.dart';
+import '../models/milestone.dart';
 
 enum GoalsDisplayMode {
   dailyFocus,      // Show today's milestone tasks
@@ -46,7 +47,7 @@ class GoalsCompactWidget extends StatelessWidget {
 
     for (final goal in activeGoals) {
       for (final milestone in goal.milestonesDetailed) {
-        if (milestone.completed) continue;
+        if (milestone.isCompleted) continue;
 
         // Check if milestone is due today or overdue
         if (milestone.targetDate != null) {
@@ -70,7 +71,7 @@ class GoalsCompactWidget extends StatelessWidget {
       final hasTasksForGoal = tasks.any((t) => t['goal'] == goal);
       if (!hasTasksForGoal) {
         final incompleteMilestones = goal.milestonesDetailed
-            .where((m) => !m.completed)
+            .where((m) => !m.isCompleted)
             .toList();
         if (incompleteMilestones.isNotEmpty) {
           final nextMilestone = incompleteMilestones.first;
@@ -96,7 +97,6 @@ class GoalsCompactWidget extends StatelessWidget {
       return {'onTrackCount': 0, 'stalledCount': 0, 'averageProgress': 0.0};
     }
 
-    final now = DateTime.now();
     int stalledCount = 0;
 
     // A goal is "stalled" if it has made no progress in 7+ days
@@ -198,8 +198,8 @@ class GoalsCompactWidget extends StatelessWidget {
   Widget _buildDailyFocusCard(BuildContext context, List<Goal> activeGoals) {
     final todayTasks = _getTodayTasks(activeGoals);
     final completedTasks = todayTasks.where((t) {
-      final milestone = t['milestone'] as Milestone;
-      return milestone.completed;
+      final milestone = t['milestone'];
+      return (milestone as Milestone).isCompleted;
     }).length;
     final totalTasks = todayTasks.length;
     final completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0.0;
@@ -296,7 +296,6 @@ class GoalsCompactWidget extends StatelessWidget {
   Widget _buildOverallProgressCard(BuildContext context, List<Goal> activeGoals) {
     final health = _getOverallHealth(activeGoals);
     final onTrackCount = health['onTrackCount'] as int;
-    final stalledCount = health['stalledCount'] as int;
     final averageProgress = health['averageProgress'] as double;
 
     // Calculate health rate (percentage of goals on track)
