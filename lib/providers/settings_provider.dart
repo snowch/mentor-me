@@ -7,6 +7,7 @@ import '../models/dashboard_config.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
 import '../services/debug_service.dart';
+import '../widgets/goals_compact_widget.dart';
 
 /// Display mode for app complexity level
 enum DisplayMode {
@@ -52,6 +53,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _showExperimentalFeatures = false; // Default: hide Lab features
   bool _compactWidgets = false; // Default: normal widget size
   bool _gridLayout = false; // Default: list layout
+  GoalsDisplayMode _goalsDisplayMode = GoalsDisplayMode.dailyFocus; // Default: daily focus
 
   // Dashboard Layout Settings
   DashboardLayout _dashboardLayout = DashboardLayout.defaultLayout();
@@ -70,6 +72,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get showExperimentalFeatures => _showExperimentalFeatures;
   bool get compactWidgets => _compactWidgets;
   bool get gridLayout => _gridLayout;
+  GoalsDisplayMode get goalsDisplayMode => _goalsDisplayMode;
   DashboardLayout get dashboardLayout => _dashboardLayout;
 
   // Derived getters for feature visibility
@@ -122,6 +125,14 @@ class SettingsProvider extends ChangeNotifier {
       _showExperimentalFeatures = settings['showExperimentalFeatures'] as bool? ?? false;
       _compactWidgets = settings['compactWidgets'] as bool? ?? false;
       _gridLayout = settings['gridLayout'] as bool? ?? false;
+
+      // Load goals display mode
+      final goalsDisplayModeString = settings['goalsDisplayMode'] as String?;
+      if (goalsDisplayModeString == 'overallProgress') {
+        _goalsDisplayMode = GoalsDisplayMode.overallProgress;
+      } else {
+        _goalsDisplayMode = GoalsDisplayMode.dailyFocus; // Default
+      }
 
       // Load dashboard layout
       final dashboardLayoutJson = settings['dashboardLayout'] as Map<String, dynamic>?;
@@ -449,6 +460,28 @@ class SettingsProvider extends ChangeNotifier {
       'SettingsProvider',
       'Grid layout ${enabled ? "enabled" : "disabled"}',
       metadata: {'enabled': enabled},
+    );
+  }
+
+  /// Set goals display mode and notify listeners
+  Future<void> setGoalsDisplayMode(GoalsDisplayMode mode) async {
+    if (_goalsDisplayMode == mode) return;
+
+    _goalsDisplayMode = mode;
+
+    // Update storage
+    final settings = await _storage.loadSettings();
+    settings['goalsDisplayMode'] = mode == GoalsDisplayMode.overallProgress
+        ? 'overallProgress'
+        : 'dailyFocus';
+    await _storage.saveSettings(settings);
+
+    notifyListeners();
+
+    await _debug.info(
+      'SettingsProvider',
+      'Goals display mode changed to ${mode == GoalsDisplayMode.dailyFocus ? "daily focus" : "overall progress"}',
+      metadata: {'mode': mode == GoalsDisplayMode.dailyFocus ? 'dailyFocus' : 'overallProgress'},
     );
   }
 }

@@ -37,6 +37,8 @@ import '../widgets/fasting_widget.dart';
 import '../widgets/quick_capture_widget.dart';
 import '../widgets/todos_widget.dart';
 import '../widgets/hands_free_discovery_card.dart';
+import '../widgets/habits_compact_widget.dart';
+import '../widgets/goals_compact_widget.dart';
 
 class MentorScreen extends StatefulWidget {
   final void Function(int index, {ActionFilter? filter}) onNavigateToTab;
@@ -734,6 +736,8 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
       'foodLog',
       'fasting',
       'medication',
+      'habitsCompact',
+      'goalsCompact',
     };
 
     // Group consecutive grid-friendly widgets
@@ -857,6 +861,14 @@ class _MentorScreenState extends State<MentorScreen> with WidgetsBindingObserver
         return _buildGlanceableGoals(context, goalProvider);
       case 'habits':
         return _buildTodaysHabits(context, habitProvider);
+      case 'habitsCompact':
+        return HabitsCompactWidget(
+          onTap: () => widget.onNavigateToTab(2, filter: ActionFilter.habits),
+        );
+      case 'goalsCompact':
+        return GoalsCompactWidget(
+          onTap: () => widget.onNavigateToTab(2, filter: ActionFilter.goals),
+        );
       default:
         return null;
     }

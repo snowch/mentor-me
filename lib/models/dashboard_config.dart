@@ -179,6 +179,20 @@ class DashboardWidgetRegistry {
       icon: Icons.check_circle,
       color: Colors.amber,
     ),
+    DashboardWidgetInfo(
+      id: 'habitsCompact',
+      name: 'Habits (Compact)',
+      description: 'Compact habits progress card',
+      icon: Icons.emoji_events,
+      color: Colors.amber,
+    ),
+    DashboardWidgetInfo(
+      id: 'goalsCompact',
+      name: 'Goals (Compact)',
+      description: 'Compact goals summary card',
+      icon: Icons.flag,
+      color: Colors.green,
+    ),
   ];
 
   /// Get widget info by ID
@@ -196,13 +210,15 @@ class DashboardWidgetRegistry {
     // Widgets to hide by default (users can enable via dashboard settings)
     // Focus on core mentor/productivity features, hide advanced physical tracking
     const hiddenByDefault = {
-      'hydration',   // Advanced: Water tracking
-      'weight',      // Advanced: Weight tracking
-      'exercise',    // Advanced: Exercise tracking
-      'foodLog',     // Advanced: Food logging
-      'fasting',     // Advanced: Fasting tracking
-      'medication',  // Advanced: Medication tracking
-      'quickHalt',   // Advanced: HALT self-assessment
+      'hydration',       // Advanced: Water tracking
+      'weight',          // Advanced: Weight tracking
+      'exercise',        // Advanced: Exercise tracking
+      'foodLog',         // Advanced: Food logging
+      'fasting',         // Advanced: Fasting tracking
+      'medication',      // Advanced: Medication tracking
+      'quickHalt',       // Advanced: HALT self-assessment
+      'habitsCompact',   // Compact: Hidden by default (user enables when using grid layout)
+      'goalsCompact',    // Compact: Hidden by default (user enables when using grid layout)
     };
 
     return availableWidgets.asMap().entries.map((entry) {
