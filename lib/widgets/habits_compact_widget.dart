@@ -116,85 +116,46 @@ class HabitsCompactWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Icon with color indicator
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.emoji_events,
-                    color: progressColor,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward,
-                    color: progressColor.withValues(alpha: 0.4),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.check_circle,
-                    color: Colors.green,
-                    size: 24,
-                  ),
-                ],
+              const Spacer(),
+
+              // Icon
+              Icon(
+                Icons.check_circle,
+                color: progressColor,
+                size: 32,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Title
               Text(
                 "Today's Habits",
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Completion count
+              // Large completion count
               Text(
-                '$completedCount of $totalCount complete',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-
-              // Progress bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: completionRate,
-                  backgroundColor: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                  minHeight: 8,
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Percentage
-              Text(
-                '${(completionRate * 100).round()}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                '$completedCount',
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                       color: progressColor,
-                      fontWeight: FontWeight.bold,
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
 
-              // Tap to view hint
+              // Small "of X" text
               Text(
-                'Tap to view all habits',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                '/ $totalCount',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 11,
                     ),
                 textAlign: TextAlign.center,
               ),
+
+              const Spacer(),
             ],
           ),
         ),

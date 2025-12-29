@@ -217,74 +217,64 @@ class GoalsCompactWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const Spacer(),
+
               // Icon
               Icon(
-                Icons.today,
+                Icons.calendar_today,
                 color: progressColor,
                 size: 32,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Title
               Text(
                 "Today's Goal Tasks",
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
-
-              // Task count
-              Text(
-                totalTasks == 0
-                    ? 'No tasks today'
-                    : '$completedTasks of $totalTasks complete',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                textAlign: TextAlign.center,
-              ),
+              const SizedBox(height: 16),
 
               if (totalTasks > 0) ...[
-                const SizedBox(height: 8),
-
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: completionRate,
-                    backgroundColor: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                    minHeight: 8,
-                  ),
-                ),
-                const SizedBox(height: 4),
-
-                // Percentage
+                // Large completion count
                 Text(
-                  '${(completionRate * 100).round()}%',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: progressColor,
+                  '$completedTasks',
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: progressColor,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+
+                // Small "of X" text
+                Text(
+                  '/ $totalTasks',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ] else ...[
+                Text(
+                  '0',
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  'tasks today',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                   textAlign: TextAlign.center,
                 ),
               ],
 
-              const SizedBox(height: 8),
-
-              // Tap to view hint
-              Text(
-                'Tap to view all goals',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 11,
-                    ),
-                textAlign: TextAlign.center,
-              ),
+              const Spacer(),
             ],
           ),
         ),
@@ -316,76 +306,46 @@ class GoalsCompactWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const Spacer(),
+
               // Icon
               Icon(
                 Icons.flag,
                 color: progressColor,
                 size: 32,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
               // Title
               Text(
                 'Active Goals',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Goals health summary
-              Text(
-                '$onTrackCount of ${activeGoals.length} on track',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Average progress: ${averageProgress.round()}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-
-              // Progress bar (based on health rate)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: averageProgress / 100,
-                  backgroundColor: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                  minHeight: 8,
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Health percentage
+              // Large progress percentage
               Text(
                 '${averageProgress.round()}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: progressColor,
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: progressColor,
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
 
-              // Tap to view hint
+              // Small "on track" text
               Text(
-                'Tap to view all goals',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                '$onTrackCount / ${activeGoals.length} on track',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 11,
                     ),
                 textAlign: TextAlign.center,
               ),
+
+              const Spacer(),
             ],
           ),
         ),
