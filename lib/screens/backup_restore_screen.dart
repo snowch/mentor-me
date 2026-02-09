@@ -22,6 +22,18 @@ import '../providers/pulse_provider.dart';
 import '../providers/pulse_type_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/food_log_provider.dart';
+import '../providers/food_library_provider.dart';
+import '../providers/mindful_eating_provider.dart';
+import '../providers/todo_provider.dart';
+import '../providers/hydration_provider.dart';
+import '../providers/weight_provider.dart';
+import '../providers/win_provider.dart';
+import '../providers/exercise_provider.dart';
+import '../providers/medication_provider.dart';
+import '../providers/symptom_provider.dart';
+import '../providers/experiment_provider.dart';
+import '../providers/fasting_provider.dart';
 import '../theme/app_spacing.dart';
 import '../constants/app_strings.dart';
 
@@ -459,6 +471,18 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         context.read<PulseProvider>().reload(),
         context.read<PulseTypeProvider>().reload(),
         context.read<ChatProvider>().reload(),
+        context.read<FoodLogProvider>().reload(),
+        context.read<FoodLibraryProvider>().reload(),
+        context.read<MindfulEatingProvider>().reload(),
+        context.read<TodoProvider>().reload(),
+        context.read<HydrationProvider>().reload(),
+        context.read<WeightProvider>().reload(),
+        context.read<WinProvider>().reload(),
+        context.read<ExerciseProvider>().reload(),
+        context.read<MedicationProvider>().reload(),
+        context.read<SymptomProvider>().reload(),
+        context.read<ExperimentProvider>().reload(),
+        context.read<FastingProvider>().reload(),
       ]);
 
       // Re-initialize AIService to pick up restored settings (AI provider, model, etc.)
