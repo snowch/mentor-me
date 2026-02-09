@@ -27,6 +27,7 @@ import 'food_log_screen.dart';
 import 'fasting_screen.dart';
 import 'exercise_plans_screen.dart';
 import 'today_sessions_screen.dart';
+import 'exercise_pool_screen.dart';
 import 'medication_screen.dart';
 import 'symptom_tracker_screen.dart';
 import 'lab_home_screen.dart';
@@ -481,6 +482,15 @@ class _WellnessDashboardScreenState extends State<WellnessDashboardScreen> {
                 description: 'Spread exercises throughout your day with scheduled micro-sessions',
                 color: Colors.teal,
                 onTap: () => _navigate(context, const TodaySessionsScreen()),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildFeatureCard(
+                context,
+                icon: Icons.checklist,
+                title: 'Exercise Pool',
+                description: 'A flexible weekly checklist — complete exercises at your own pace',
+                color: Colors.deepPurple,
+                onTap: () => _navigate(context, const ExercisePoolScreen()),
               ),
             ],
           ),

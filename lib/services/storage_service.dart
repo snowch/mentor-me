@@ -16,6 +16,7 @@ import '../models/weight_entry.dart';
 import '../models/win.dart';
 import '../models/exercise.dart';
 import '../models/weekly_schedule.dart';
+import '../models/exercise_pool.dart';
 import '../models/food_entry.dart';
 import '../models/food_template.dart';
 import '../models/mindful_eating_entry.dart';
@@ -86,6 +87,8 @@ class StorageService {
   static const String _workoutLogsKey = 'workout_logs';
   static const String _weeklySchedulesKey = 'weekly_schedules';
   static const String _sessionCompletionsKey = 'session_completions';
+  static const String _exercisePoolsKey = 'exercise_pools';
+  static const String _poolCompletionsKey = 'pool_completions';
 
   // Food logging
   static const String _foodEntriesKey = 'food_entries';
@@ -174,6 +177,8 @@ class StorageService {
     'workout_logs',
     'weekly_schedules',
     'session_completions',
+    'exercise_pools',
+    'pool_completions',
 
     // Food logging
     'food_entries',
@@ -779,6 +784,52 @@ class StorageService {
     }
   }
 
+  // Save/Load Exercise Pools
+  Future<void> saveExercisePools(List<ExercisePool> pools) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = pools.map((p) => p.toJson()).toList();
+    await prefs.setString(_exercisePoolsKey, json.encode(jsonList));
+    await _notifyPersistence('exercise_pools');
+  }
+
+  Future<List<ExercisePool>> loadExercisePools() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_exercisePoolsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => ExercisePool.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted exercise pools data, returning empty list. Error: $e');
+      await prefs.remove(_exercisePoolsKey);
+      return [];
+    }
+  }
+
+  // Save/Load Pool Completions
+  Future<void> savePoolCompletions(List<PoolExerciseCompletion> completions) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = completions.map((c) => c.toJson()).toList();
+    await prefs.setString(_poolCompletionsKey, json.encode(jsonList));
+    await _notifyPersistence('pool_completions');
+  }
+
+  Future<List<PoolExerciseCompletion>> loadPoolCompletions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_poolCompletionsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => PoolExerciseCompletion.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted pool completions data, returning empty list. Error: $e');
+      await prefs.remove(_poolCompletionsKey);
+      return [];
+    }
+  }
+
   // ============================================================================
   // Food Logging
   // ============================================================================
@@ -1152,6 +1203,8 @@ class StorageService {
       'workoutLogs': await loadWorkoutLogs(),
       'weeklySchedules': await loadWeeklySchedules(),
       'sessionCompletions': await loadSessionCompletions(),
+      'exercisePools': await loadExercisePools(),
+      'poolCompletions': await loadPoolCompletions(),
       'settings': await loadSettings(),
       'exportDate': DateTime.now().toIso8601String(),
     };
@@ -1293,6 +1346,20 @@ class StorageService {
           .map((json) => SessionCompletion.fromJson(json))
           .toList();
       await saveSessionCompletions(completions);
+    }
+
+    if (data['exercisePools'] != null) {
+      final pools = (data['exercisePools'] as List)
+          .map((json) => ExercisePool.fromJson(json))
+          .toList();
+      await saveExercisePools(pools);
+    }
+
+    if (data['poolCompletions'] != null) {
+      final completions = (data['poolCompletions'] as List)
+          .map((json) => PoolExerciseCompletion.fromJson(json))
+          .toList();
+      await savePoolCompletions(completions);
     }
 
     if (data['settings'] != null) {

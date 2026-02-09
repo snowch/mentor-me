@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/exercise.dart';
 import '../models/weekly_schedule.dart';
+import '../models/exercise_pool.dart';
 import '../services/storage_service.dart';
 
 /// Manages exercise plans and workout tracking state
@@ -14,6 +15,8 @@ class ExerciseProvider extends ChangeNotifier {
   List<WorkoutLog> _workoutLogs = [];
   List<WeeklySchedule> _weeklySchedules = [];
   List<SessionCompletion> _sessionCompletions = [];
+  List<ExercisePool> _exercisePools = [];
+  List<PoolExerciseCompletion> _poolCompletions = [];
   WorkoutLog? _activeWorkout;
   bool _isLoading = false;
 
@@ -23,6 +26,8 @@ class ExerciseProvider extends ChangeNotifier {
   List<WorkoutLog> get workoutLogs => _workoutLogs;
   List<WeeklySchedule> get weeklySchedules => _weeklySchedules;
   List<SessionCompletion> get sessionCompletions => _sessionCompletions;
+  List<ExercisePool> get exercisePools => _exercisePools;
+  List<PoolExerciseCompletion> get poolCompletions => _poolCompletions;
   WorkoutLog? get activeWorkout => _activeWorkout;
   bool get isLoading => _isLoading;
   bool get hasActiveWorkout => _activeWorkout != null;
@@ -171,6 +176,8 @@ class ExerciseProvider extends ChangeNotifier {
     _workoutLogs = await _storage.loadWorkoutLogs();
     _weeklySchedules = await _storage.loadWeeklySchedules();
     _sessionCompletions = await _storage.loadSessionCompletions();
+    _exercisePools = await _storage.loadExercisePools();
+    _poolCompletions = await _storage.loadPoolCompletions();
 
     // Sort workout logs by date (most recent first)
     _workoutLogs.sort((a, b) => b.startTime.compareTo(a.startTime));
@@ -716,6 +723,150 @@ class ExerciseProvider extends ChangeNotifier {
     if (totalScheduled == 0) return 0.0;
     return totalCompleted / totalScheduled;
   }
+  // ==================== Exercise Pools ====================
+
+  /// Active exercise pools
+  List<ExercisePool> get activePools =>
+      _exercisePools.where((p) => p.isActive).toList();
+
+  /// Add a new exercise pool
+  Future<void> addExercisePool(ExercisePool pool) async {
+    _exercisePools.add(pool);
+    await _storage.saveExercisePools(_exercisePools);
+    notifyListeners();
+  }
+
+  /// Update an existing exercise pool
+  Future<void> updateExercisePool(ExercisePool pool) async {
+    final index = _exercisePools.indexWhere((p) => p.id == pool.id);
+    if (index != -1) {
+      _exercisePools[index] = pool;
+      await _storage.saveExercisePools(_exercisePools);
+      notifyListeners();
+    }
+  }
+
+  /// Delete an exercise pool
+  Future<void> deleteExercisePool(String poolId) async {
+    _exercisePools.removeWhere((p) => p.id == poolId);
+    _poolCompletions.removeWhere((c) => c.poolId == poolId);
+    await _storage.saveExercisePools(_exercisePools);
+    await _storage.savePoolCompletions(_poolCompletions);
+    notifyListeners();
+  }
+
+  /// Find exercise pool by ID
+  ExercisePool? findExercisePool(String id) {
+    try {
+      return _exercisePools.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Toggle pool active/inactive
+  Future<void> togglePoolActive(String poolId) async {
+    final index = _exercisePools.indexWhere((p) => p.id == poolId);
+    if (index != -1) {
+      final pool = _exercisePools[index];
+      _exercisePools[index] = pool.copyWith(isActive: !pool.isActive);
+      await _storage.saveExercisePools(_exercisePools);
+      notifyListeners();
+    }
+  }
+
+  // ==================== Pool Completions ====================
+
+  /// Get the start of the current week (Monday)
+  DateTime _currentWeekStart() {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return DateTime(monday.year, monday.month, monday.day);
+  }
+
+  /// Get completions for a pool exercise this week
+  int poolExerciseCompletionsThisWeek(String poolId, String poolExerciseId) {
+    final weekStart = _currentWeekStart();
+    return _poolCompletions.where((c) =>
+        c.poolId == poolId &&
+        c.poolExerciseId == poolExerciseId &&
+        c.completedAt.isAfter(weekStart)).length;
+  }
+
+  /// Check if a pool exercise is fully completed for this week
+  bool isPoolExerciseDoneThisWeek(String poolId, String poolExerciseId) {
+    final pool = findExercisePool(poolId);
+    if (pool == null) return false;
+    try {
+      final exercise = pool.exercises.firstWhere((e) => e.id == poolExerciseId);
+      return poolExerciseCompletionsThisWeek(poolId, poolExerciseId) >=
+          exercise.targetPerWeek;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Complete a pool exercise (add one completion)
+  Future<void> completePoolExercise({
+    required String poolId,
+    required String poolExerciseId,
+    String? notes,
+  }) async {
+    final completion = PoolExerciseCompletion(
+      id: _uuid.v4(),
+      poolId: poolId,
+      poolExerciseId: poolExerciseId,
+      completedAt: DateTime.now(),
+      notes: notes,
+    );
+    _poolCompletions.add(completion);
+    await _storage.savePoolCompletions(_poolCompletions);
+    notifyListeners();
+  }
+
+  /// Remove the most recent completion for a pool exercise this week (undo)
+  Future<void> uncompletePoolExercise({
+    required String poolId,
+    required String poolExerciseId,
+  }) async {
+    final weekStart = _currentWeekStart();
+    // Find the most recent completion this week
+    final recentIndex = _poolCompletions.lastIndexWhere((c) =>
+        c.poolId == poolId &&
+        c.poolExerciseId == poolExerciseId &&
+        c.completedAt.isAfter(weekStart));
+    if (recentIndex != -1) {
+      _poolCompletions.removeAt(recentIndex);
+      await _storage.savePoolCompletions(_poolCompletions);
+      notifyListeners();
+    }
+  }
+
+  /// Pool completion stats for this week
+  PoolWeeklyStats poolWeeklyStats(String poolId) {
+    final pool = findExercisePool(poolId);
+    if (pool == null) return const PoolWeeklyStats(completed: 0, total: 0);
+
+    int totalTarget = 0;
+    int totalDone = 0;
+    for (final ex in pool.exercises) {
+      totalTarget += ex.targetPerWeek;
+      totalDone += poolExerciseCompletionsThisWeek(poolId, ex.id)
+          .clamp(0, ex.targetPerWeek);
+    }
+    return PoolWeeklyStats(completed: totalDone, total: totalTarget);
+  }
+}
+
+/// Stats for a pool's weekly progress
+class PoolWeeklyStats {
+  final int completed;
+  final int total;
+
+  const PoolWeeklyStats({required this.completed, required this.total});
+
+  double get progress => total > 0 ? completed / total : 0.0;
+  bool get isComplete => completed >= total && total > 0;
 }
 
 /// Helper class for today's session view

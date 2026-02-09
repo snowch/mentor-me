@@ -51,6 +51,7 @@ import '../models/mindful_eating_entry.dart';
 import '../models/weight_entry.dart';
 import '../models/exercise.dart';
 import '../models/weekly_schedule.dart';
+import '../models/exercise_pool.dart';
 import '../models/digital_wellness.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
@@ -133,6 +134,8 @@ class BackupService {
     final workoutLogs = await _storage.loadWorkoutLogs();
     final weeklySchedules = await _storage.loadWeeklySchedules();
     final sessionCompletions = await _storage.loadSessionCompletions();
+    final exercisePools = await _storage.loadExercisePools();
+    final poolCompletions = await _storage.loadPoolCompletions();
 
     // Digital wellness data
     final unplugSessions = await _storage.getUnplugSessions() ?? [];
@@ -241,6 +244,8 @@ class BackupService {
       'workout_logs': json.encode(workoutLogs.map((l) => l.toJson()).toList()),
       'weekly_schedules': json.encode(weeklySchedules.map((s) => s.toJson()).toList()),
       'session_completions': json.encode(sessionCompletions.map((c) => c.toJson()).toList()),
+      'exercise_pools': json.encode(exercisePools.map((p) => p.toJson()).toList()),
+      'pool_completions': json.encode(poolCompletions.map((c) => c.toJson()).toList()),
 
       // Digital wellness
       'unplug_sessions': json.encode(unplugSessions),
@@ -304,6 +309,8 @@ class BackupService {
         'totalWorkoutLogs': workoutLogs.length,
         'totalWeeklySchedules': weeklySchedules.length,
         'totalSessionCompletions': sessionCompletions.length,
+        'totalExercisePools': exercisePools.length,
+        'totalPoolCompletions': poolCompletions.length,
         // Digital wellness
         'totalUnplugSessions': unplugSessions.length,
         'totalDeviceBoundaries': deviceBoundaries.length,
@@ -2403,6 +2410,72 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Session Completions',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import exercise pools
+    try {
+      if (data.containsKey('exercise_pools') && data['exercise_pools'] != null) {
+        final poolsJson = json.decode(data['exercise_pools'] as String) as List;
+        final pools = poolsJson.map((json) => ExercisePool.fromJson(json)).toList();
+        await _storage.saveExercisePools(pools);
+        await _debug.info('BackupService', 'Imported ${pools.length} exercise pools');
+        results.add(ImportItemResult(
+          dataType: 'Exercise Pools',
+          success: true,
+          count: pools.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Exercise Pools',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import exercise pools: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Exercise Pools',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import pool completions
+    try {
+      if (data.containsKey('pool_completions') && data['pool_completions'] != null) {
+        final completionsJson = json.decode(data['pool_completions'] as String) as List;
+        final completions = completionsJson.map((json) => PoolExerciseCompletion.fromJson(json)).toList();
+        await _storage.savePoolCompletions(completions);
+        await _debug.info('BackupService', 'Imported ${completions.length} pool completions');
+        results.add(ImportItemResult(
+          dataType: 'Pool Completions',
+          success: true,
+          count: completions.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Pool Completions',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import pool completions: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Pool Completions',
         success: false,
         count: 0,
         errorMessage: e.toString(),

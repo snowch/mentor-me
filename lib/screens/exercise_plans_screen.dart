@@ -7,6 +7,7 @@ import '../providers/weight_provider.dart';
 import '../services/ai_service.dart';
 import 'today_sessions_screen.dart';
 import 'weekly_schedule_screen.dart';
+import 'exercise_pool_screen.dart';
 import 'workout_history_screen.dart';
 
 class ExercisePlansScreen extends StatefulWidget {
@@ -66,6 +67,16 @@ class _ExercisePlansScreenState extends State<ExercisePlansScreen> {
               ),
             ),
             tooltip: 'Weekly Schedules',
+          ),
+          IconButton(
+            icon: const Icon(Icons.checklist),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ExercisePoolScreen(),
+              ),
+            ),
+            tooltip: 'Exercise Pool',
           ),
           IconButton(
             icon: const Icon(Icons.bolt),
