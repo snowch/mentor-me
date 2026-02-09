@@ -15,6 +15,7 @@ import '../models/user_context_summary.dart';
 import '../models/weight_entry.dart';
 import '../models/win.dart';
 import '../models/exercise.dart';
+import '../models/weekly_schedule.dart';
 import '../models/food_entry.dart';
 import '../models/food_template.dart';
 import '../models/mindful_eating_entry.dart';
@@ -83,6 +84,8 @@ class StorageService {
   static const String _customExercisesKey = 'custom_exercises';
   static const String _exercisePlansKey = 'exercise_plans';
   static const String _workoutLogsKey = 'workout_logs';
+  static const String _weeklySchedulesKey = 'weekly_schedules';
+  static const String _sessionCompletionsKey = 'session_completions';
 
   // Food logging
   static const String _foodEntriesKey = 'food_entries';
@@ -169,6 +172,8 @@ class StorageService {
     'custom_exercises',
     'exercise_plans',
     'workout_logs',
+    'weekly_schedules',
+    'session_completions',
 
     // Food logging
     'food_entries',
@@ -728,6 +733,52 @@ class StorageService {
     }
   }
 
+  // Save/Load Weekly Schedules
+  Future<void> saveWeeklySchedules(List<WeeklySchedule> schedules) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = schedules.map((s) => s.toJson()).toList();
+    await prefs.setString(_weeklySchedulesKey, json.encode(jsonList));
+    await _notifyPersistence('weekly_schedules');
+  }
+
+  Future<List<WeeklySchedule>> loadWeeklySchedules() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_weeklySchedulesKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => WeeklySchedule.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted weekly schedules data, returning empty list. Error: $e');
+      await prefs.remove(_weeklySchedulesKey);
+      return [];
+    }
+  }
+
+  // Save/Load Session Completions
+  Future<void> saveSessionCompletions(List<SessionCompletion> completions) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = completions.map((c) => c.toJson()).toList();
+    await prefs.setString(_sessionCompletionsKey, json.encode(jsonList));
+    await _notifyPersistence('session_completions');
+  }
+
+  Future<List<SessionCompletion>> loadSessionCompletions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_sessionCompletionsKey);
+    if (jsonString == null) return [];
+
+    try {
+      final List<dynamic> jsonList = json.decode(jsonString);
+      return jsonList.map((j) => SessionCompletion.fromJson(j)).toList();
+    } catch (e) {
+      debugPrint('Warning: Corrupted session completions data, returning empty list. Error: $e');
+      await prefs.remove(_sessionCompletionsKey);
+      return [];
+    }
+  }
+
   // ============================================================================
   // Food Logging
   // ============================================================================
@@ -1099,6 +1150,8 @@ class StorageService {
       'customExercises': await loadCustomExercises(),
       'exercisePlans': await loadExercisePlans(),
       'workoutLogs': await loadWorkoutLogs(),
+      'weeklySchedules': await loadWeeklySchedules(),
+      'sessionCompletions': await loadSessionCompletions(),
       'settings': await loadSettings(),
       'exportDate': DateTime.now().toIso8601String(),
     };
@@ -1226,6 +1279,20 @@ class StorageService {
           .map((json) => WorkoutLog.fromJson(json))
           .toList();
       await saveWorkoutLogs(logs);
+    }
+
+    if (data['weeklySchedules'] != null) {
+      final schedules = (data['weeklySchedules'] as List)
+          .map((json) => WeeklySchedule.fromJson(json))
+          .toList();
+      await saveWeeklySchedules(schedules);
+    }
+
+    if (data['sessionCompletions'] != null) {
+      final completions = (data['sessionCompletions'] as List)
+          .map((json) => SessionCompletion.fromJson(json))
+          .toList();
+      await saveSessionCompletions(completions);
     }
 
     if (data['settings'] != null) {

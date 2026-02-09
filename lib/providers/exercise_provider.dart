@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/exercise.dart';
+import '../models/weekly_schedule.dart';
 import '../services/storage_service.dart';
 
 /// Manages exercise plans and workout tracking state
@@ -11,6 +12,8 @@ class ExerciseProvider extends ChangeNotifier {
   List<Exercise> _customExercises = [];
   List<ExercisePlan> _plans = [];
   List<WorkoutLog> _workoutLogs = [];
+  List<WeeklySchedule> _weeklySchedules = [];
+  List<SessionCompletion> _sessionCompletions = [];
   WorkoutLog? _activeWorkout;
   bool _isLoading = false;
 
@@ -18,9 +21,56 @@ class ExerciseProvider extends ChangeNotifier {
   List<Exercise> get customExercises => _customExercises;
   List<ExercisePlan> get plans => _plans;
   List<WorkoutLog> get workoutLogs => _workoutLogs;
+  List<WeeklySchedule> get weeklySchedules => _weeklySchedules;
+  List<SessionCompletion> get sessionCompletions => _sessionCompletions;
   WorkoutLog? get activeWorkout => _activeWorkout;
   bool get isLoading => _isLoading;
   bool get hasActiveWorkout => _activeWorkout != null;
+
+  /// Active weekly schedules
+  List<WeeklySchedule> get activeSchedules =>
+      _weeklySchedules.where((s) => s.isActive).toList();
+
+  /// Today's scheduled sessions across all active schedules
+  List<_TodaySession> get todaySessions {
+    final now = DateTime.now();
+    final dayOfWeek = now.weekday; // 1=Monday, 7=Sunday
+    final sessions = <_TodaySession>[];
+
+    for (final schedule in activeSchedules) {
+      for (final session in schedule.sessionsForDay(dayOfWeek)) {
+        final isCompleted = isSessionCompletedToday(schedule.id, session.id);
+        sessions.add(_TodaySession(
+          schedule: schedule,
+          session: session,
+          isCompleted: isCompleted,
+        ));
+      }
+    }
+
+    sessions.sort((a, b) {
+      final aMinutes = a.session.hour * 60 + a.session.minute;
+      final bMinutes = b.session.hour * 60 + b.session.minute;
+      return aMinutes.compareTo(bMinutes);
+    });
+
+    return sessions;
+  }
+
+  /// Check if a specific session has been completed today
+  bool isSessionCompletedToday(String scheduleId, String sessionId) {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    return _sessionCompletions.any((c) =>
+        c.scheduleId == scheduleId &&
+        c.sessionId == sessionId &&
+        c.completedDate == todayDate);
+  }
+
+  /// Today's completion count / total scheduled
+  int get todayCompletedCount =>
+      todaySessions.where((s) => s.isCompleted).length;
+  int get todayTotalCount => todaySessions.length;
 
   /// All available exercises (presets + custom)
   List<Exercise> get allExercises => [...Exercise.presets, ..._customExercises];
@@ -119,6 +169,8 @@ class ExerciseProvider extends ChangeNotifier {
     _customExercises = await _storage.loadCustomExercises();
     _plans = await _storage.loadExercisePlans();
     _workoutLogs = await _storage.loadWorkoutLogs();
+    _weeklySchedules = await _storage.loadWeeklySchedules();
+    _sessionCompletions = await _storage.loadSessionCompletions();
 
     // Sort workout logs by date (most recent first)
     _workoutLogs.sort((a, b) => b.startTime.compareTo(a.startTime));
@@ -539,4 +591,145 @@ class ExerciseProvider extends ChangeNotifier {
     }
     return volume;
   }
+
+  // ==================== Weekly Schedules ====================
+
+  /// Add a new weekly schedule
+  Future<void> addWeeklySchedule(WeeklySchedule schedule) async {
+    _weeklySchedules.add(schedule);
+    await _storage.saveWeeklySchedules(_weeklySchedules);
+    notifyListeners();
+  }
+
+  /// Update an existing weekly schedule
+  Future<void> updateWeeklySchedule(WeeklySchedule schedule) async {
+    final index = _weeklySchedules.indexWhere((s) => s.id == schedule.id);
+    if (index != -1) {
+      _weeklySchedules[index] = schedule;
+      await _storage.saveWeeklySchedules(_weeklySchedules);
+      notifyListeners();
+    }
+  }
+
+  /// Delete a weekly schedule
+  Future<void> deleteWeeklySchedule(String scheduleId) async {
+    _weeklySchedules.removeWhere((s) => s.id == scheduleId);
+    // Also remove completions for this schedule
+    _sessionCompletions.removeWhere((c) => c.scheduleId == scheduleId);
+    await _storage.saveWeeklySchedules(_weeklySchedules);
+    await _storage.saveSessionCompletions(_sessionCompletions);
+    notifyListeners();
+  }
+
+  /// Find weekly schedule by ID
+  WeeklySchedule? findWeeklySchedule(String id) {
+    try {
+      return _weeklySchedules.firstWhere((s) => s.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Toggle a weekly schedule active/inactive
+  Future<void> toggleScheduleActive(String scheduleId) async {
+    final index = _weeklySchedules.indexWhere((s) => s.id == scheduleId);
+    if (index != -1) {
+      final schedule = _weeklySchedules[index];
+      _weeklySchedules[index] = schedule.copyWith(isActive: !schedule.isActive);
+      await _storage.saveWeeklySchedules(_weeklySchedules);
+      notifyListeners();
+    }
+  }
+
+  // ==================== Session Completions ====================
+
+  /// Mark a scheduled session as completed for today
+  Future<void> completeSession({
+    required String scheduleId,
+    required String sessionId,
+    String? workoutLogId,
+    String? notes,
+  }) async {
+    final completion = SessionCompletion(
+      id: _uuid.v4(),
+      scheduleId: scheduleId,
+      sessionId: sessionId,
+      completedAt: DateTime.now(),
+      workoutLogId: workoutLogId,
+      notes: notes,
+    );
+    _sessionCompletions.add(completion);
+    await _storage.saveSessionCompletions(_sessionCompletions);
+    notifyListeners();
+  }
+
+  /// Remove today's completion for a session (undo)
+  Future<void> uncompleteSession({
+    required String scheduleId,
+    required String sessionId,
+  }) async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    _sessionCompletions.removeWhere((c) =>
+        c.scheduleId == scheduleId &&
+        c.sessionId == sessionId &&
+        c.completedDate == todayDate);
+    await _storage.saveSessionCompletions(_sessionCompletions);
+    notifyListeners();
+  }
+
+  /// Get completions for a date range (for history/stats)
+  List<SessionCompletion> completionsInRange(DateTime start, DateTime end) {
+    return _sessionCompletions.where((c) =>
+        c.completedAt.isAfter(start) && c.completedAt.isBefore(end)).toList();
+  }
+
+  /// Weekly completion rate (completed / total scheduled sessions)
+  double get weeklyCompletionRate {
+    if (activeSchedules.isEmpty) return 0.0;
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+
+    int totalScheduled = 0;
+    int totalCompleted = 0;
+
+    for (int day = 0; day < 7; day++) {
+      final date = startOfDay.add(Duration(days: day));
+      if (date.isAfter(now)) break; // Don't count future days
+
+      final dayOfWeek = date.weekday;
+      for (final schedule in activeSchedules) {
+        final daySessions = schedule.sessionsForDay(dayOfWeek);
+        totalScheduled += daySessions.length;
+        for (final session in daySessions) {
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          final completed = _sessionCompletions.any((c) =>
+              c.scheduleId == schedule.id &&
+              c.sessionId == session.id &&
+              c.completedDate == dateOnly);
+          if (completed) totalCompleted++;
+        }
+      }
+    }
+
+    if (totalScheduled == 0) return 0.0;
+    return totalCompleted / totalScheduled;
+  }
 }
+
+/// Helper class for today's session view
+class TodaySession {
+  final WeeklySchedule schedule;
+  final ScheduledSession session;
+  final bool isCompleted;
+
+  const TodaySession({
+    required this.schedule,
+    required this.session,
+    required this.isCompleted,
+  });
+}
+
+/// Internal helper, same as TodaySession but private naming convention
+typedef _TodaySession = TodaySession;
