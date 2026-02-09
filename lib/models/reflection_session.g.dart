@@ -132,6 +132,9 @@ const _$ActionTypeEnumMap = {
   ActionType.startExperimentIntervention: 'startExperimentIntervention',
   ActionType.completeExperiment: 'completeExperiment',
   ActionType.abandonExperiment: 'abandonExperiment',
+  ActionType.enableLabFeatures: 'enableLabFeatures',
+  ActionType.switchDisplayMode: 'switchDisplayMode',
+  ActionType.enableDashboardWidget: 'enableDashboardWidget',
 };
 
 ExecutedAction _$ExecutedActionFromJson(Map<String, dynamic> json) =>

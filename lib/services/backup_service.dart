@@ -50,6 +50,7 @@ import '../models/food_entry.dart';
 import '../models/mindful_eating_entry.dart';
 import '../models/weight_entry.dart';
 import '../models/exercise.dart';
+import '../models/weekly_schedule.dart';
 import '../models/digital_wellness.dart';
 import '../models/medication.dart';
 import '../models/symptom.dart';
@@ -130,6 +131,8 @@ class BackupService {
     final customExercises = await _storage.loadCustomExercises();
     final exercisePlans = await _storage.loadExercisePlans();
     final workoutLogs = await _storage.loadWorkoutLogs();
+    final weeklySchedules = await _storage.loadWeeklySchedules();
+    final sessionCompletions = await _storage.loadSessionCompletions();
 
     // Digital wellness data
     final unplugSessions = await _storage.getUnplugSessions() ?? [];
@@ -236,6 +239,8 @@ class BackupService {
       'custom_exercises': json.encode(customExercises.map((e) => e.toJson()).toList()),
       'exercise_plans': json.encode(exercisePlans.map((p) => p.toJson()).toList()),
       'workout_logs': json.encode(workoutLogs.map((l) => l.toJson()).toList()),
+      'weekly_schedules': json.encode(weeklySchedules.map((s) => s.toJson()).toList()),
+      'session_completions': json.encode(sessionCompletions.map((c) => c.toJson()).toList()),
 
       // Digital wellness
       'unplug_sessions': json.encode(unplugSessions),
@@ -297,6 +302,8 @@ class BackupService {
         'totalCustomExercises': customExercises.length,
         'totalExercisePlans': exercisePlans.length,
         'totalWorkoutLogs': workoutLogs.length,
+        'totalWeeklySchedules': weeklySchedules.length,
+        'totalSessionCompletions': sessionCompletions.length,
         // Digital wellness
         'totalUnplugSessions': unplugSessions.length,
         'totalDeviceBoundaries': deviceBoundaries.length,
@@ -2330,6 +2337,72 @@ class BackupService {
       );
       results.add(ImportItemResult(
         dataType: 'Workout Logs',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import weekly schedules
+    try {
+      if (data.containsKey('weekly_schedules') && data['weekly_schedules'] != null) {
+        final schedulesJson = json.decode(data['weekly_schedules'] as String) as List;
+        final schedules = schedulesJson.map((json) => WeeklySchedule.fromJson(json)).toList();
+        await _storage.saveWeeklySchedules(schedules);
+        await _debug.info('BackupService', 'Imported ${schedules.length} weekly schedules');
+        results.add(ImportItemResult(
+          dataType: 'Weekly Schedules',
+          success: true,
+          count: schedules.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Weekly Schedules',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import weekly schedules: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Weekly Schedules',
+        success: false,
+        count: 0,
+        errorMessage: e.toString(),
+      ));
+    }
+
+    // Import session completions
+    try {
+      if (data.containsKey('session_completions') && data['session_completions'] != null) {
+        final completionsJson = json.decode(data['session_completions'] as String) as List;
+        final completions = completionsJson.map((json) => SessionCompletion.fromJson(json)).toList();
+        await _storage.saveSessionCompletions(completions);
+        await _debug.info('BackupService', 'Imported ${completions.length} session completions');
+        results.add(ImportItemResult(
+          dataType: 'Session Completions',
+          success: true,
+          count: completions.length,
+        ));
+      } else {
+        results.add(ImportItemResult(
+          dataType: 'Session Completions',
+          success: true,
+          count: 0,
+        ));
+      }
+    } catch (e, stackTrace) {
+      await _debug.error(
+        'BackupService',
+        'Failed to import session completions: ${e.toString()}',
+        stackTrace: stackTrace.toString(),
+      );
+      results.add(ImportItemResult(
+        dataType: 'Session Completions',
         success: false,
         count: 0,
         errorMessage: e.toString(),

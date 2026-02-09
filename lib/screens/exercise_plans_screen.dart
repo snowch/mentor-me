@@ -5,6 +5,8 @@ import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/weight_provider.dart';
 import '../services/ai_service.dart';
+import 'today_sessions_screen.dart';
+import 'weekly_schedule_screen.dart';
 import 'workout_history_screen.dart';
 
 class ExercisePlansScreen extends StatefulWidget {
@@ -45,6 +47,26 @@ class _ExercisePlansScreenState extends State<ExercisePlansScreen> {
       appBar: AppBar(
         title: const Text('Exercise Plans'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.today),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TodaySessionsScreen(),
+              ),
+            ),
+            tooltip: "Today's Sessions",
+          ),
+          IconButton(
+            icon: const Icon(Icons.calendar_month),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WeeklyScheduleScreen(),
+              ),
+            ),
+            tooltip: 'Weekly Schedules',
+          ),
           IconButton(
             icon: const Icon(Icons.bolt),
             onPressed: () => showModalBottomSheet(
