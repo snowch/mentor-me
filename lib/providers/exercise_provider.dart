@@ -806,11 +806,12 @@ class ExerciseProvider extends ChangeNotifier {
     }
   }
 
-  /// Complete a pool exercise (add one completion)
+  /// Complete a pool exercise (add one completion with optional set data)
   Future<void> completePoolExercise({
     required String poolId,
     required String poolExerciseId,
     String? notes,
+    List<PoolCompletionSet>? sets,
   }) async {
     final completion = PoolExerciseCompletion(
       id: _uuid.v4(),
@@ -818,10 +819,40 @@ class ExerciseProvider extends ChangeNotifier {
       poolExerciseId: poolExerciseId,
       completedAt: DateTime.now(),
       notes: notes,
+      sets: sets ?? const [],
     );
     _poolCompletions.add(completion);
     await _storage.savePoolCompletions(_poolCompletions);
     notifyListeners();
+  }
+
+  /// Remove an exercise from a pool
+  Future<void> removePoolExercise({
+    required String poolId,
+    required String poolExerciseId,
+  }) async {
+    final pool = findExercisePool(poolId);
+    if (pool == null) return;
+    final updatedExercises =
+        pool.exercises.where((e) => e.id != poolExerciseId).toList();
+    final updatedPool = pool.copyWith(exercises: updatedExercises);
+    await updateExercisePool(updatedPool);
+    // Also remove completions for this exercise
+    _poolCompletions.removeWhere((c) =>
+        c.poolId == poolId && c.poolExerciseId == poolExerciseId);
+    await _storage.savePoolCompletions(_poolCompletions);
+  }
+
+  /// Get completions for a pool exercise this week (with full data)
+  List<PoolExerciseCompletion> poolExerciseCompletionDetailsThisWeek(
+      String poolId, String poolExerciseId) {
+    final weekStart = _currentWeekStart();
+    return _poolCompletions
+        .where((c) =>
+            c.poolId == poolId &&
+            c.poolExerciseId == poolExerciseId &&
+            c.completedAt.isAfter(weekStart))
+        .toList();
   }
 
   /// Remove the most recent completion for a pool exercise this week (undo)

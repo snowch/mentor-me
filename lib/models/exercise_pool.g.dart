@@ -91,6 +91,11 @@ PoolExerciseCompletion _$PoolExerciseCompletionFromJson(
       poolExerciseId: json['poolExerciseId'] as String,
       completedAt: DateTime.parse(json['completedAt'] as String),
       notes: json['notes'] as String?,
+      sets: (json['sets'] as List<dynamic>?)
+              ?.map(
+                  (e) => PoolCompletionSet.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
 
 Map<String, dynamic> _$PoolExerciseCompletionToJson(
@@ -101,4 +106,19 @@ Map<String, dynamic> _$PoolExerciseCompletionToJson(
       'poolExerciseId': instance.poolExerciseId,
       'completedAt': instance.completedAt.toIso8601String(),
       'notes': instance.notes,
+      'sets': instance.sets,
+    };
+
+PoolCompletionSet _$PoolCompletionSetFromJson(Map<String, dynamic> json) =>
+    PoolCompletionSet(
+      reps: (json['reps'] as num?)?.toInt() ?? 0,
+      weight: (json['weight'] as num?)?.toDouble(),
+      durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
+    );
+
+Map<String, dynamic> _$PoolCompletionSetToJson(PoolCompletionSet instance) =>
+    <String, dynamic>{
+      'reps': instance.reps,
+      'weight': instance.weight,
+      'durationSeconds': instance.durationSeconds,
     };
