@@ -208,12 +208,17 @@ class PoolExerciseCompletion {
   final DateTime completedAt;
   final String? notes;
 
+  /// Per-set data logged during this completion (weight, reps per set)
+  @JsonKey(defaultValue: [])
+  final List<PoolCompletionSet> sets;
+
   const PoolExerciseCompletion({
     required this.id,
     required this.poolId,
     required this.poolExerciseId,
     required this.completedAt,
     this.notes,
+    this.sets = const [],
   });
 
   /// Date portion only (for checking completions on a given day)
@@ -224,12 +229,25 @@ class PoolExerciseCompletion {
         completedAt.day,
       );
 
+  /// Best (max) weight logged in this completion
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  double? get maxWeight {
+    double? max;
+    for (final s in sets) {
+      if (s.weight != null && (max == null || s.weight! > max)) {
+        max = s.weight;
+      }
+    }
+    return max;
+  }
+
   PoolExerciseCompletion copyWith({
     String? id,
     String? poolId,
     String? poolExerciseId,
     DateTime? completedAt,
     String? notes,
+    List<PoolCompletionSet>? sets,
   }) {
     return PoolExerciseCompletion(
       id: id ?? this.id,
@@ -237,10 +255,41 @@ class PoolExerciseCompletion {
       poolExerciseId: poolExerciseId ?? this.poolExerciseId,
       completedAt: completedAt ?? this.completedAt,
       notes: notes ?? this.notes,
+      sets: sets ?? this.sets,
     );
   }
 
   factory PoolExerciseCompletion.fromJson(Map<String, dynamic> json) =>
       _$PoolExerciseCompletionFromJson(json);
   Map<String, dynamic> toJson() => _$PoolExerciseCompletionToJson(this);
+}
+
+/// Data for a single set within a pool exercise completion
+@JsonSerializable()
+class PoolCompletionSet {
+  final int reps;
+  final double? weight;
+  final int? durationSeconds;
+
+  const PoolCompletionSet({
+    this.reps = 0,
+    this.weight,
+    this.durationSeconds,
+  });
+
+  PoolCompletionSet copyWith({
+    int? reps,
+    double? weight,
+    int? durationSeconds,
+  }) {
+    return PoolCompletionSet(
+      reps: reps ?? this.reps,
+      weight: weight ?? this.weight,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+    );
+  }
+
+  factory PoolCompletionSet.fromJson(Map<String, dynamic> json) =>
+      _$PoolCompletionSetFromJson(json);
+  Map<String, dynamic> toJson() => _$PoolCompletionSetToJson(this);
 }
